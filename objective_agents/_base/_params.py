@@ -19,11 +19,11 @@ class ParamInfo:
 
 
 class Param:
-    __attributes__ = {}
+    __attributes__: dict[str, tuple[type, ParamInfo]] = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-
+        cls.__attributes__ = {}
         for name, type_ in get_type_hints(cls).items():
             default = cls.__dict__.get(name, None)
             if isinstance(default, ParamInfo):
@@ -58,9 +58,6 @@ class Param:
             unexpected = ", ".join(kwargs)
             raise TypeError(f"Unexpected fields for {cls.__name__}: {unexpected}")
 
-    def dict(self) -> dict:
-        cls = type(self)
-        return {name: getattr(self, name) for name in get_type_hints(cls)}
 
     def __repr__(self):
         vals = ", ".join(f"{k}={v!r}" for k, v in self.dict().items())
