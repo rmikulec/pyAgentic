@@ -5,7 +5,7 @@ from typing import Callable
 from collections import defaultdict
 
 from objective_agents.logging import get_logger
-from objective_agents._base._tool import ToolDefinition
+from objective_agents._base._tool import _ToolDefinition
 from objective_agents.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
 logger = get_logger(__name__)
@@ -73,7 +73,7 @@ class BaseAgent:
             to recieve information about the process as it is happening
     """
 
-    _tools: dict[str, ToolDefinition] = {}
+    _tools: dict[str, _ToolDefinition] = {}
     _tool_defaults = defaultdict(dict)
 
     def __init__(self, model: str, api_key: str, emitter: Callable[[AiUpdate], None] = None):

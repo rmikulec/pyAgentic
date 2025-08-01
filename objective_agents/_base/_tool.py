@@ -5,7 +5,7 @@ from collections import defaultdict
 from objective_agents._base._params import Param, ParamInfo, _TYPE_MAP
 
 
-class ToolDefinition:
+class _ToolDefinition:
     def __init__(
         self,
         name: str,
@@ -101,7 +101,7 @@ def tool(
             else:
                 params[name] = (type_, ParamInfo())
 
-        fn.__tool_def__ = ToolDefinition(
+        fn.__tool_def__ = _ToolDefinition(
             name=fn.__name__,
             description=description or fn.__doc__ or "",
             parameters=params,

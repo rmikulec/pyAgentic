@@ -1,6 +1,6 @@
 from deepdiff import DeepDiff
 
-from objective_agents._base._tool import tool, ToolDefinition
+from objective_agents._base._tool import tool, _ToolDefinition
 from objective_agents._base._params import Param, ParamInfo
 
 
@@ -11,9 +11,9 @@ def test_tool_declaration():
         pass
 
     assert isinstance(
-        test.__tool_def__, ToolDefinition
+        test.__tool_def__, _ToolDefinition
     ), "Tool Definition not properly appened to function"
-    tool_def: ToolDefinition = test.__tool_def__
+    tool_def: _ToolDefinition = test.__tool_def__
     assert tool_def.name == "test", "Name not properly set in tool definition"
     assert (
         tool_def.description == "This is for a test"
