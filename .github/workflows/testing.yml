@@ -27,7 +27,7 @@ jobs:
 
       - name: Test with pytest
         # run pytest inside uv’s managed environment
-        run: uv run pytest ./tests --doctest-modules --junitxml=junit/test-results-${{ matrix.python-version }}.xml :contentReference[oaicite:1]{index=1}
+        run: uv run pytest ./tests 
 
       - name: Upload pytest test results
         uses: actions/upload-artifact@v4
