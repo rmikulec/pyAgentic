@@ -47,7 +47,11 @@ class Param:
                 setattr(self, name, value)
             else:
                 # use class‐level default if given, else None
-                default = getattr(cls, name, None)
+                attr = getattr(cls, name, None)
+                if isinstance(attr, ParamInfo):
+                    default = attr.default
+                else:
+                    default = attr
                 setattr(self, name, default)
 
         if kwargs:
