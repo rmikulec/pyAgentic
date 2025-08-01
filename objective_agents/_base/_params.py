@@ -13,15 +13,39 @@ _TYPE_MAP: Dict[Type[Any], str] = {
 
 @dataclass
 class ParamInfo:
+    """
+    Declare metadata for parameters in tool declarations and/or Parameter declarations.
+
+    Attributes:
+        description (str | None): A human-readable description of the parameter.
+        required (bool): Whether this parameter must be provided by the user.
+        default (Any): The default value to use if none is provided.
+    """
     description: str = None
     required: bool = False
     default: Any = None
 
 
 class Param:
+    """
+    Base class for defining structured parameters that can be converted
+    into OpenAI-compatible JSON schema entries.
+
+    Subclasses should declare class attributes with type annotations,
+    optionally assigning a ParamInfo instance or a raw default value.
+
+    On subclass creation, __attributes__ is populated mapping field names
+    to (type, ParamInfo) pairs. Instances perform simple type-checked
+    assignment and reject unknown fields.
+    """
+
     __attributes__: dict[str, tuple[type, ParamInfo]] = {}
 
     def __init_subclass__(cls, **kwargs):
+        """
+        Inspect annotated attributes on the subclass and build a mapping
+        of parameter definitions for OpenAI schema generation.
+        """
         super().__init_subclass__(**kwargs)
         cls.__attributes__ = {}
         for name, type_ in get_type_hints(cls).items():
@@ -34,6 +58,14 @@ class Param:
                 cls.__attributes__[name] = (type_, ParamInfo())
 
     def __init__(self, **kwargs):
+        """
+        Instantiate a Param subclass by validating and assigning each
+        annotated field, falling back to class-level defaults if absent.
+
+        Raises:
+            TypeError: if a provided value does not match the annotated type,
+                       or if unexpected fields are passed.
+        """
         cls = type(self)
         hints = get_type_hints(cls)
 
@@ -65,13 +97,14 @@ class Param:
     @classmethod
     def to_openai(cls) -> List[Dict[str, Any]]:
         """
-        Produce a list of OpenAI‐compatible parameter schemas for this class.
+        Generate a JSON-schema-style dictionary suitable for OpenAI function
+        parameter definitions.
 
-        Each entry is a dict with:
-          - name: parameter name
-          - schema: {"type": ...}
-          - required: whether no default was provided
-          - default: the default value (if any)
+        Returns:
+            Dict[str, Any]: A schema object with keys:
+              - "type": always "object"
+              - "properties": mapping from field names to their OpenAI types
+              - "required": list of names marked as required
         """
         properties: Dict[str, dict] = defaultdict(dict)
         required = []
