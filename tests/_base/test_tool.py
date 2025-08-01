@@ -1,7 +1,9 @@
+import pytest
 from deepdiff import DeepDiff
 
 from objective_agents._base._tool import tool, _ToolDefinition
 from objective_agents._base._params import Param, ParamInfo
+from objective_agents._base._exceptions import ToolDeclarationFailed
 
 
 def test_tool_declaration():
@@ -20,6 +22,16 @@ def test_tool_declaration():
     ), "description not properly set in tool definition"
 
 
+def test_tool_declaration_enforces_string_return():
+    with pytest.raises(ToolDeclarationFailed) as e:
+
+        @tool("no string return test")
+        def test():
+            pass
+
+    assert "Method must have a return type of `str`" in str(e)
+
+
 def test_tool_declarion_with_bare_string():
 
     @tool("Primitive Test")
@@ -30,12 +42,12 @@ def test_tool_declarion_with_bare_string():
 
     assert (
         "primitive" in params
-    ), f"Function attributes not being added to tool def params, got: {params.keys()}, expected: ['a', 'b']"
+    ), f"Function attributes not being added to tool def params, got: {params.keys()}, expected: ['a', 'b']"  # noqa E501
 
     type_, info = params["primitive"]
     assert type_ == str and isinstance(
         info, ParamInfo
-    ), f"Default value not properly being casted to ParamInfo for tool def, got: {type(info)}, expected: ParamInfo"
+    ), f"Default value not properly being casted to ParamInfo for tool def, got: {type(info)}, expected: ParamInfo"  # noqa E501
 
 
 def test_tool_declaration_with_annotated_non_string_primitive():
@@ -48,7 +60,7 @@ def test_tool_declaration_with_annotated_non_string_primitive():
     assert type_ == int, "Non-string typing not properly being set in tool def"
     assert (
         info.description == "this is a test"
-    ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"
+    ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"  # noqa E501
 
 
 def test_tool_declaration_with_param():
@@ -64,7 +76,7 @@ def test_tool_declaration_with_param():
 
     assert (
         type_ == TestParam
-    ), "Attribute not being set as given Param class in tool def, got: {type_}, expected: TestParam"
+    ), "Attribute not being set as given Param class in tool def, got: {type_}, expected: TestParam"  # noqa E501
 
 
 def test_tool_declaration_with_annotated_param():
@@ -80,10 +92,10 @@ def test_tool_declaration_with_annotated_param():
 
     assert (
         type_ == TestParam
-    ), "Attribute not being set as given Param class in tool def, got: {type_}, expected: TestParam"
+    ), "Attribute not being set as given Param class in tool def, got: {type_}, expected: TestParam"  # noqa E501
     assert (
         info.description == "this is a test"
-    ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"
+    ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"  # noqa E501
 
 
 def test_tool_openai_export():

@@ -3,26 +3,47 @@ from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
 from objective_agents._base._params import Param, ParamInfo, _TYPE_MAP
+from objective_agents._base._exceptions import ToolDeclarationFailed
 
 
 class _ToolDefinition:
+    """
+    Private class to handle tool definitions
+
+    Attributes:
+        name(str): Name of the tool, automatically filled out as the function name
+        description(str): Description of the tool for LLM to read
+        parameters(str): Dictionary containing parameters captured by the tool descriptor
+        condition(str): The condition supplied determining when this tool should be included
+            in the LLM inference call
+
+    Methods:
+        to_openai()->dict: Converts the definition to an "openai-ready" dictionary
+        compile_args()->dict[str, Any]: Converts any raw kwargs, usually from LLM tool call, to
+            match that of the tool definition. This process does the following:
+                1. Fills in any default values for args not supplied
+                2. Casts a raw dictionary to any arg that is a Param class
+    """
+
     def __init__(
         self,
         name: str,
         description: str,
         parameters: dict[str, tuple[TypeVar, ParamInfo]],
-        pre: Callable[[dict], dict] = None,
-        post: Callable[[Any], Any] = None,
         condition: Callable[[Any], bool] = None,
     ):
         self.name: str = name
         self.description: str = description
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
-        self.pre = pre
-        self.post = post
         self.condition = condition
 
-    def to_openai(self):
+    def to_openai(self) -> dict:
+        """
+        Converts the definition to an "openai-ready" dictionary
+
+        Returns:
+            dict: A openai dictionary for tool calling
+        """
         params = defaultdict(dict)
         required = []
 
@@ -47,7 +68,20 @@ class _ToolDefinition:
             "required": required,
         }
 
-    def compile_args(self, **kwargs):
+    def compile_args(self, **kwargs) -> dict[str, Any]:
+        """
+        Converts the definition to an "openai-ready" dictionary
+        compile_args()->dict[str, Any]: Converts any raw kwargs, usually from LLM tool call, to
+            match that of the tool definition. This process does the following:
+                1. Fills in any default values for args not supplied
+                2. Casts a raw dictionary to any arg that is a Param class
+
+        Args:
+            **kwargs: Recieves any arguements that will be verified and compiled
+
+        Returns:
+            dict[str, Any]: Dictionary of args that are ready to be run through the tool
+        """
         compiled_args = {}
 
         for name, (type_, info) in self.parameters.items():
@@ -65,12 +99,16 @@ class _ToolDefinition:
 
 def tool(
     description: str,
-    preprocess: Callable[[dict], dict] = None,
-    postprocess: Callable[[Any], Any] = None,
     condition: Callable[[Any], bool] = None,
 ):
     """
     Decorator to mark a method as a callable tool.
+    All methods marked with this descriptor **must** return a string
+
+    Args:
+        description(str): Description of the tool that will be read by the LLM
+        condition(Callable): A callable that returns a boolean, determining when the tool
+            will be included in the LLM inference call
     """
 
     def decorator(fn: Callable):
@@ -78,8 +116,8 @@ def tool(
         types = get_type_hints(fn)
         return_type = types.pop("return", None)
         if return_type != str:
-            raise Exception(
-                f"Tool defined function - {fn.__name__} - must have a return type of `str`"
+            raise ToolDeclarationFailed(
+                tool_name=fn.__name__, message="Method must have a return type of `str`"
             )
 
         # 2) grab default values
@@ -105,8 +143,6 @@ def tool(
             name=fn.__name__,
             description=description or fn.__doc__ or "",
             parameters=params,
-            pre=preprocess,
-            post=postprocess,
             condition=condition,
         )
         return fn
