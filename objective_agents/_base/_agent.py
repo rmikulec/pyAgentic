@@ -5,7 +5,7 @@ from typing import Callable
 from collections import defaultdict
 
 from objective_agents.logging import get_logger
-from objective_agents._tool import ToolDefinition
+from objective_agents._base._tool import ToolDefinition
 from objective_agents.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
 logger = get_logger(__name__)

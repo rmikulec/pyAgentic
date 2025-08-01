@@ -2,7 +2,7 @@ import inspect
 from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
-from objective_agents._params import Param, ParamInfo, _TYPE_MAP
+from objective_agents._base._params import Param, ParamInfo, _TYPE_MAP
 
 
 class ToolDefinition:
