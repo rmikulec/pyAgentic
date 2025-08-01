@@ -2,7 +2,6 @@ import inspect
 import json
 import openai
 from typing import Callable
-from collections import defaultdict
 
 from objective_agents.logging import get_logger
 from objective_agents._base._tool import _ToolDefinition
@@ -29,27 +28,7 @@ async def _safe_run(fn, *args, **kwargs):
     return result
 
 
-def system_message(fn):
-    fn._is_system_message = True
-    return fn
-
-
-def model_params(fn):
-    fn._is_model_params = True
-    return fn
-
-
-def prechat(fn):
-    fn.is_prechat = True
-    return fn
-
-
-def postchat(fn):
-    fn.is_postchat = True
-    return fn
-
-
-class BaseAgent:
+class Agent:
     """
     Base agent class to be extended in order to define a new Agent
 
@@ -74,7 +53,6 @@ class BaseAgent:
     """
 
     _tools: dict[str, _ToolDefinition] = {}
-    _tool_defaults = defaultdict(dict)
 
     def __init__(self, model: str, api_key: str, emitter: Callable[[AiUpdate], None] = None):
         self.client: openai.AsyncOpenAI = openai.AsyncOpenAI(api_key=api_key)
@@ -84,6 +62,7 @@ class BaseAgent:
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        cls._tools = {}
 
         for name, attr in cls.__dict__.items():
             if hasattr(attr, "__tool_def__"):
