@@ -3,7 +3,7 @@ from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
 from objective_agents._base._params import Param, ParamInfo, _TYPE_MAP
-from objective_agents._base._context import _AgentContext, ContextRef
+from objective_agents._base._context import _AgentContext
 from objective_agents._base._exceptions import ToolDeclarationFailed
 
 
@@ -32,13 +32,11 @@ class _ToolDefinition:
         description: str,
         parameters: dict[str, tuple[TypeVar, ParamInfo]],
         condition: Callable[[Any], bool] = None,
-        context_links: list[tuple[str, str]] = None,
     ):
         self.name: str = name
         self.description: str = description
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
-        self.context_links = context_links
 
     def to_openai(self, context: _AgentContext) -> dict:
         """
