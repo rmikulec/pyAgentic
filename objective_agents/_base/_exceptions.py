@@ -19,3 +19,12 @@ class UnexpectedContextItemType(Exception):
             f"Expected: {expected} - Recieved: {recieved}"
         )
         super().__init__(message)
+
+
+class InvalidContextRef(Exception):
+    def __init__(self, name):
+        message = (
+            f"'{name}' not found in context. "
+            "Make sure it is either declared as a `ContextItem` or using `computed_context`"
+        )
+        super().__init__(message)
