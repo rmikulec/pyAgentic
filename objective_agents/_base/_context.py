@@ -1,5 +1,5 @@
-from typing import Any, Callable
-from dataclasses import dataclass
+from typing import Any, Callable, Type, Self
+from dataclasses import dataclass, make_dataclass, field
 
 
 @dataclass
@@ -19,57 +19,60 @@ def computed_context(func: callable):
     return func
 
 
+@dataclass(repr=True)
 class _AgentContext:
-    def __init__(self, instructions):
-        self.messages = [{"role": "system", "content": instructions}]
-        self._contexts: dict[str, Any] = {}
+    """
+    Base context class for agents; uses dataclass for auto-generated init/signature.
+    """
 
-    def __getattr__(self, name):
-        if name in self._contexts:
-            return self._contexts[name]
-        raise AttributeError(f"{self.__class__.__name__!r} context has no item {name!r}")
+    instructions: str
+    messages: list = field(init=False)
 
-    def __setattr__(self, name, value):
-        # internal attrs go in __dict__; everything else into _data
-        if name in ("contexts", "messages", "_contexts"):
-            object.__setattr__(self, name, value)
-        else:
-            # get the real _data dict without recursion
-            object.__getattribute__(self, "_contexts")[name] = value
-            self.__class__.__annotations__[name] = type(value)
+    def __post_init__(self):
+        # Initialize messages and context store
+        object.__setattr__(self, "messages", [{"role": "system", "content": self.instructions}])
+        object.__setattr__(self, "_contexts", {})
 
     @property
-    def system_message(self):
-        if self.messages:
-            return self.messages[0]
+    def system_message(self) -> dict:
+        return self.messages[0]
 
     @system_message.setter
-    def system_message(self, value):
-        if self.messages:
-            self.messages[0] = value
-
-    def add(self, name: str, value: Any):
-        self._contexts[name] = value
-        self.__class__.__annotations__[name] = type(value)
+    def system_message(self, value: dict):
+        self.messages[0] = value
 
     @classmethod
-    def make_ctx_class(cls, name: str, ctx_map: dict[str, tuple[type, Any]]):
-        # Build a new namespace with module, annotations, and defaults
-        namespace: dict[str, Any] = {"__module__": cls.__module__, "__annotations__": {}}
+    def make_ctx_class(cls, name: str, ctx_map: dict[str, tuple[Type[Any], Any]]) -> Type[Self]:
+        """
+        Dynamically create a dataclass subclass with typed context fields.
 
+        Args:
+            name: base name for the new class (e.g. 'MyAgent').
+            ctx_map: mapping of field name to (type, default or default_info).
+
+        Returns:
+            A new dataclass type 'NameContext'.
+        """
+        fields = []
         for key, (typ, default_info) in ctx_map.items():
-            # 1) Record the type hint
-            namespace["__annotations__"][key] = typ
-            # 2) Set a real class attribute default
-            default_val = (
-                default_info.get_default_value()
-                if hasattr(default_info, "get_default_value")
-                else default_info
-            )
-            namespace[key] = default_val
+            # Determine default value or factory
+            if default_info.default_factory:
+                field_ = field(default_factory=default_info.default_factory)
+            elif default_info.default:
+                field_ = field(default=default_info.default)
+            else:
+                field_ = field()
 
-        # Create a new subclass named e.g. "MyAgentContext"
-        return type(f"{name}Context", (cls,), namespace)
+            # create a standard field
+            fields.append((key, typ, field_))
+
+        # Create and return the new dataclass
+        return make_dataclass(
+            cls_name=f"{name}Context",
+            fields=fields,
+            bases=(cls,),
+            namespace={"__module__": cls.__module__},
+        )
 
 
 class ContextRef:

@@ -65,10 +65,11 @@ class AgentMeta(type):
     @staticmethod
     def _build_init(sig):
         def __init__(self, *args, **kwargs):  # type: ignore
-            self.context = _AgentContext.make_ctx_class(
+            ContextClass = _AgentContext.make_ctx_class(
                 name=self.__class__.__name__, ctx_map=self.__context_attrs__
-            )(instructions=self.__system_message__)
+            )
 
+            context_kwargs = {}
             for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
                 if attr_name in kwargs:
                     val = kwargs[attr_name]
@@ -78,9 +79,11 @@ class AgentMeta(type):
                         raise UnexpectedContextItemType(
                             name=attr_name, expected=attr_type, recieved=type(val)
                         )
-                    self.context.add(attr_name, val)
+                    context_kwargs[attr_name] = val
                 else:
-                    self.context.add(attr_name, attr_default.get_default_value())
+                    context_kwargs[attr_name] = attr_default.get_default_value()
+
+            self.context = ContextClass(instructions=self.__system_message__, **context_kwargs)
 
             bound = sig.bind(self, *args, **kwargs)
             for name, val in list(bound.arguments.items())[1:]:  # skip 'self'
