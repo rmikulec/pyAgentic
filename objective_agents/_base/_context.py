@@ -1,6 +1,8 @@
 from typing import Any, Callable, Type, Self
 from dataclasses import dataclass, make_dataclass, field, asdict
 
+from objective_agents._base._exceptions import InvalidContextRef
+
 
 @dataclass
 class ContextItem:
@@ -40,6 +42,12 @@ class _AgentContext:
 
     def add_message(self, role, content):
         self._messages.append({"role": role, "content": content})
+
+    def get(self, name):
+        try:
+            return getattr(self, name)
+        except AttributeError:
+            raise InvalidContextRef(name)
 
     @classmethod
     def make_ctx_class(cls, name: str, ctx_map: dict[str, tuple[Type[Any], Any]]) -> Type[Self]:
