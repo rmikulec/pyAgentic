@@ -30,8 +30,7 @@ class _AgentContext:
 
     def __post_init__(self):
         # Initialize messages and context store
-        object.__setattr__(self, "messages", [{"role": "system", "content": self.instructions}])
-        object.__setattr__(self, "_contexts", {})
+        self.messages = [{"role": "system", "content": self.instructions}]
 
     @property
     def system_message(self) -> dict:
@@ -48,7 +47,7 @@ class _AgentContext:
 
         Args:
             name: base name for the new class (e.g. 'MyAgent').
-            ctx_map: mapping of field name to (type, default or default_info).
+            ctx_map: mapping of field name to (type, ContextItem).
 
         Returns:
             A new dataclass type 'NameContext'.

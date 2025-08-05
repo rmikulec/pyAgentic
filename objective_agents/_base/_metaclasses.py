@@ -1,8 +1,9 @@
 import inspect
-from typing import dataclass_transform
+from typing import dataclass_transform, TypeVar
 
 from objective_agents._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
 from objective_agents._base._context import _AgentContext, ContextItem
+from objective_agents._base._tool import _ToolDefinition
 
 
 @dataclass_transform(field_specifiers=(ContextItem,))
@@ -10,13 +11,19 @@ class AgentMeta(type):
     """
     Metaclass that applies only to Agent subclasses:
       - Ensures @system_message was declared
-      - Collects @tool methods and ContextItem attributes
-      - Initializes class __tools__ and __context__
+      - Collects @tool definitions and ContextItem attributes
+      - Initializes class __tool_defs__ and __context_items__
       - Dynamically injects an __init__ signature based on class __annotations__
     """
 
     @staticmethod
-    def _extract_tool_defs(namespace):
+    def _extract_tool_defs(namespace) -> dict[str, _ToolDefinition]:
+        """
+        Extracts tool definitions from a given namespace
+
+        Any method with the `@tool` descriptor will be attached to the `__tool_defs__` class
+            attribute
+        """
         tools = {}
         for attr_name, attr_value in namespace.items():
             if hasattr(attr_value, "__tool_def__"):
@@ -24,7 +31,11 @@ class AgentMeta(type):
         return tools
 
     @staticmethod
-    def _extract_annotations(bases, namespace):
+    def _extract_annotations(bases, namespace) -> dict[str, TypeVar]:
+        """
+        Extracts all annotations from current class and all its subclasses. Combines them into
+            one dictionary, with class order respected (subclasses overide parent classes.)
+        """
         annotations = {}
         for base in reversed(bases):
             if hasattr(base, "__annotations__"):
@@ -37,7 +48,12 @@ class AgentMeta(type):
         return annotations
 
     @staticmethod
-    def _extract_context_attrs(annotations, namespace):
+    def _extract_context_attrs(annotations, namespace) -> dict[str, tuple[TypeVar, ContextItem]]:
+        """
+        Extracts any class field from annotations and namespace where the value is that of
+            `ContextItem`, these will later be appeneded to the agents context. This will return
+            both the type and the user defined context item.
+        """
         context_attrs = {}
         for attr_name, attr_type in annotations.items():
             default = namespace.get(attr_name, None)
@@ -46,7 +62,12 @@ class AgentMeta(type):
         return context_attrs
 
     @staticmethod
-    def _build_init_signature(cls):
+    def _build_init_signature(cls) -> inspect.Signature:
+        """
+        Builds the signature for the classes __init__, injecting any context item attributes
+            defined by the user properly into the inits signature. This allows IDE's to be able
+            to recognize user-defined class attributes when initializing a class.
+        """
         params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_ONLY)]
         for field_name, field_type in cls.__annotations__.items():
             if field_name in cls.__context_attrs__:
@@ -64,6 +85,12 @@ class AgentMeta(type):
 
     @staticmethod
     def _build_init(sig):
+        """
+        Builds the init function for the class. This init will automatically have user-defined
+            context items as arguements, allow for easy initialization of agents for a variety
+            of different tasks.
+        """
+
         def __init__(self, *args, **kwargs):  # type: ignore
             ContextClass = _AgentContext.make_ctx_class(
                 name=self.__class__.__name__, ctx_map=self.__context_attrs__
@@ -93,22 +120,18 @@ class AgentMeta(type):
 
             self.__post_init__()
 
-        # Attach the signature for IDEs and checkers
         __init__.__signature__ = sig  # type: ignore
         return __init__
 
     def __new__(mcs, name, bases, namespace, **kwargs):
-        # Create the class first (so Agent exists)
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 
-        # Skip generation on the abstract base itself
         if namespace.get("__abstract_base__", False):
             return cls
 
-        # 1. Validate system_message decorator
         if "__system_message__" not in namespace:
             raise SystemMessageNotDeclared()
-
+        
         cls.__tool_defs__ = mcs._extract_tool_defs(namespace)
 
         cls.__annotations__ = mcs._extract_annotations(bases, namespace)
@@ -116,7 +139,6 @@ class AgentMeta(type):
         cls.__context_attrs__ = mcs._extract_context_attrs(cls.__annotations__, namespace)
 
         sig = mcs._build_init_signature(cls)
-        # 5. Dynamically build __init__ signature
 
         cls.__init__ = mcs._build_init(sig)
         return cls
