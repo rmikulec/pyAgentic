@@ -16,9 +16,12 @@ class ContextItem:
             return self.default
 
 
-def computed_context(func: callable):
-    func._is_context = True
-    return func
+class computed_context(property):
+    def __init__(self, fget):
+        # initialize the property
+        super().__init__(fget)
+        # mark it as a context‐provider
+        self._is_context = True
 
 
 @dataclass(repr=True)
