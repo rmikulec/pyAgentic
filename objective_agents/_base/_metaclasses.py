@@ -2,7 +2,7 @@ import inspect
 from typing import dataclass_transform
 
 from objective_agents._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
-from objective_agents._base._context import AgentContext, ContextItem
+from objective_agents._base._context import _AgentContext, ContextItem
 
 
 @dataclass_transform(field_specifiers=(ContextItem,))
@@ -65,7 +65,9 @@ class AgentMeta(type):
     @staticmethod
     def _build_init(sig):
         def __init__(self, *args, **kwargs):  # type: ignore
-            self.context = AgentContext(self.__system_message__)
+            self.context = _AgentContext.make_ctx_class(
+                name=self.__class__.__name__, ctx_map=self.__context_attrs__
+            )(instructions=self.__system_message__)
 
             for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
                 if attr_name in kwargs:

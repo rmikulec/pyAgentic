@@ -6,7 +6,7 @@ from typing import Callable, Any, TypeVar, ClassVar
 from objective_agents.logging import get_logger
 from objective_agents._base._tool import _ToolDefinition
 from objective_agents._base._context import ContextItem
-from objective_agents._base._dynamic_init import AgentMeta
+from objective_agents._base._metaclasses import AgentMeta
 from objective_agents.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
 logger = get_logger(__name__)
@@ -31,11 +31,6 @@ class Agent(metaclass=AgentMeta):
     Agent defintion requires the use of special function decorators in order to define the
         behavior of the agent.
 
-        - @system_message: A mandatory function defining the system message. This is dynamic,
-            and will be called on each iteration of `chat`.
-        - @prechat: A function that will preprocess the user's message before sending it through
-            the pipeline
-        - @postchat: A function that will process the ai_message before returning it
         - @tool: Declares a method as a tool, allowing the agent to use it
 
     Agents also have default arguements that can be declared on initiation
