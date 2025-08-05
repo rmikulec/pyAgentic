@@ -131,7 +131,7 @@ class AgentMeta(type):
 
         if "__system_message__" not in namespace:
             raise SystemMessageNotDeclared()
-        
+
         cls.__tool_defs__ = mcs._extract_tool_defs(namespace)
 
         cls.__annotations__ = mcs._extract_annotations(bases, namespace)
