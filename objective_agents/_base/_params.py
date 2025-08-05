@@ -21,9 +21,14 @@ class ParamInfo:
         required (bool): Whether this parameter must be provided by the user.
         default (Any): The default value to use if none is provided.
     """
+
     description: str = None
     required: bool = False
     default: Any = None
+    values: list[str] = None
+
+    def resolve(self, context):
+        pass
 
 
 class Param:
@@ -113,6 +118,8 @@ class Param:
             properties[name]["type"] = _TYPE_MAP.get(type_, "string")
             if info.description:
                 properties[name]["description"] = info.description
+            if info.values:
+                properties[name]["enum"] = info.values
 
             if info.required:
                 required.append(name)

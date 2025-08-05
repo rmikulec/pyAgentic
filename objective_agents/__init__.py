@@ -1,5 +1,6 @@
-from objective_agents._base._agent import Agent, system_message
+from objective_agents._base._agent import Agent
 from objective_agents._base._params import Param, ParamInfo
 from objective_agents._base._tool import tool
+from objective_agents._base._context import computed_context, ContextRef, ContextItem
 
-__all__ = ["Agent", "system_message", "Param", "ParamInfo", "tool"]
+__all__ = ["Agent", "Param", "ParamInfo", "tool", "computed_context", "ContextRef", "ContextItem"]

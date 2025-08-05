@@ -1,20 +1,15 @@
 import inspect
 import json
 import openai
-from typing import Callable
+from typing import Callable, Any, TypeVar, ClassVar
 
 from objective_agents.logging import get_logger
 from objective_agents._base._tool import _ToolDefinition
+from objective_agents._base._context import ContextItem
+from objective_agents._base._dynamic_init import AgentMeta
 from objective_agents.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
 logger = get_logger(__name__)
-
-
-class SystemMessageNotDeclared(Exception):
-    def __init__(self):
-        super().__init__(
-            "System message not declared on agent. One function must use `@system_message`"
-        )
 
 
 async def _safe_run(fn, *args, **kwargs):
@@ -28,7 +23,8 @@ async def _safe_run(fn, *args, **kwargs):
     return result
 
 
-class Agent:
+class Agent(metaclass=AgentMeta):
+    __abstract_base__ = True
     """
     Base agent class to be extended in order to define a new Agent
 
@@ -51,31 +47,28 @@ class Agent:
             about the agent's process. A common use case is that of a websocket, to be able
             to recieve information about the process as it is happening
     """
+    # Class Attributes
+    __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
+    __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
+    __system_message__: ClassVar[str]
+    __user_message__: ClassVar[str] = None
 
-    _tools: dict[str, _ToolDefinition] = {}
+    # Base Attributes
+    model: str
+    api_key: str
+    emitter: Callable[[Any], str] = None
 
-    def __init__(self, model: str, api_key: str, emitter: Callable[[AiUpdate], None] = None):
-        self.client: openai.AsyncOpenAI = openai.AsyncOpenAI(api_key=api_key)
-        self.model: str = model
-        self.emitter = emitter
-        self.messages: list[dict] = []
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls._tools = {}
-
-        for name, attr in cls.__dict__.items():
-            if hasattr(attr, "__tool_def__"):
-                cls._tools[name] = attr.__tool_def__
+    def __post_init__(self):
+        self.client: openai.OpenAI = openai.OpenAI(api_key=self.api_key)
 
     async def _process_tool_call(self, tool_call) -> bool:
         if tool_call.type != "function_call":
             return False
-        self.messages.append(tool_call)
+        self.context.messages.append(tool_call)
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
-            tool_def = self._tools[tool_call.name]
+            tool_def = self.__tools__[tool_call.name]
             handler = getattr(self, tool_call.name)
         except KeyError:
             return f"Tool {tool_call.name} not found"
@@ -103,13 +96,20 @@ class Agent:
                 )
 
         # Record output for LLM
-        self.messages.append(
+        self.context.messages.append(
             {"type": "function_call_output", "call_id": tool_call.call_id, "output": result}
         )
         return True
 
-    async def _build_tool_defs(self, user_message: str) -> list[dict]:
-        return [tool_def.to_openai() for tool_def in self._tools.values()]
+    async def _build_tool_defs(self) -> list[dict]:
+        tool_defs = []
+        # iterate through registered tools
+        for name, tool_def in self.__tools__.items():
+            fn = getattr(self.__class__, name)
+            # Check if any of the tool params use a ContextRef
+            # convert to openai schema
+            tool_defs.append(tool_def.to_openai())
+        return tool_defs
 
     @property
     def _prechat_func(self) -> Callable | None:
@@ -127,28 +127,18 @@ class Agent:
                 return fn
         return None
 
-    async def _build_system_message(self, user_message: str) -> str:
-        for attr in dir(self.__class__):
-            fn = getattr(self.__class__, attr)
-            if hasattr(fn, "_is_system_message"):
-                return await _safe_run(fn, self, user_message)
-        raise SystemMessageNotDeclared()
-
     async def chat(self, user_message: str) -> str:
         # First, run a prechat processing function if one was given
         if self._prechat_func:
             user_message = await _safe_run(self._prechat_func, self, user_message)
 
         # Generate and insert the new system message
-        system_message = {
-            "role": "developer",
-            "content": await self._build_system_message(user_message),
-        }
-        if self.messages:
-            self.messages[0] = system_message
+        system_message = {"role": "developer", "content": self.__system_message__}
+        if self.context.messages:
+            self.context.messages[0] = system_message
         else:
-            self.messages.append(system_message)
-        self.messages.append({"role": "user", "content": user_message})
+            self.context.messages.append(system_message)
+        self.context.messages.append({"role": "user", "content": user_message})
 
         # Create the tool list
         tool_defs = await self._build_tool_defs(user_message)
@@ -164,7 +154,7 @@ class Agent:
         try:
             response = await self.client.responses.create(
                 model=self.model,
-                input=self.messages,
+                input=self.context.messages,
                 tools=tool_defs,
             )
         except Exception as e:
@@ -177,7 +167,9 @@ class Agent:
                         status=Status.ERROR,
                     ),
                 )
-            self.messages.append({"role": "assistant", "content": "Failed to generate a response"})
+            self.context.messages.append(
+                {"role": "assistant", "content": "Failed to generate a response"}
+            )
             return f"OpenAI failed to generate a response: {e}"
 
         # Dispatch any tool calls
@@ -190,7 +182,7 @@ class Agent:
             try:
                 response = await self.client.responses.create(
                     model=self.model,
-                    input=self.messages,
+                    input=self.context.messages,
                 )
             except Exception as e:
                 logger.exception(e)
@@ -198,7 +190,7 @@ class Agent:
                     await _safe_run(
                         self.emitter, EmitUpdate(status=Status.ERROR, message="Generation failed")
                     )
-                self.messages.append(
+                self.context.messages.append(
                     {"role": "assistant", "content": "Failed to generate a response"}
                 )
                 return f"OpenAI failed to generate a response: {e}"
@@ -207,7 +199,7 @@ class Agent:
         ai_message = response.output_text
         if self._postchat_func:
             ai_message = await _safe_run(self._postchat_func, self, ai_message)
-        self.messages.append({"role": "assistant", "content": ai_message})
+        self.context.messages.append({"role": "assistant", "content": ai_message})
 
         if self.emitter:
             await _safe_run(self.emitter, AiUpdate(status=Status.SUCCEDED, message=ai_message))
