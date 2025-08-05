@@ -3,7 +3,7 @@ from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
 from objective_agents._base._params import Param, ParamInfo, _TYPE_MAP
-from objective_agents._base._context import AgentContext, ContextRef
+from objective_agents._base._context import _AgentContext, ContextRef
 from objective_agents._base._exceptions import ToolDeclarationFailed
 
 
@@ -40,7 +40,7 @@ class _ToolDefinition:
         self.condition = condition
         self.context_links = context_links
 
-    def to_openai(self, context: AgentContext) -> dict:
+    def to_openai(self, context: _AgentContext) -> dict:
         """
         Converts the definition to an "openai-ready" dictionary
 

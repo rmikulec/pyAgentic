@@ -19,7 +19,7 @@ def computed_context(func: callable):
     return func
 
 
-class AgentContext:
+class _AgentContext:
     def __init__(self, instructions):
         self.messages = [{"role": "system", "content": instructions}]
         self._contexts: dict[str, Any] = {}
@@ -36,6 +36,7 @@ class AgentContext:
         else:
             # get the real _data dict without recursion
             object.__getattribute__(self, "_contexts")[name] = value
+            self.__class__.__annotations__[name] = type(value)
 
     @property
     def system_message(self):
@@ -49,6 +50,26 @@ class AgentContext:
 
     def add(self, name: str, value: Any):
         self._contexts[name] = value
+        self.__class__.__annotations__[name] = type(value)
+
+    @classmethod
+    def make_ctx_class(cls, name: str, ctx_map: dict[str, tuple[type, Any]]):
+        # Build a new namespace with module, annotations, and defaults
+        namespace: dict[str, Any] = {"__module__": cls.__module__, "__annotations__": {}}
+
+        for key, (typ, default_info) in ctx_map.items():
+            # 1) Record the type hint
+            namespace["__annotations__"][key] = typ
+            # 2) Set a real class attribute default
+            default_val = (
+                default_info.get_default_value()
+                if hasattr(default_info, "get_default_value")
+                else default_info
+            )
+            namespace[key] = default_val
+
+        # Create a new subclass named e.g. "MyAgentContext"
+        return type(f"{name}Context", (cls,), namespace)
 
 
 class ContextRef:
@@ -60,7 +81,7 @@ class ContextRef:
     def __init__(self, path: str):
         self.path = path  # dot-notation into agent.context
 
-    def resolve(self, context: AgentContext) -> Any:
+    def resolve(self, context: _AgentContext) -> Any:
         val = context
         for part in self.path.split("."):
             val = getattr(val, part)

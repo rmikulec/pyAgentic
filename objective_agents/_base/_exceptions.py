@@ -8,7 +8,7 @@ class ToolDeclarationFailed(Exception):
 class SystemMessageNotDeclared(Exception):
     def __init__(self):
         super().__init__(
-            "System message not declared on agent. Agent must be declared with `__system_message__`" # noqa E501
+            "System message not declared on agent. Agent must be declared with `__system_message__`"  # noqa E501
         )
 
 
