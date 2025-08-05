@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import get_type_hints, Any, List, Dict, Type
 
+from objective_agents._base._resolver import ContextualMixin, MaybeContext
+
 # simple mapping from Python types to JSON Schema/OpenAI types
 _TYPE_MAP: Dict[Type[Any], str] = {
     int: "integer",
@@ -12,7 +14,7 @@ _TYPE_MAP: Dict[Type[Any], str] = {
 
 
 @dataclass
-class ParamInfo:
+class ParamInfo(ContextualMixin):
     """
     Declare metadata for parameters in tool declarations and/or Parameter declarations.
 
@@ -22,13 +24,10 @@ class ParamInfo:
         default (Any): The default value to use if none is provided.
     """
 
-    description: str = None
+    description: MaybeContext[str] = None
     required: bool = False
-    default: Any = None
-    values: list[str] = None
-
-    def resolve(self, context):
-        pass
+    default: MaybeContext[Any] = None
+    values: MaybeContext[list[str]] = None
 
 
 class Param:
