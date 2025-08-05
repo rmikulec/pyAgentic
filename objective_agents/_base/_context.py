@@ -1,5 +1,5 @@
 from typing import Any, Callable, Type, Self
-from dataclasses import dataclass, make_dataclass, field
+from dataclasses import dataclass, make_dataclass, field, asdict
 
 
 @dataclass
@@ -26,19 +26,20 @@ class _AgentContext:
     """
 
     instructions: str
-    messages: list = field(init=False)
-
-    def __post_init__(self):
-        # Initialize messages and context store
-        self.messages = [{"role": "system", "content": self.instructions}]
+    _messages: list = field(default_factory=list)
 
     @property
-    def system_message(self) -> dict:
-        return self.messages[0]
+    def system_message(self):
+        return self.instructions.format(**asdict(self))
 
-    @system_message.setter
-    def system_message(self, value: dict):
-        self.messages[0] = value
+    @property
+    def messages(self) -> list[dict[str, str]]:
+        messages = self._messages.copy()
+        messages.insert(0, {"role": "system", "content": self.system_message})
+        return messages
+
+    def add_message(self, role, content):
+        self._messages.append({"role": role, "content": content})
 
     @classmethod
     def make_ctx_class(cls, name: str, ctx_map: dict[str, tuple[Type[Any], Any]]) -> Type[Self]:
