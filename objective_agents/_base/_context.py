@@ -71,7 +71,16 @@ class _AgentContext:
     def add_message(self, role, content):
         self._messages.append({"role": role, "content": content})
 
-    def get(self, name):
+    def get(self, name: str) -> Any:
+        """
+        Retrieves an item from the context.
+
+        Parameters:
+            name(str): The name of the item
+        
+        Returns:
+            Any: The item. If it is a computed context item, then it is computed upon retrieval.
+        """
         try:
             return self.as_dict()[name]
         except KeyError:
