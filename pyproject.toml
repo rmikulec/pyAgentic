@@ -31,7 +31,7 @@ dev = [
 version_source = "tag"           # derive versions from git tags
 upload_to_pypi = true            # turn on automatic PyPI upload
 branch = "main"                  # stable releases come from main
-prerelease_branches = ["beta"]   # branch names that trigger pre-releases
+prerelease_branches = ["beta", "*"]   # branch names that trigger pre-releases
 
 [tool.setuptools.packages.find]
 where = ["."]
