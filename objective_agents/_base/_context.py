@@ -28,6 +28,10 @@ class ContextItem:
     default: Any = None
     default_factory: Callable = None
 
+    def __post_init__(self):
+        if not (self.default or self.default_factory):
+            raise AttributeError("default or default_factory must be given")
+
     def get_default_value(self):
         if self.default_factory:
             return self.default_factory()
