@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import get_type_hints, Any, List, Dict, Type
 
-from objective_agents._base._resolver import ContextualMixin, MaybeContext
-from objective_agents._base._context import _AgentContext
+from pyagentic._base._resolver import ContextualMixin, MaybeContext
+from pyagentic._base._context import _AgentContext
 
 # simple mapping from Python types to JSON Schema/OpenAI types
 _TYPE_MAP: Dict[Type[Any], str] = {

@@ -2,7 +2,7 @@ import functools
 from typing import Any, Callable, Type, Self
 from dataclasses import dataclass, make_dataclass, field, asdict
 
-from objective_agents._base._exceptions import InvalidContextRefNotFoundInContext
+from pyagentic._base._exceptions import InvalidContextRefNotFoundInContext
 
 
 @dataclass

@@ -3,11 +3,11 @@ import json
 import openai
 from typing import Callable, Any, TypeVar, ClassVar
 
-from objective_agents.logging import get_logger
-from objective_agents._base._tool import _ToolDefinition
-from objective_agents._base._context import ContextItem
-from objective_agents._base._metaclasses import AgentMeta
-from objective_agents.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
+from pyagentic.logging import get_logger
+from pyagentic._base._tool import _ToolDefinition
+from pyagentic._base._context import ContextItem
+from pyagentic._base._metaclasses import AgentMeta
+from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
 logger = get_logger(__name__)
 

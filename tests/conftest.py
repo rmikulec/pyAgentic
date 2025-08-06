@@ -1,15 +1,15 @@
 import pytest
 import random
 
-from objective_agents._base._context import (
+from pyagentic._base._context import (
     _AgentContext,
     ContextItem,
     computed_context,
     ContextRef,
 )
-from objective_agents._base._tool import tool
-from objective_agents._base._params import ParamInfo
-from objective_agents._base._agent import Agent
+from pyagentic._base._tool import tool
+from pyagentic._base._params import ParamInfo
+from pyagentic._base._agent import Agent
 
 
 @pytest.fixture
