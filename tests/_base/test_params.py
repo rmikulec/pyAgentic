@@ -1,7 +1,7 @@
 from deepdiff import DeepDiff
 
-from objective_agents._base._params import Param, ParamInfo
-from objective_agents._base._context import ContextRef
+from pyagentic._base._params import Param, ParamInfo
+from pyagentic._base._context import ContextRef
 
 
 def test_param_creation():
