@@ -52,14 +52,17 @@ class _ToolDefinition:
             type_, default = attr
 
             if issubclass(type_, Param):
-                params[name] = type_.to_openai()
+                params[name] = type_.to_openai(context)
             else:
                 params[name] = {"type": _TYPE_MAP.get(type_, "string")}
             if isinstance(default, ParamInfo):
-                if default.description:
-                    params[name]["description"] = default.description
-                if default.required:
+                resolved_default = default.resolve(context)
+                if resolved_default.description:
+                    params[name]["description"] = resolved_default.description
+                if resolved_default.required:
                     required.append(name)
+                if resolved_default.values:
+                    params[name]["enum"] = resolved_default.values
 
         return {
             "type": "function",

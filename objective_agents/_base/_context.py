@@ -77,7 +77,7 @@ class _AgentContext:
 
         Parameters:
             name(str): The name of the item
-        
+
         Returns:
             Any: The item. If it is a computed context item, then it is computed upon retrieval.
         """

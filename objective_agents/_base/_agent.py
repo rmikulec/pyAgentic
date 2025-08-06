@@ -5,7 +5,7 @@ from typing import Callable, Any, TypeVar, ClassVar
 
 from objective_agents.logging import get_logger
 from objective_agents._base._tool import _ToolDefinition
-from objective_agents._base._context import ContextItem
+from objective_agents._base._context import ContextItem, _AgentContext
 from objective_agents._base._metaclasses import AgentMeta
 from objective_agents.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
@@ -47,6 +47,7 @@ class Agent(metaclass=AgentMeta):
     __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
     __system_message__: ClassVar[str]
     __user_message__: ClassVar[str] = None
+    #    context: ClassVar[_AgentContext] = None
 
     # Base Attributes
     model: str
@@ -54,7 +55,7 @@ class Agent(metaclass=AgentMeta):
     emitter: Callable[[Any], str] = None
 
     def __post_init__(self):
-        self.client: openai.OpenAI = openai.OpenAI(api_key=self.api_key)
+        self.client: openai.AsyncOpenAI = openai.AsyncOpenAI(api_key=self.api_key)
 
     async def _process_tool_call(self, tool_call) -> bool:
         if tool_call.type != "function_call":
@@ -63,7 +64,7 @@ class Agent(metaclass=AgentMeta):
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
-            tool_def = self.__tools__[tool_call.name]
+            tool_def = self.__tool_defs__[tool_call.name]
             handler = getattr(self, tool_call.name)
         except KeyError:
             return f"Tool {tool_call.name} not found"
@@ -99,11 +100,11 @@ class Agent(metaclass=AgentMeta):
     async def _build_tool_defs(self) -> list[dict]:
         tool_defs = []
         # iterate through registered tools
-        for name, tool_def in self.__tools__.items():
+        for name, tool_def in self.__tool_defs__.items():
             fn = getattr(self.__class__, name)
             # Check if any of the tool params use a ContextRef
             # convert to openai schema
-            tool_defs.append(tool_def.to_openai())
+            tool_defs.append(tool_def.to_openai(self.context))
         return tool_defs
 
     @property
@@ -122,21 +123,12 @@ class Agent(metaclass=AgentMeta):
                 return fn
         return None
 
-    async def chat(self, user_message: str) -> str:
-        # First, run a prechat processing function if one was given
-        if self._prechat_func:
-            user_message = await _safe_run(self._prechat_func, self, user_message)
-
+    async def infer(self, user_message: str) -> str:
         # Generate and insert the new system message
-        system_message = {"role": "developer", "content": self.__system_message__}
-        if self.context.messages:
-            self.context.messages[0] = system_message
-        else:
-            self.context.messages.append(system_message)
-        self.context.messages.append({"role": "user", "content": user_message})
+        self.context.add_message(role="user", content=user_message)
 
         # Create the tool list
-        tool_defs = await self._build_tool_defs(user_message)
+        tool_defs = await self._build_tool_defs()
 
         # Begin the first pass on generating a response from openai
         if self.emitter:
