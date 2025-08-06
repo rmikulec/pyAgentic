@@ -2,9 +2,9 @@ import inspect
 from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
-from objective_agents._base._params import Param, ParamInfo, _TYPE_MAP
-from objective_agents._base._context import _AgentContext
-from objective_agents._base._exceptions import ToolDeclarationFailed
+from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
+from pyagentic._base._context import _AgentContext
+from pyagentic._base._exceptions import ToolDeclarationFailed
 
 
 class _ToolDefinition:

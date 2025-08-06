@@ -3,8 +3,8 @@ from typing import Annotated, TypeVar, get_origin, get_args, Any, Self
 
 from typeguard import check_type, TypeCheckError
 
-from objective_agents._base._context import _AgentContext, ContextRef
-from objective_agents._base._exceptions import InvalidContextRefMismatchTyping
+from pyagentic._base._context import _AgentContext, ContextRef
+from pyagentic._base._exceptions import InvalidContextRefMismatchTyping
 
 
 class _CtxMarker:
