@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     # stable on main, beta on beta branch, and any v*.*.* tag
-    branches: [ main, beta ]
+    branches: [ "*" ]
     tags:      [ '*.*.*' ]
 
 jobs:
