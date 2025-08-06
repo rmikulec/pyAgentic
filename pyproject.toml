@@ -30,6 +30,14 @@ dev = [
 [tool.semantic_release]
 version_source = "tag"           # derive versions from git tags
 upload_to_pypi = true            # turn on automatic PyPI upload
+version_toml = ["pyproject.toml:project.version"]
+commit_parser = "conventional"
+
+[tool.semantic_release.commit_parser_options]
+minor_tags = ["feat"]
+patch_tags = ["bug", "fix"]
+parse_squash_commits = true
+ignore_merge_commits = true
 
 [tool.setuptools.packages.find]
 where = ["."]
