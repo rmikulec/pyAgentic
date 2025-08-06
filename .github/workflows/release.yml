@@ -1,0 +1,39 @@
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    # or use `release: types: [published]` to trigger on GitHub releases
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read       # to checkout code
+      packages: write      # if you use GitHub Packages
+    steps:
+      - uses: actions/checkout@v3
+
+      # 1) Set up Python
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      # 2) Install build tools
+      - name: Install build & twine
+        run: |
+          pip install --upgrade build twine setuptools-scm
+
+      # 3) Build sdist & wheel
+      - name: Build distributions
+        run: python -m build  # writes to dist/
+
+      # 4) Publish to PyPI
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m twine upload dist/*

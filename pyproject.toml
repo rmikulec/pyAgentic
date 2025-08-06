@@ -17,3 +17,7 @@ dev = [
     "flake8>=7.3.0",
     "pytest>=8.4.1",
 ]
+
+[tool.semantic_release]
+version_source = "tag"
+upload_to_pypi = true
