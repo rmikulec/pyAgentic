@@ -44,6 +44,7 @@ class _AgentContext:
     """
 
     instructions: str
+    input_template: str = None
     _messages: list = field(default_factory=list)
 
     def as_dict(self):
@@ -68,8 +69,14 @@ class _AgentContext:
         messages.insert(0, {"role": "system", "content": self.system_message})
         return messages
 
-    def add_message(self, role, content):
-        self._messages.append({"role": role, "content": content})
+    def add_user_message(self, message: str):
+        if self.input_template:
+            data = self.as_dict()
+            data["user_message"] = message
+            content = self.input_template.format(**data)
+        else:
+            content = message
+        self._messages.append({"role": "user", "content": content})
 
     def get(self, name: str) -> Any:
         """

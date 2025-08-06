@@ -116,7 +116,11 @@ class AgentMeta(type):
                 else:
                     context_kwargs[attr_name] = attr_default.get_default_value()
 
-            self.context = ContextClass(instructions=self.__system_message__, **context_kwargs)
+            self.context = ContextClass(
+                instructions=self.__system_message__,
+                input_template=self.__input_template__,
+                **context_kwargs,
+            )
 
             bound = sig.bind(self, *args, **kwargs)
             for name, val in list(bound.arguments.items())[1:]:  # skip 'self'

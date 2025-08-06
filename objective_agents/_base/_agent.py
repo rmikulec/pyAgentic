@@ -46,7 +46,7 @@ class Agent(metaclass=AgentMeta):
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
     __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
     __system_message__: ClassVar[str]
-    __user_message__: ClassVar[str] = None
+    __input_template__: ClassVar[str] = None
     #    context: ClassVar[_AgentContext] = None
 
     # Base Attributes
@@ -60,7 +60,7 @@ class Agent(metaclass=AgentMeta):
     async def _process_tool_call(self, tool_call) -> bool:
         if tool_call.type != "function_call":
             return False
-        self.context.messages.append(tool_call)
+        self.context._messages.append(tool_call)
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
@@ -92,7 +92,7 @@ class Agent(metaclass=AgentMeta):
                 )
 
         # Record output for LLM
-        self.context.messages.append(
+        self.context._messages.append(
             {"type": "function_call_output", "call_id": tool_call.call_id, "output": result}
         )
         return True
@@ -125,7 +125,7 @@ class Agent(metaclass=AgentMeta):
 
     async def infer(self, user_message: str) -> str:
         # Generate and insert the new system message
-        self.context.add_message(role="user", content=user_message)
+        self.context.add_user_message(user_message)
 
         # Create the tool list
         tool_defs = await self._build_tool_defs()
@@ -144,6 +144,8 @@ class Agent(metaclass=AgentMeta):
                 input=self.context.messages,
                 tools=tool_defs,
             )
+            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
+            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
         except Exception as e:
             logger.exception(e)
             # On failure, emit an udpate, update the messages, and return a standard message
@@ -154,14 +156,17 @@ class Agent(metaclass=AgentMeta):
                         status=Status.ERROR,
                     ),
                 )
-            self.context.messages.append(
+            self.context._messages.append(
                 {"role": "assistant", "content": "Failed to generate a response"}
             )
             return f"OpenAI failed to generate a response: {e}"
 
+        if reasoning:
+            self.context._messages.extend(reasoning)
+
         # Dispatch any tool calls
         made_calls = False
-        for tool_call in response.output:
+        for tool_call in tool_calls:
             made_calls = made_calls or (await self._process_tool_call(tool_call))
 
         # If tools ran, re-invoke LLM for natural reply
@@ -177,7 +182,7 @@ class Agent(metaclass=AgentMeta):
                     await _safe_run(
                         self.emitter, EmitUpdate(status=Status.ERROR, message="Generation failed")
                     )
-                self.context.messages.append(
+                self.context._messages.append(
                     {"role": "assistant", "content": "Failed to generate a response"}
                 )
                 return f"OpenAI failed to generate a response: {e}"
@@ -186,7 +191,7 @@ class Agent(metaclass=AgentMeta):
         ai_message = response.output_text
         if self._postchat_func:
             ai_message = await _safe_run(self._postchat_func, self, ai_message)
-        self.context.messages.append({"role": "assistant", "content": ai_message})
+        self.context._messages.append({"role": "assistant", "content": ai_message})
 
         if self.emitter:
             await _safe_run(self.emitter, AiUpdate(status=Status.SUCCEDED, message=ai_message))
