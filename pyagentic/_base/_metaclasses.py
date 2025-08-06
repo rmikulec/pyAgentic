@@ -1,7 +1,8 @@
 import inspect
 from typing import dataclass_transform, TypeVar
-from typeguard import check_type
+from typeguard import check_type, TypeCheckError
 
+from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
 from pyagentic._base._context import _AgentContext, ContextItem, computed_context
 from pyagentic._base._tool import _ToolDefinition
@@ -107,7 +108,9 @@ class AgentMeta(type):
                     continue
                 if attr_name in kwargs:
                     val = kwargs[attr_name]
-                    if (not check_type(val, attr_type)):
+                    try:
+                        check_type(val, attr_type)
+                    except TypeCheckError:
                         raise UnexpectedContextItemType(
                             name=attr_name, expected=attr_type, recieved=type(val)
                         )
@@ -150,4 +153,7 @@ class AgentMeta(type):
         sig = mcs._build_init_signature(cls)
 
         cls.__init__ = mcs._build_init(sig)
+
+        _AgentConstructionValidator(cls).validate()
+
         return cls

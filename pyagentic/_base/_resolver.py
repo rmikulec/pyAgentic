@@ -23,29 +23,35 @@ class ContextualMixin:
     context-ready properties
     """
 
+    @classmethod
+    def _get_maybe_context(cls):
+        maybe_contexts = []
+        for field in fields(cls):
+            type_ = field.type
+            # only look at Annotated[...] with our marker
+            if get_origin(type_) is Annotated and any(
+                isinstance(m, _CtxMarker) for m in get_args(type_)[1:]
+            ):
+                maybe_contexts.append(field)
+        return maybe_contexts
+
     def resolve(self, ctx: _AgentContext) -> Self:
         updates: dict[str, Any] = {}
-        for f in fields(self):
-            tp = f.type
-            # only look at Annotated[...] with our marker
-            if get_origin(tp) is Annotated and any(
-                isinstance(m, _CtxMarker) for m in get_args(tp)[1:]
-            ):
-
-                raw = getattr(self, f.name)
-                if isinstance(raw, ContextRef):
-                    value = ctx.get(raw.path)
-                    # expected type is the first Annotated arg
-                    expected_type = get_args(tp)[0]
-                    try:
-                        check_type(value, expected_type)
-                    except TypeCheckError:
-                        raise InvalidContextRefMismatchTyping(
-                            ref_path=raw.path,
-                            field_name=f.name,
-                            recieved_type=type(value),
-                            expected_type=expected_type,
-                        )
-                    updates[f.name] = value
-                    # return a new instance with those fields replaced
+        for field in self._get_maybe_context():
+            raw = getattr(self, field.name)
+            if isinstance(raw, ContextRef):
+                value = ctx.get(raw.path)
+                # expected type is the first Annotated arg
+                expected_type = get_args(field.type)[0]
+                try:
+                    check_type(value, expected_type)
+                except TypeCheckError:
+                    raise InvalidContextRefMismatchTyping(
+                        ref_path=raw.path,
+                        field_name=field.name,
+                        recieved_type=type(value),
+                        expected_type=expected_type,
+                    )
+                updates[field.name] = value
+                # return a new instance with those fields replaced
         return replace(self, **updates)
