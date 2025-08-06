@@ -1,3 +1,4 @@
+import functools
 from typing import Any, Callable, Type, Self
 from dataclasses import dataclass, make_dataclass, field, asdict
 
@@ -16,12 +17,24 @@ class ContextItem:
             return self.default
 
 
-class computed_context(property):
+# 1) Make a little descriptor for computed‐context:
+class computed_context:
     def __init__(self, fget):
-        # initialize the property
-        super().__init__(fget)
-        # mark it as a context‐provider
+        functools.update_wrapper(self, fget)
+        self.fget = fget
         self._is_context = True
+
+    def __set_name__(self, owner, name):
+        # capture the attribute name
+        self.name = name
+
+    def __get__(self, instance, owner=None):
+        # when accessed on the class, return the descriptor itself
+        if instance is None:
+            return self
+        # when accessed on the instance, run the function against the *context* object
+        # (we’ll inject this descriptor onto the Context class)
+        return self.fget(instance)
 
 
 @dataclass(repr=True)
@@ -33,9 +46,21 @@ class _AgentContext:
     instructions: str
     _messages: list = field(default_factory=list)
 
+    def as_dict(self):
+        data = asdict(self)
+
+        # then inject every computed_context value
+        for name, attr in type(self).__dict__.items():
+            if getattr(attr, "_is_context", False):
+                data[name] = getattr(self, name)
+        return data
+
     @property
-    def system_message(self):
-        return self.instructions.format(**asdict(self))
+    def system_message(self) -> str:
+        # start with all the normal dataclass fields
+
+        # now format your instruction template
+        return self.instructions.format(**self.as_dict())
 
     @property
     def messages(self) -> list[dict[str, str]]:
@@ -48,8 +73,8 @@ class _AgentContext:
 
     def get(self, name):
         try:
-            return getattr(self, name)
-        except AttributeError:
+            return self.as_dict()[name]
+        except KeyError:
             raise InvalidContextRefNotFoundInContext(name)
 
     @classmethod
@@ -64,25 +89,33 @@ class _AgentContext:
         Returns:
             A new dataclass type 'NameContext'.
         """
-        fields = []
-        for key, (typ, default_info) in ctx_map.items():
-            # Determine default value or factory
-            if default_info.default_factory:
-                field_ = field(default_factory=default_info.default_factory)
-            elif default_info.default:
-                field_ = field(default=default_info.default)
+        dc_fields = []  # for actual dataclass fields (ContextItem)
+        namespace: dict[str, Any] = {"__module__": cls.__module__}
+
+        for field_name, (type_, info) in ctx_map.items():
+            if isinstance(info, ContextItem):
+                # ---- your existing logic for setting defaults ----
+                if info.default_factory is not None:
+                    dc_def = field(default_factory=info.default_factory)
+                else:
+                    dc_def = field(default=info.default)
+                dc_fields.append((field_name, type_, dc_def))
+
+            elif isinstance(info, computed_context):
+                # stick the descriptor straight into the namespace
+                namespace[field_name] = info
+                # also record its type for annotation
+                namespace.setdefault("__annotations__", {})[field_name] = type_
+
             else:
-                field_ = field()
+                raise RuntimeError(f"Unexpected ctx_map entry for {field_name!r}: {info!r}")
 
-            # create a standard field
-            fields.append((key, typ, field_))
-
-        # Create and return the new dataclass
+        # now build the dataclass
         return make_dataclass(
             cls_name=f"{name}Context",
-            fields=fields,
+            fields=dc_fields,
             bases=(cls,),
-            namespace={"__module__": cls.__module__},
+            namespace=namespace,
         )
 
 

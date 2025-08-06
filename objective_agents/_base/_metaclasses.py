@@ -2,7 +2,7 @@ import inspect
 from typing import dataclass_transform, TypeVar
 
 from objective_agents._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
-from objective_agents._base._context import _AgentContext, ContextItem
+from objective_agents._base._context import _AgentContext, ContextItem, computed_context
 from objective_agents._base._tool import _ToolDefinition
 
 
@@ -59,6 +59,10 @@ class AgentMeta(type):
             default = namespace.get(attr_name, None)
             if isinstance(default, ContextItem):
                 context_attrs[attr_name] = (attr_type, default)
+
+        for name, value in namespace.items():
+            if getattr(value, "_is_context", False):
+                context_attrs[name] = (computed_context, value)
         return context_attrs
 
     @staticmethod
@@ -98,6 +102,8 @@ class AgentMeta(type):
 
             context_kwargs = {}
             for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
+                if attr_type == computed_context:
+                    continue
                 if attr_name in kwargs:
                     val = kwargs[attr_name]
                     if (not isinstance(val, attr_type)) or not (
