@@ -107,22 +107,6 @@ class Agent(metaclass=AgentMeta):
             tool_defs.append(tool_def.to_openai(self.context))
         return tool_defs
 
-    @property
-    def _prechat_func(self) -> Callable | None:
-        for attr in dir(self.__class__):
-            fn = getattr(self.__class__, attr)
-            if hasattr(fn, "_is_prechat"):
-                return fn
-        return None
-
-    @property
-    def _postchat_func(self) -> Callable | None:
-        for attr in dir(self.__class__):
-            fn = getattr(self.__class__, attr)
-            if hasattr(fn, "_is_postchat"):
-                return fn
-        return None
-
     async def infer(self, user_message: str) -> str:
         # Generate and insert the new system message
         self.context.add_user_message(user_message)
@@ -189,8 +173,7 @@ class Agent(metaclass=AgentMeta):
 
         # Parse and finalize the Ai Response
         ai_message = response.output_text
-        if self._postchat_func:
-            ai_message = await _safe_run(self._postchat_func, self, ai_message)
+
         self.context._messages.append({"role": "assistant", "content": ai_message})
 
         if self.emitter:
