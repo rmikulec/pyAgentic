@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import get_type_hints, Any, List, Dict, Type
 
 from objective_agents._base._resolver import ContextualMixin, MaybeContext
+from objective_agents._base._context import _AgentContext
 
 # simple mapping from Python types to JSON Schema/OpenAI types
 _TYPE_MAP: Dict[Type[Any], str] = {
@@ -99,7 +100,7 @@ class Param:
         return f"{type(self).__name__}({vals})"
 
     @classmethod
-    def to_openai(cls) -> List[Dict[str, Any]]:
+    def to_openai(cls, context: _AgentContext) -> List[Dict[str, Any]]:
         """
         Generate a JSON-schema-style dictionary suitable for OpenAI function
         parameter definitions.
@@ -114,13 +115,14 @@ class Param:
         required = []
 
         for name, (type_, info) in cls.__attributes__.items():
+            resolved_info = info.resolve(context)
             properties[name]["type"] = _TYPE_MAP.get(type_, "string")
-            if info.description:
-                properties[name]["description"] = info.description
-            if info.values:
-                properties[name]["enum"] = info.values
+            if resolved_info.description:
+                properties[name]["description"] = resolved_info.description
+            if resolved_info.values:
+                properties[name]["enum"] = resolved_info.values
 
-            if info.required:
+            if resolved_info.required:
                 required.append(name)
 
         return {"type": "object", "properties": dict(properties), "required": required}
