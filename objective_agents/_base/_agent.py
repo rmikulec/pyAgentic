@@ -107,9 +107,19 @@ class Agent(metaclass=AgentMeta):
             tool_defs.append(tool_def.to_openai(self.context))
         return tool_defs
 
-    async def infer(self, user_message: str) -> str:
+    async def run(self, input_: str) -> str:
+        """
+        Run the agent with any given input
+
+        Parameters:
+            input_(str): The user input for the agent to process
+
+        Returns:
+            str: The output of the agent
+        """
+
         # Generate and insert the new system message
-        self.context.add_user_message(user_message)
+        self.context.add_user_message(input_)
 
         # Create the tool list
         tool_defs = await self._build_tool_defs()
