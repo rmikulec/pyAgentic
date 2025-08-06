@@ -1,5 +1,5 @@
 [project]
-name = "pyagentic"
+name = "pyagentic-core"
 version = "0.0.0"
 description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
@@ -33,3 +33,6 @@ upload_to_pypi = true            # turn on automatic PyPI upload
 branch = "main"                  # stable releases come from main
 prerelease_branches = ["beta"]   # branch names that trigger pre-releases
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyagentic*"]
