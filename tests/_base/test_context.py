@@ -3,13 +3,13 @@ import random
 from dataclasses import is_dataclass
 from deepdiff import DeepDiff
 
-from objective_agents._base._context import (
+from pyagentic._base._context import (
     ContextItem,
     computed_context,
     _AgentContext,
     ContextRef,
 )
-from objective_agents._base._exceptions import InvalidContextRefNotFoundInContext
+from pyagentic._base._exceptions import InvalidContextRefNotFoundInContext
 
 
 def test_context_item_default():

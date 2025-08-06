@@ -1,10 +1,10 @@
 import pytest
 import asyncio
 
-from objective_agents._base._agent import Agent
-from objective_agents._base._context import ContextItem, _AgentContext
-from objective_agents._base._tool import tool, _ToolDefinition
-from objective_agents._base._exceptions import SystemMessageNotDeclared
+from pyagentic._base._agent import Agent
+from pyagentic._base._context import ContextItem, _AgentContext
+from pyagentic._base._tool import tool, _ToolDefinition
+from pyagentic._base._exceptions import SystemMessageNotDeclared
 
 
 def test_agent_class_declaration_raises_no_system_message():

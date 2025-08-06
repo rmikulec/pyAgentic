@@ -2,9 +2,9 @@ import inspect
 from typing import dataclass_transform, TypeVar
 from typeguard import check_type
 
-from objective_agents._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
-from objective_agents._base._context import _AgentContext, ContextItem, computed_context
-from objective_agents._base._tool import _ToolDefinition
+from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
+from pyagentic._base._context import _AgentContext, ContextItem, computed_context
+from pyagentic._base._tool import _ToolDefinition
 
 
 @dataclass_transform(field_specifiers=(ContextItem,))

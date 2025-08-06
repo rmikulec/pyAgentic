@@ -1,10 +1,10 @@
 import pytest
 from deepdiff import DeepDiff
 
-from objective_agents._base._tool import tool, _ToolDefinition
-from objective_agents._base._params import Param, ParamInfo
-from objective_agents._base._context import ContextRef
-from objective_agents._base._exceptions import ToolDeclarationFailed
+from pyagentic._base._tool import tool, _ToolDefinition
+from pyagentic._base._params import Param, ParamInfo
+from pyagentic._base._context import ContextRef
+from pyagentic._base._exceptions import ToolDeclarationFailed
 
 
 def test_tool_declaration():
