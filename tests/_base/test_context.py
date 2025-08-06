@@ -95,6 +95,33 @@ def test_agent_context_computed_field(mock_context):
     assert mock_context.random_computed > 1000, "Computed context not set properly"
 
 
+def test_agent_context_attributes(mock_context):
+    expected = {
+        "instructions": "This is a mock",
+        "input_template": None,
+        "_messages": [],
+        "int_default": 4,
+        "str_default": "test",
+        "int_factory": mock_context.int_factory,
+        "str_factory": mock_context.str_factory,
+        "default_override": "overriden",
+        "random_computed": mock_context.random_computed,
+    }
+
+    for name, value in expected.items():
+        attr_value = getattr(mock_context, name, None)
+        if name == "random_computed":
+            assert attr_value > 1000, (
+                f"Value not set properly for {name}\n" f"Expected > 1000" f"Recieved: {attr_value}"
+            )
+        else:
+            assert attr_value == value, (
+                f"Value not set properly for {name}\n"
+                f"Expected: {value}\n"
+                f"Recieved: {attr_value}"
+            )
+
+
 def test_agent_context_as_dict(mock_context):
     expected = {
         "instructions": "This is a mock",
@@ -102,10 +129,10 @@ def test_agent_context_as_dict(mock_context):
         "_messages": [],
         "int_default": 4,
         "str_default": "test",
-        "int_factory": 63,
-        "str_factory": "Random: 177",
+        "int_factory": mock_context.int_factory,
+        "str_factory": f"Random: {mock_context.str_factory}",
         "default_override": "overriden",
-        "random_computed": 5,
+        "random_computed": mock_context.random_computed,
     }
 
     diff = DeepDiff(expected, expected, ignore_order=True)

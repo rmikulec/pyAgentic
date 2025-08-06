@@ -1,5 +1,6 @@
 import inspect
 from typing import dataclass_transform, TypeVar
+from typeguard import check_type
 
 from objective_agents._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
 from objective_agents._base._context import _AgentContext, ContextItem, computed_context
@@ -106,9 +107,7 @@ class AgentMeta(type):
                     continue
                 if attr_name in kwargs:
                     val = kwargs[attr_name]
-                    if (not isinstance(val, attr_type)) or not (
-                        issubclass(val.__class__, attr_type)
-                    ):
+                    if (not check_type(val, attr_type)):
                         raise UnexpectedContextItemType(
                             name=attr_name, expected=attr_type, recieved=type(val)
                         )
