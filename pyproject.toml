@@ -1,9 +1,17 @@
 [project]
-name = "objectiveagents"
-version = "0.1.0"
-description = "Add your description here"
+name = "pyagentic"
+version = "0.0.0"
+description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
 requires-python = ">=3.13"
+authors = [ { name="Ryan Mikulec", email="rmikulec.dev@gmail.com" } ]
+license = { text = "MIT" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
 dependencies = [
     "colorlog>=6.9.0",
     "ipykernel>=6.29.5",
@@ -16,8 +24,12 @@ dev = [
     "deepdiff>=8.5.0",
     "flake8>=7.3.0",
     "pytest>=8.4.1",
+    "python-semantic-release>=10.3.1",
 ]
 
 [tool.semantic_release]
-version_source = "tag"
-upload_to_pypi = true
+version_source = "tag"           # derive versions from git tags
+upload_to_pypi = true            # turn on automatic PyPI upload
+branch = "main"                  # stable releases come from main
+prerelease_branches = ["beta"]   # branch names that trigger pre-releases
+
