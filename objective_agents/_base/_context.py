@@ -7,6 +7,24 @@ from objective_agents._base._exceptions import InvalidContextRefNotFoundInContex
 
 @dataclass
 class ContextItem:
+    """
+    A `ContextItem` is used to signal that a class attribute can be used in the context
+    of an agent. Any of these values can be referenced in:
+        - the agent's `instructions`
+        - the agent's `input_template`
+        - any `ContextRef` used in the Agent (e.g., in a `ParamInfo`)
+        - the constructor of the Agent itself
+
+    Args:
+        default (Any, optional):
+            The default value for this context item if no explicit value is provided.
+            Defaults to `None`.
+        default_factory (Callable[[], Any], optional):
+            A zero-argument factory function that produces a default value.
+            If provided, its return value takes precedence over `default`.
+            Defaults to `None`.
+    """
+
     default: Any = None
     default_factory: Callable = None
 
@@ -17,15 +35,30 @@ class ContextItem:
             return self.default
 
 
-# 1) Make a little descriptor for computed‐context:
 class computed_context:
+    """
+    Descriptor used to mark a method in an Agent as a computed context.
+
+    Computed contexts work very similarly to Python's `@property` descriptor: they are
+    re-computed each time they're accessed. When a computed context appears in:
+
+      - the agent's `instructions`, its value will be refreshed on every call to the agent,
+        updating the system message with the latest value.
+      - the agent's `input_template`, its value will be refreshed each time a new user message is
+        added, updating the prompt accordingly.
+
+    Args:
+        func (Callable[[Agent], Any]):
+            The method on the Agent class that computes and returns the context value.
+            It will be called with the agent instance each time the context is accessed.
+    """
+
     def __init__(self, fget):
         functools.update_wrapper(self, fget)
         self.fget = fget
         self._is_context = True
 
     def __set_name__(self, owner, name):
-        # capture the attribute name
         self.name = name
 
     def __get__(self, instance, owner=None):
@@ -47,10 +80,19 @@ class _AgentContext:
     input_template: str = None
     _messages: list = field(default_factory=list)
 
-    def as_dict(self):
+    def as_dict(self) -> dict:
+        """
+        Exports the context as a dictionary. This dictionary is not serialized, so
+        any `ContextItem` or `computed_context` remains their original type.
+
+        Returns:
+            - dict: A dictionary containing all `ContextItem` and `computed_context`
+                for later processing.
+        """
+
         data = asdict(self)
 
-        # then inject every computed_context value
+        # tinject every computed_context value
         for name, attr in type(self).__dict__.items():
             if getattr(attr, "_is_context", False):
                 data[name] = getattr(self, name)
@@ -58,6 +100,9 @@ class _AgentContext:
 
     @property
     def system_message(self) -> str:
+        """
+        The current formatted system_message
+        """
         # start with all the normal dataclass fields
 
         # now format your instruction template
@@ -65,11 +110,24 @@ class _AgentContext:
 
     @property
     def messages(self) -> list[dict[str, str]]:
+        """
+        List of openai-ready messages with the most up-to-date system message
+        """
         messages = self._messages.copy()
         messages.insert(0, {"role": "system", "content": self.system_message})
         return messages
 
     def add_user_message(self, message: str):
+        """
+        Add a user message to the message list. If a `input_template` is given then
+            the message will be formatted in it as well as any context used in the template.
+
+        To use the user message in the template, place the key `user_message`.
+
+        Args:
+            message(str): The user message to be added.
+        """
+
         if self.input_template:
             data = self.as_dict()
             data["user_message"] = message
@@ -82,7 +140,7 @@ class _AgentContext:
         """
         Retrieves an item from the context.
 
-        Parameters:
+        Args:
             name(str): The name of the item
 
         Returns:

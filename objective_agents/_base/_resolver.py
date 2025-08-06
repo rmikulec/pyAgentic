@@ -17,6 +17,12 @@ MaybeContext = Annotated[T, _CtxMarker()]
 
 @dataclass
 class ContextualMixin:
+    """
+    Class to be extended if any of the properties in the class may use a `ContextRef`. Gives the
+    subclass access to `resolve`, which allows a context to be passed in to backfill any
+    context-ready properties
+    """
+
     def resolve(self, ctx: _AgentContext) -> Self:
         updates: dict[str, Any] = {}
         for f in fields(self):

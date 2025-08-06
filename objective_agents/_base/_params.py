@@ -23,6 +23,16 @@ class ParamInfo(ContextualMixin):
         description (str | None): A human-readable description of the parameter.
         required (bool): Whether this parameter must be provided by the user.
         default (Any): The default value to use if none is provided.
+        values (list[str]): values to limit the input of this parameter. If used, the
+            agent is forced to use on the the values in the list.
+
+    Context-Ready Attributes:
+        These attributes can be given a `ContextRef` to link them to any context items in
+        the agent.
+
+         - description
+         - default
+         - values
     """
 
     description: MaybeContext[str] = None
