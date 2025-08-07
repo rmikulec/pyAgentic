@@ -16,6 +16,7 @@ dependencies = [
     "colorlog>=6.9.0",
     "ipykernel>=6.29.5",
     "openai>=1.93.2",
+    "taskipy>=1.14.1",
     "typeguard>=4.4.4",
 ]
 
@@ -27,9 +28,13 @@ dev = [
     "pytest>=8.4.1",
     "python-semantic-release>=10.3.1",
 ]
-
 demo = [
     "python-chess>=1.999",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.16",
+    "mkdocstrings>=0.30.0",
 ]
 
 
@@ -68,3 +73,9 @@ prerelease = false
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pyagentic*"]
+
+
+[tool.taskipy.tasks]
+build-docs  = "mkdocs build --clean"
+serve-docs  = "mkdocs serve"
+deploy-docs = "mkdocs gh-deploy --force"
