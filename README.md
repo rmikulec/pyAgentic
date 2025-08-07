@@ -10,7 +10,7 @@ A declarative framework for building AI agents with OpenAI integration. PyAgenti
 ##  Features
 
 - **Declarative Agent Definition** - Define agents using simple class-based syntax
-- **Type Safety** - Full typing support with Pydantic integration
+- **Type Safety** - Full typing support with validation
 - **Tool Integration** - Easy function decoration for agent capabilities
 - **Context Management** - Sophisticated context handling with lifecycle management
 - **OpenAI Integration** - Native support for OpenAI's API with automatic schema generation

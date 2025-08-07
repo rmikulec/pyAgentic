@@ -1,5 +1,5 @@
 import inspect
-from typing import Callable, Any, TypeVar, get_type_hints
+from typing import Callable, Any, TypeVar, get_type_hints, get_args, get_origin
 from collections import defaultdict
 
 from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
@@ -48,10 +48,17 @@ class _ToolDefinition:
         params = defaultdict(dict)
         required = []
 
-        for name, attr in self.parameters.items():
-            type_, default = attr
-
-            if issubclass(type_, Param):
+        for name, (type_, default) in self.parameters.items():
+            if get_origin(type_) == list:
+                listed_type = get_args(type_)[0]
+                if issubclass(listed_type, Param):
+                    params[name] = {"type": "array", "items": listed_type.to_openai(context)}
+                else:
+                    params[name] = {
+                        "type": "array",
+                        "items": {"type": _TYPE_MAP.get(listed_type, "string")},
+                    }
+            elif issubclass(type_, Param):
                 params[name] = type_.to_openai(context)
             else:
                 params[name] = {"type": _TYPE_MAP.get(type_, "string")}
@@ -90,7 +97,14 @@ class _ToolDefinition:
 
         for name, (type_, info) in self.parameters.items():
             if name in kwargs:
-                if issubclass(type_, Param):
+                if get_origin(type_) == list:
+                    listed_type = get_args(type_)[0]
+                    if issubclass(listed_type, Param):
+                        list_ = [type_(**param_args) for param_args in kwargs[name]]
+                    else:
+                        list_ = kwargs[name]
+                    compiled_args[name] = list_
+                elif issubclass(type_, Param):
                     param_args = kwargs[name]
                     compiled_args[name] = type_(**param_args)
                 else:

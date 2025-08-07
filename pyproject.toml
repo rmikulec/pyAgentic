@@ -1,6 +1,6 @@
 [project]
 name = "pyagentic-core"
-version = "1.1.0"
+version = "1.2.0-a.1"
 description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -14,7 +14,9 @@ classifiers = [
 
 dependencies = [
     "colorlog>=6.9.0",
+    "dotenv>=0.9.9",
     "ipykernel>=6.29.5",
+    "taskipy>=1.14.1",
     "openai>=1.99.3",
     "pydantic>=2.11.7",
     "typeguard>=4.4.4",
@@ -28,9 +30,20 @@ dev = [
     "pytest>=8.4.1",
     "python-semantic-release>=10.3.1",
 ]
-
 demo = [
+    "arxiv>=2.2.0",
+    "pypdf2>=3.0.1",
     "python-chess>=1.999",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.16",
+    "mkdocstrings[python]>=0.30.0",
+    "pygments>=2.19.2",
+    "pymdown-extensions>=10.16.1",
+]
+eval = [
+    "deepeval>=3.3.6",
 ]
 
 
@@ -69,3 +82,9 @@ prerelease = false
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pyagentic*"]
+
+
+[tool.taskipy.tasks]
+build-docs  = "mkdocs build --clean"
+serve-docs  = "mkdocs serve"
+deploy-docs = "mkdocs gh-deploy --force"
