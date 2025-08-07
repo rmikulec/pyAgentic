@@ -135,6 +135,9 @@ class Agent(metaclass=AgentMeta):
                 model=self.model,
                 input=self.context.messages,
                 tools=tool_defs,
+                max_tool_calls=5,
+                parallel_tool_calls=True,
+                tool_choice="auto",
             )
             reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
             tool_calls = [rx for rx in response.output if rx.type == "function_call"]
@@ -159,7 +162,8 @@ class Agent(metaclass=AgentMeta):
         # Dispatch any tool calls
         made_calls = False
         for tool_call in tool_calls:
-            made_calls = made_calls or (await self._process_tool_call(tool_call))
+            await self._process_tool_call(tool_call)
+            made_calls = True
 
         # If tools ran, re-invoke LLM for natural reply
         if made_calls:
