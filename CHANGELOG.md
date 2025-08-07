@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.1-a.1 (2025-08-07)
+
+### Bug Fixes
+
+- Ensuring openai package is up-to-date
+  ([`a9653ea`](https://github.com/rmikulec/pyAgentic/commit/a9653eabd5b4fab573855c61add1336e5c11f268))
+
+
 ## v1.0.0 (2025-08-07)
 
 
