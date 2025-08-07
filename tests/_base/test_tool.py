@@ -99,6 +99,24 @@ def test_tool_declaration_with_annotated_param():
     ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"  # noqa E501
 
 
+def test_tool_declarion_with_listed_string():
+
+    @tool("Primitive Test")
+    def test(values: list[str]) -> str:
+        pass
+
+    params: list[Param] = test.__tool_def__.parameters
+
+    assert (
+        "values" in params
+    ), f"Function attributes not being added to tool def params, got: {params.keys()}, expected: ['a', 'b']"  # noqa E501
+
+    type_, info = params["values"]
+    assert type_ == list[str] and isinstance(
+        info, ParamInfo
+    ), f"Default value not properly being casted to ParamInfo for tool def, got: {type(info)}, expected: ParamInfo"  # noqa E501
+
+
 def test_tool_openai_export(mock_context):
     class TestParam(Param):
         param_primitive: int
@@ -185,6 +203,40 @@ def test_tool_openai_export_multiple_params(mock_context):
                     "type": "object",
                     "properties": {"param_primitive_b": {"type": "string"}},
                     "required": [],
+                },
+            },
+        },
+        "required": [],
+    }
+
+    diff = DeepDiff(openai_tool, expected, ignore_order=True)
+
+    assert not diff, f"OpenAI Export does not match expected: \n {diff.pretty()}"
+
+
+def test_tool_openai_export_listed_param(mock_context):
+    class TestParam(Param):
+        value: int
+
+    @tool("OpenAI Export Test")
+    def test(list_: list[TestParam]) -> str:
+        pass
+
+    openai_tool = test.__tool_def__.to_openai(mock_context)
+    expected = {
+        "type": "function",
+        "name": "test",
+        "description": "OpenAI Export Test",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "list_": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"value": {"type": "integer"}},
+                        "required": [],
+                    },
                 },
             },
         },
