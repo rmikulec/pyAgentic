@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import get_type_hints, Any, List, Dict, Type
 
+from pyagentic._base._resolver import ContextualMixin, MaybeContext
+from pyagentic._base._context import _AgentContext
+
 # simple mapping from Python types to JSON Schema/OpenAI types
 _TYPE_MAP: Dict[Type[Any], str] = {
     int: "integer",
@@ -12,7 +15,7 @@ _TYPE_MAP: Dict[Type[Any], str] = {
 
 
 @dataclass
-class ParamInfo:
+class ParamInfo(ContextualMixin):
     """
     Declare metadata for parameters in tool declarations and/or Parameter declarations.
 
@@ -20,10 +23,22 @@ class ParamInfo:
         description (str | None): A human-readable description of the parameter.
         required (bool): Whether this parameter must be provided by the user.
         default (Any): The default value to use if none is provided.
+        values (list[str]): values to limit the input of this parameter. If used, the
+            agent is forced to use on the the values in the list.
+
+    Context-Ready Attributes:
+        These attributes can be given a `ContextRef` to link them to any context items in
+        the agent.
+
+         - description
+         - default
+         - values
     """
-    description: str = None
+
+    description: MaybeContext[str] = None
     required: bool = False
-    default: Any = None
+    default: MaybeContext[Any] = None
+    values: MaybeContext[list[str]] = None
 
 
 class Param:
@@ -95,7 +110,7 @@ class Param:
         return f"{type(self).__name__}({vals})"
 
     @classmethod
-    def to_openai(cls) -> List[Dict[str, Any]]:
+    def to_openai(cls, context: _AgentContext) -> List[Dict[str, Any]]:
         """
         Generate a JSON-schema-style dictionary suitable for OpenAI function
         parameter definitions.
@@ -110,11 +125,14 @@ class Param:
         required = []
 
         for name, (type_, info) in cls.__attributes__.items():
+            resolved_info = info.resolve(context)
             properties[name]["type"] = _TYPE_MAP.get(type_, "string")
-            if info.description:
-                properties[name]["description"] = info.description
+            if resolved_info.description:
+                properties[name]["description"] = resolved_info.description
+            if resolved_info.values:
+                properties[name]["enum"] = resolved_info.values
 
-            if info.required:
+            if resolved_info.required:
                 required.append(name)
 
         return {"type": "object", "properties": dict(properties), "required": required}

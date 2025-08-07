@@ -2,8 +2,9 @@ import inspect
 from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
-from objective_agents._base._params import Param, ParamInfo, _TYPE_MAP
-from objective_agents._base._exceptions import ToolDeclarationFailed
+from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
+from pyagentic._base._context import _AgentContext
+from pyagentic._base._exceptions import ToolDeclarationFailed
 
 
 class _ToolDefinition:
@@ -37,7 +38,7 @@ class _ToolDefinition:
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
 
-    def to_openai(self) -> dict:
+    def to_openai(self, context: _AgentContext) -> dict:
         """
         Converts the definition to an "openai-ready" dictionary
 
@@ -51,14 +52,17 @@ class _ToolDefinition:
             type_, default = attr
 
             if issubclass(type_, Param):
-                params[name] = type_.to_openai()
+                params[name] = type_.to_openai(context)
             else:
                 params[name] = {"type": _TYPE_MAP.get(type_, "string")}
             if isinstance(default, ParamInfo):
-                if default.description:
-                    params[name]["description"] = default.description
-                if default.required:
+                resolved_default = default.resolve(context)
+                if resolved_default.description:
+                    params[name]["description"] = resolved_default.description
+                if resolved_default.required:
                     required.append(name)
+                if resolved_default.values:
+                    params[name]["enum"] = resolved_default.values
 
         return {
             "type": "function",
