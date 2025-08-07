@@ -107,7 +107,7 @@ class AgentMeta(type):
                     continue
                 if attr_name in kwargs:
                     val = kwargs[attr_name]
-                    if (not check_type(val, attr_type)):
+                    if not check_type(val, attr_type):
                         raise UnexpectedContextItemType(
                             name=attr_name, expected=attr_type, recieved=type(val)
                         )
