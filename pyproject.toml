@@ -37,7 +37,12 @@ demo = [
 docs = [
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.6.16",
-    "mkdocstrings>=0.30.0",
+    "mkdocstrings[python]>=0.30.0",
+    "pygments>=2.19.2",
+    "pymdown-extensions>=10.16.1",
+]
+eval = [
+    "deepeval>=3.3.6",
 ]
 
 

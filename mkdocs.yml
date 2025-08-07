@@ -1,10 +1,38 @@
-site_name: PyAgentic
+site_name: PyAgentic Documentation
+
+repo_name: rmikulec/pyAgentic
+repo_url: https://github.com/rmikulec/pyagentic
+
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
   - API Reference:
       - Modules: reference/modules.md
-theme:
-  name: material
+
 plugins:
   - search
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            source_link: true
+            source_repository: "https://github.com/YOUR_USERNAME/YOUR_REPO"
+            source_branch: "main"  # or "master" or any branch you use
+            source_directory: "pyagentic"
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - markdown.extensions.md_in_html
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+theme:
+  name: material
+  features:
+    - content.code.copy
