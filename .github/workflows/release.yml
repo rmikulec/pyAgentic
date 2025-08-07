@@ -32,4 +32,6 @@ jobs:
         env:
           PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
           GH_TOKEN:       ${{ secrets.GITHUB_TOKEN }}     # for GitHub releases
+          TWINE_USERNAME: "__token__"
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: uv run semantic-release publish
