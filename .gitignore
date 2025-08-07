@@ -2,6 +2,9 @@
 *.db
 *.ipynb
 
+# uv.lock - This will be handled by semantic-release
+./uv.lock
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

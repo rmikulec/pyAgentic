@@ -1,0 +1,24 @@
+name: Build & Deploy Docs
+
+on:
+  push:
+    branches: [ "*" ]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with: python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install ".[docs]"
+
+      - name: Build docs
+        run: uv run build-docs
+
+      - name: Deploy to GitHub Pages
+        run: uv run deploy-docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
