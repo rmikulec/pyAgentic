@@ -64,6 +64,8 @@ class Param:
         super().__init_subclass__(**kwargs)
         cls.__attributes__ = {}
         for name, type_ in get_type_hints(cls).items():
+            if name.startswith("__") and name.endswith("__"):
+                continue
             default = cls.__dict__.get(name, None)
             if isinstance(default, ParamInfo):
                 cls.__attributes__[name] = (type_, default)
