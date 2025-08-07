@@ -1,9 +1,10 @@
 import pytest
 from deepdiff import DeepDiff
 
-from objective_agents._base._tool import tool, _ToolDefinition
-from objective_agents._base._params import Param, ParamInfo
-from objective_agents._base._exceptions import ToolDeclarationFailed
+from pyagentic._base._tool import tool, _ToolDefinition
+from pyagentic._base._params import Param, ParamInfo
+from pyagentic._base._context import ContextRef
+from pyagentic._base._exceptions import ToolDeclarationFailed
 
 
 def test_tool_declaration():
@@ -98,7 +99,7 @@ def test_tool_declaration_with_annotated_param():
     ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"  # noqa E501
 
 
-def test_tool_openai_export():
+def test_tool_openai_export(mock_context):
     class TestParam(Param):
         param_primitive: int
 
@@ -113,7 +114,7 @@ def test_tool_openai_export():
     ) -> str:
         pass
 
-    openai_tool = test.__tool_def__.to_openai()
+    openai_tool = test.__tool_def__.to_openai(mock_context)
     expected = {
         "type": "function",
         "name": "test",
@@ -153,7 +154,7 @@ def test_tool_openai_export():
     assert not diff, f"OpenAI Export does not match expected: \n {diff.pretty()}"
 
 
-def test_tool_openai_export_multiple_params():
+def test_tool_openai_export_multiple_params(mock_context):
     class TestParamA(Param):
         param_primitive_a: int
 
@@ -167,7 +168,7 @@ def test_tool_openai_export_multiple_params():
     ) -> str:
         pass
 
-    openai_tool = test.__tool_def__.to_openai()
+    openai_tool = test.__tool_def__.to_openai(mock_context)
     expected = {
         "type": "function",
         "name": "test",
@@ -193,3 +194,22 @@ def test_tool_openai_export_multiple_params():
     diff = DeepDiff(openai_tool, expected, ignore_order=True)
 
     assert not diff, f"OpenAI Export does not match expected: \n {diff.pretty()}"
+
+
+def test_tool_openai_export_context_resolve(mock_context):
+    class ResolveParam(Param):
+        field: str = ParamInfo(description=ContextRef("str_default"))
+
+    @tool("Testing context resolve on tool level")
+    def test(param: ResolveParam) -> str:
+        pass
+
+    openai_tool = test.__tool_def__.to_openai(mock_context)
+    export_description = openai_tool["parameters"]["properties"]["param"]["properties"]["field"][
+        "description"
+    ]
+    assert export_description == "test", (
+        "The resolved description did not match that in the mock context\n"
+        f"Expected: {mock_context.str_default}\n"
+        f"Recieved: {export_description}\n"
+    )
