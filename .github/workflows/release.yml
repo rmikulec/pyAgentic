@@ -3,7 +3,11 @@ name: Continuous Delivery
 on:
   push:
     branches:
-      - main
+      - 'main'
+      - 'feat/**'
+      - 'bug/**'
+      - 'fix/**'
+
 
 # default: least privileged permissions across all jobs
 permissions:
