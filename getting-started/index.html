@@ -353,11 +353,62 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-putting-it-all-together" class="md-nav__link">
+  <a href="#step-6-lets-run-it" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 6: Putting It All Together
+      Step 6: Let's run it!
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Step 6: Let&#39;s run it!">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-integrating-ais-carbon-footprint-into-risk-management-frameworks-tkachenko-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Integrating AI's Carbon Footprint into Risk Management Frameworks (Tkachenko, 2024)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-carbon-aware-end-to-end-data-movement-goldverg-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Carbon-Aware End-to-End Data Movement (Goldverg et al., 2024)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-making-ai-less-thirsty-li-et-al-2025" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Making AI Less "Thirsty" (Li et al., 2025)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-towards-socially-and-environmentally-responsible-ai-li-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Towards Socially and Environmentally Responsible AI (Li et al., 2024)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Conclusion
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -554,11 +605,62 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-putting-it-all-together" class="md-nav__link">
+  <a href="#step-6-lets-run-it" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 6: Putting It All Together
+      Step 6: Let's run it!
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Step 6: Let&#39;s run it!">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-integrating-ais-carbon-footprint-into-risk-management-frameworks-tkachenko-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Integrating AI's Carbon Footprint into Risk Management Frameworks (Tkachenko, 2024)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-carbon-aware-end-to-end-data-movement-goldverg-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Carbon-Aware End-to-End Data Movement (Goldverg et al., 2024)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-making-ai-less-thirsty-li-et-al-2025" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Making AI Less "Thirsty" (Li et al., 2025)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-towards-socially-and-environmentally-responsible-ai-li-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Towards Socially and Environmentally Responsible AI (Li et al., 2024)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Conclusion
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -825,102 +927,114 @@
 </span></code></pre></div></td></tr></table></div>
 <p>This will ensure that the LLM choices specific values when calling the tool.</p>
 <h2 id="step-5-advanced-tool-parameters-with-contextref">Step 5: Advanced Tool Parameters with ContextRef</h2>
-<p>What if we want our tools to be smarter about the data they work with? Let's use <code>ContextRef</code> to create dynamic parameter constraints:</p>
-<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-5-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-5-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-5-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-5-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-5-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-5-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-5-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-5-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-5-10">10</a></span>
-<span class="normal"><a href="#__codelineno-5-11">11</a></span>
-<span class="normal"><a href="#__codelineno-5-12">12</a></span>
-<span class="normal"><a href="#__codelineno-5-13">13</a></span>
-<span class="normal"><a href="#__codelineno-5-14">14</a></span>
-<span class="normal"><a href="#__codelineno-5-15">15</a></span>
-<span class="normal"><a href="#__codelineno-5-16">16</a></span>
-<span class="normal"><a href="#__codelineno-5-17">17</a></span>
-<span class="normal"><a href="#__codelineno-5-18">18</a></span>
-<span class="normal"><a href="#__codelineno-5-19">19</a></span>
-<span class="normal"><a href="#__codelineno-5-20">20</a></span>
-<span class="normal"><a href="#__codelineno-5-21">21</a></span>
-<span class="normal"><a href="#__codelineno-5-22">22</a></span>
-<span class="normal"><a href="#__codelineno-5-23">23</a></span>
-<span class="normal"><a href="#__codelineno-5-24">24</a></span>
-<span class="normal"><a href="#__codelineno-5-25">25</a></span>
-<span class="normal"><a href="#__codelineno-5-26">26</a></span>
-<span class="normal"><a href="#__codelineno-5-27">27</a></span>
-<span class="normal"><a href="#__codelineno-5-28">28</a></span>
-<span class="normal"><a href="#__codelineno-5-29">29</a></span>
-<span class="normal"><a href="#__codelineno-5-30">30</a></span>
-<span class="normal"><a href="#__codelineno-5-31">31</a></span>
-<span class="normal"><a href="#__codelineno-5-32">32</a></span>
-<span class="normal"><a href="#__codelineno-5-33">33</a></span>
-<span class="normal"><a href="#__codelineno-5-34">34</a></span>
-<span class="normal"><a href="#__codelineno-5-35">35</a></span>
-<span class="normal"><a href="#__codelineno-5-36">36</a></span>
-<span class="normal"><a href="#__codelineno-5-37">37</a></span>
-<span class="normal"><a href="#__codelineno-5-38">38</a></span>
-<span class="normal"><a href="#__codelineno-5-39">39</a></span>
-<span class="normal"><a href="#__codelineno-5-40">40</a></span>
-<span class="normal"><a href="#__codelineno-5-41">41</a></span>
-<span class="normal"><a href="#__codelineno-5-42">42</a></span>
-<span class="normal"><a href="#__codelineno-5-43">43</a></span>
-<span class="normal"><a href="#__codelineno-5-44">44</a></span>
-<span class="normal"><a href="#__codelineno-5-45">45</a></span>
-<span class="normal"><a href="#__codelineno-5-46">46</a></span>
-<span class="normal"><a href="#__codelineno-5-47">47</a></span>
-<span class="normal"><a href="#__codelineno-5-48">48</a></span>
-<span class="normal"><a href="#__codelineno-5-49">49</a></span>
-<span class="normal"><a href="#__codelineno-5-50">50</a></span>
-<span class="normal"><a href="#__codelineno-5-51">51</a></span>
-<span class="normal"><a href="#__codelineno-5-52">52</a></span>
-<span class="normal"><a href="#__codelineno-5-53">53</a></span>
-<span class="normal"><a href="#__codelineno-5-54">54</a></span>
-<span class="normal"><a href="#__codelineno-5-55">55</a></span>
-<span class="normal"><a href="#__codelineno-5-56">56</a></span>
-<span class="normal"><a href="#__codelineno-5-57">57</a></span>
-<span class="normal"><a href="#__codelineno-5-58">58</a></span>
-<span class="normal"><a href="#__codelineno-5-59">59</a></span>
-<span class="normal"><a href="#__codelineno-5-60">60</a></span>
-<span class="normal"><a href="#__codelineno-5-61">61</a></span>
-<span class="normal"><a href="#__codelineno-5-62">62</a></span>
-<span class="normal"><a href="#__codelineno-5-63">63</a></span>
-<span class="normal"><a href="#__codelineno-5-64">64</a></span>
-<span class="normal"><a href="#__codelineno-5-65">65</a></span>
-<span class="normal"><a href="#__codelineno-5-66">66</a></span>
-<span class="normal"><a href="#__codelineno-5-67">67</a></span>
-<span class="normal"><a href="#__codelineno-5-68">68</a></span>
-<span class="normal"><a href="#__codelineno-5-69">69</a></span>
-<span class="normal"><a href="#__codelineno-5-70">70</a></span>
-<span class="normal"><a href="#__codelineno-5-71">71</a></span>
-<span class="normal"><a href="#__codelineno-5-72">72</a></span>
-<span class="normal"><a href="#__codelineno-5-73">73</a></span>
-<span class="normal"><a href="#__codelineno-5-74">74</a></span>
-<span class="normal"><a href="#__codelineno-5-75">75</a></span>
-<span class="normal"><a href="#__codelineno-5-76">76</a></span>
-<span class="normal"><a href="#__codelineno-5-77">77</a></span>
-<span class="normal"><a href="#__codelineno-5-78">78</a></span>
-<span class="normal"><a href="#__codelineno-5-79">79</a></span>
-<span class="normal"><a href="#__codelineno-5-80">80</a></span>
-<span class="normal"><a href="#__codelineno-5-81">81</a></span>
-<span class="normal"><a href="#__codelineno-5-82">82</a></span>
-<span class="normal"><a href="#__codelineno-5-83">83</a></span>
-<span class="normal"><a href="#__codelineno-5-84">84</a></span>
-<span class="normal"><a href="#__codelineno-5-85">85</a></span>
-<span class="normal"><a href="#__codelineno-5-86">86</a></span>
-<span class="normal"><a href="#__codelineno-5-87">87</a></span>
-<span class="normal"><a href="#__codelineno-5-88">88</a></span>
-<span class="normal"><a href="#__codelineno-5-89">89</a></span>
-<span class="normal"><a href="#__codelineno-5-90">90</a></span>
-<span class="normal"><a href="#__codelineno-5-91">91</a></span>
-<span class="normal"><a href="#__codelineno-5-92">92</a></span>
-<span class="normal"><a href="#__codelineno-5-93">93</a></span>
-<span class="normal"><a href="#__codelineno-5-94">94</a></span>
-<span class="normal"><a href="#__codelineno-5-95">95</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyagentic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">ContextItem</span><span class="p">,</span> <span class="n">tool</span><span class="p">,</span> <span class="n">ParamInfo</span><span class="p">,</span> <span class="n">computed_context</span><span class="p">,</span> <span class="n">ContextRef</span>
+<p>Let's put it all together while adding a couple more features to make it more complete, like:
+    - Setting the focus
+    - Read a paper</p>
+<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">  1</a></span>
+<span class="normal"><a href="#__codelineno-5-2">  2</a></span>
+<span class="normal"><a href="#__codelineno-5-3">  3</a></span>
+<span class="normal"><a href="#__codelineno-5-4">  4</a></span>
+<span class="normal"><a href="#__codelineno-5-5">  5</a></span>
+<span class="normal"><a href="#__codelineno-5-6">  6</a></span>
+<span class="normal"><a href="#__codelineno-5-7">  7</a></span>
+<span class="normal"><a href="#__codelineno-5-8">  8</a></span>
+<span class="normal"><a href="#__codelineno-5-9">  9</a></span>
+<span class="normal"><a href="#__codelineno-5-10"> 10</a></span>
+<span class="normal"><a href="#__codelineno-5-11"> 11</a></span>
+<span class="normal"><a href="#__codelineno-5-12"> 12</a></span>
+<span class="normal"><a href="#__codelineno-5-13"> 13</a></span>
+<span class="normal"><a href="#__codelineno-5-14"> 14</a></span>
+<span class="normal"><a href="#__codelineno-5-15"> 15</a></span>
+<span class="normal"><a href="#__codelineno-5-16"> 16</a></span>
+<span class="normal"><a href="#__codelineno-5-17"> 17</a></span>
+<span class="normal"><a href="#__codelineno-5-18"> 18</a></span>
+<span class="normal"><a href="#__codelineno-5-19"> 19</a></span>
+<span class="normal"><a href="#__codelineno-5-20"> 20</a></span>
+<span class="normal"><a href="#__codelineno-5-21"> 21</a></span>
+<span class="normal"><a href="#__codelineno-5-22"> 22</a></span>
+<span class="normal"><a href="#__codelineno-5-23"> 23</a></span>
+<span class="normal"><a href="#__codelineno-5-24"> 24</a></span>
+<span class="normal"><a href="#__codelineno-5-25"> 25</a></span>
+<span class="normal"><a href="#__codelineno-5-26"> 26</a></span>
+<span class="normal"><a href="#__codelineno-5-27"> 27</a></span>
+<span class="normal"><a href="#__codelineno-5-28"> 28</a></span>
+<span class="normal"><a href="#__codelineno-5-29"> 29</a></span>
+<span class="normal"><a href="#__codelineno-5-30"> 30</a></span>
+<span class="normal"><a href="#__codelineno-5-31"> 31</a></span>
+<span class="normal"><a href="#__codelineno-5-32"> 32</a></span>
+<span class="normal"><a href="#__codelineno-5-33"> 33</a></span>
+<span class="normal"><a href="#__codelineno-5-34"> 34</a></span>
+<span class="normal"><a href="#__codelineno-5-35"> 35</a></span>
+<span class="normal"><a href="#__codelineno-5-36"> 36</a></span>
+<span class="normal"><a href="#__codelineno-5-37"> 37</a></span>
+<span class="normal"><a href="#__codelineno-5-38"> 38</a></span>
+<span class="normal"><a href="#__codelineno-5-39"> 39</a></span>
+<span class="normal"><a href="#__codelineno-5-40"> 40</a></span>
+<span class="normal"><a href="#__codelineno-5-41"> 41</a></span>
+<span class="normal"><a href="#__codelineno-5-42"> 42</a></span>
+<span class="normal"><a href="#__codelineno-5-43"> 43</a></span>
+<span class="normal"><a href="#__codelineno-5-44"> 44</a></span>
+<span class="normal"><a href="#__codelineno-5-45"> 45</a></span>
+<span class="normal"><a href="#__codelineno-5-46"> 46</a></span>
+<span class="normal"><a href="#__codelineno-5-47"> 47</a></span>
+<span class="normal"><a href="#__codelineno-5-48"> 48</a></span>
+<span class="normal"><a href="#__codelineno-5-49"> 49</a></span>
+<span class="normal"><a href="#__codelineno-5-50"> 50</a></span>
+<span class="normal"><a href="#__codelineno-5-51"> 51</a></span>
+<span class="normal"><a href="#__codelineno-5-52"> 52</a></span>
+<span class="normal"><a href="#__codelineno-5-53"> 53</a></span>
+<span class="normal"><a href="#__codelineno-5-54"> 54</a></span>
+<span class="normal"><a href="#__codelineno-5-55"> 55</a></span>
+<span class="normal"><a href="#__codelineno-5-56"> 56</a></span>
+<span class="normal"><a href="#__codelineno-5-57"> 57</a></span>
+<span class="normal"><a href="#__codelineno-5-58"> 58</a></span>
+<span class="normal"><a href="#__codelineno-5-59"> 59</a></span>
+<span class="normal"><a href="#__codelineno-5-60"> 60</a></span>
+<span class="normal"><a href="#__codelineno-5-61"> 61</a></span>
+<span class="normal"><a href="#__codelineno-5-62"> 62</a></span>
+<span class="normal"><a href="#__codelineno-5-63"> 63</a></span>
+<span class="normal"><a href="#__codelineno-5-64"> 64</a></span>
+<span class="normal"><a href="#__codelineno-5-65"> 65</a></span>
+<span class="normal"><a href="#__codelineno-5-66"> 66</a></span>
+<span class="normal"><a href="#__codelineno-5-67"> 67</a></span>
+<span class="normal"><a href="#__codelineno-5-68"> 68</a></span>
+<span class="normal"><a href="#__codelineno-5-69"> 69</a></span>
+<span class="normal"><a href="#__codelineno-5-70"> 70</a></span>
+<span class="normal"><a href="#__codelineno-5-71"> 71</a></span>
+<span class="normal"><a href="#__codelineno-5-72"> 72</a></span>
+<span class="normal"><a href="#__codelineno-5-73"> 73</a></span>
+<span class="normal"><a href="#__codelineno-5-74"> 74</a></span>
+<span class="normal"><a href="#__codelineno-5-75"> 75</a></span>
+<span class="normal"><a href="#__codelineno-5-76"> 76</a></span>
+<span class="normal"><a href="#__codelineno-5-77"> 77</a></span>
+<span class="normal"><a href="#__codelineno-5-78"> 78</a></span>
+<span class="normal"><a href="#__codelineno-5-79"> 79</a></span>
+<span class="normal"><a href="#__codelineno-5-80"> 80</a></span>
+<span class="normal"><a href="#__codelineno-5-81"> 81</a></span>
+<span class="normal"><a href="#__codelineno-5-82"> 82</a></span>
+<span class="normal"><a href="#__codelineno-5-83"> 83</a></span>
+<span class="normal"><a href="#__codelineno-5-84"> 84</a></span>
+<span class="normal"><a href="#__codelineno-5-85"> 85</a></span>
+<span class="normal"><a href="#__codelineno-5-86"> 86</a></span>
+<span class="normal"><a href="#__codelineno-5-87"> 87</a></span>
+<span class="normal"><a href="#__codelineno-5-88"> 88</a></span>
+<span class="normal"><a href="#__codelineno-5-89"> 89</a></span>
+<span class="normal"><a href="#__codelineno-5-90"> 90</a></span>
+<span class="normal"><a href="#__codelineno-5-91"> 91</a></span>
+<span class="normal"><a href="#__codelineno-5-92"> 92</a></span>
+<span class="normal"><a href="#__codelineno-5-93"> 93</a></span>
+<span class="normal"><a href="#__codelineno-5-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-5-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-5-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-5-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-5-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-5-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-5-100">100</a></span>
+<span class="normal"><a href="#__codelineno-5-101">101</a></span>
+<span class="normal"><a href="#__codelineno-5-102">102</a></span>
+<span class="normal"><a href="#__codelineno-5-103">103</a></span>
+<span class="normal"><a href="#__codelineno-5-104">104</a></span>
+<span class="normal"><a href="#__codelineno-5-105">105</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyagentic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">ContextItem</span><span class="p">,</span> <span class="n">tool</span><span class="p">,</span> <span class="n">ParamInfo</span><span class="p">,</span> <span class="n">computed_context</span><span class="p">,</span> <span class="n">ContextRef</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4"></a>
@@ -961,137 +1075,218 @@
 </span><span id="__span-5-39"><a id="__codelineno-5-39" name="__codelineno-5-39"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get list of all paper titles for reference&quot;&quot;&quot;</span>
 </span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">paper</span><span class="o">.</span><span class="n">title</span> <span class="k">for</span> <span class="n">paper</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">papers</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current_topic</span><span class="p">]]</span>
 </span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41"></a>
-</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Search the Arxiv for relevant papers&quot;</span><span class="p">)</span>
-</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span>
-</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45"></a>        <span class="n">terms</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Terms you think are relevant to the user&#39;s query. Be creative&quot;</span><span class="p">)</span>
-</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Searching terms: </span><span class="si">{</span><span class="n">terms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48"></a>        <span class="n">found</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49"></a>        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">terms</span><span class="p">:</span>
-</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50"></a>            <span class="n">results</span> <span class="o">=</span> <span class="n">search_arxiv</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
-</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51"></a>            <span class="n">found</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
-</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52"></a>        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">found</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53"></a>
-</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Add a new paper to the research collection&quot;</span><span class="p">)</span>
-</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">add_paper</span><span class="p">(</span>
-</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57"></a>        <span class="n">paper_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;ID of the paper from search results&quot;</span><span class="p">),</span>
-</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58"></a>        <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span>
-</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59"></a>            <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60"></a>            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Research topic/area&quot;</span><span class="p">,</span>
-</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61"></a>            <span class="n">values</span><span class="o">=</span><span class="n">ContextRef</span><span class="p">(</span><span class="s2">&quot;available_topics&quot;</span><span class="p">)</span>  <span class="c1"># Dynamic options!</span>
-</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62"></a>        <span class="p">)</span>
-</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding </span><span class="si">{</span><span class="n">paper_id</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65"></a>        <span class="n">paper</span> <span class="o">=</span> <span class="n">get_paper</span><span class="p">(</span><span class="n">paper_id</span><span class="p">)</span>
-</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">papers</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">paper</span><span class="p">)</span>
-</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Added paper &#39;</span><span class="si">{</span><span class="n">paper</span><span class="o">.</span><span class="n">title</span><span class="si">}</span><span class="s2">&#39; by </span><span class="si">{</span><span class="n">paper</span><span class="o">.</span><span class="n">authors</span><span class="si">}</span><span class="s2"> to your collection under topic &#39;</span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
-</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68"></a>
-</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Read the entire content of a paper&quot;</span><span class="p">)</span>
-</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read_paper</span><span class="p">(</span>
-</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-5-72"><a id="__codelineno-5-72" name="__codelineno-5-72"></a>        <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span>
-</span><span id="__span-5-73"><a id="__codelineno-5-73" name="__codelineno-5-73"></a>            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-5-74"><a id="__codelineno-5-74" name="__codelineno-5-74"></a>            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Exact title of the paper to get details for&quot;</span><span class="p">,</span>
-</span><span id="__span-5-75"><a id="__codelineno-5-75" name="__codelineno-5-75"></a>            <span class="n">values</span><span class="o">=</span><span class="n">ContextRef</span><span class="p">(</span><span class="s2">&quot;paper_titles&quot;</span><span class="p">)</span>  <span class="c1"># Only allow existing paper titles!</span>
-</span><span id="__span-5-76"><a id="__codelineno-5-76" name="__codelineno-5-76"></a>        <span class="p">)</span>
-</span><span id="__span-5-77"><a id="__codelineno-5-77" name="__codelineno-5-77"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-5-78"><a id="__codelineno-5-78" name="__codelineno-5-78"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reading </span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-5-79"><a id="__codelineno-5-79" name="__codelineno-5-79"></a>        <span class="n">current_topic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">current_topic</span>
-</span><span id="__span-5-80"><a id="__codelineno-5-80" name="__codelineno-5-80"></a>        <span class="k">for</span> <span class="n">paper</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">papers</span><span class="p">[</span><span class="n">current_topic</span><span class="p">]:</span>
-</span><span id="__span-5-81"><a id="__codelineno-5-81" name="__codelineno-5-81"></a>            <span class="k">if</span> <span class="n">title</span> <span class="ow">in</span> <span class="n">paper</span><span class="o">.</span><span class="n">title</span><span class="p">:</span>
-</span><span id="__span-5-82"><a id="__codelineno-5-82" name="__codelineno-5-82"></a>                <span class="k">return</span> <span class="n">read_paper</span><span class="p">(</span><span class="n">paper</span><span class="p">)</span>
-</span><span id="__span-5-83"><a id="__codelineno-5-83" name="__codelineno-5-83"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Paper &#39;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&#39; not found in collection.&quot;</span>
-</span><span id="__span-5-84"><a id="__codelineno-5-84" name="__codelineno-5-84"></a>
-</span><span id="__span-5-85"><a id="__codelineno-5-85" name="__codelineno-5-85"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Update research focus topic, call this whenever you feel the subject has changed. Always call this before other tools if the subject has changed&quot;</span><span class="p">)</span>
-</span><span id="__span-5-86"><a id="__codelineno-5-86" name="__codelineno-5-86"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">set_focus_topic</span><span class="p">(</span>
-</span><span id="__span-5-87"><a id="__codelineno-5-87" name="__codelineno-5-87"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-5-88"><a id="__codelineno-5-88" name="__codelineno-5-88"></a>        <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span>
-</span><span id="__span-5-89"><a id="__codelineno-5-89" name="__codelineno-5-89"></a>            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-5-90"><a id="__codelineno-5-90" name="__codelineno-5-90"></a>            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;New research focus topic&quot;</span><span class="p">,</span>
-</span><span id="__span-5-91"><a id="__codelineno-5-91" name="__codelineno-5-91"></a>        <span class="p">)</span>
-</span><span id="__span-5-92"><a id="__codelineno-5-92" name="__codelineno-5-92"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-5-93"><a id="__codelineno-5-93" name="__codelineno-5-93"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New focus: </span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-5-94"><a id="__codelineno-5-94" name="__codelineno-5-94"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">current_topic</span> <span class="o">=</span> <span class="n">topic</span>
-</span><span id="__span-5-95"><a id="__codelineno-5-95" name="__codelineno-5-95"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Research focus updated to: </span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42"></a>    <span class="nd">@computed_context</span>
+</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">paper_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get list of all paper titles for reference&quot;&quot;&quot;</span>
+</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">paper</span><span class="o">.</span><span class="n">get_short_id</span><span class="p">()</span> <span class="k">for</span> <span class="n">paper</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">papers</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current_topic</span><span class="p">]]</span>
+</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46"></a>
+</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47"></a>
+</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Search the Arxiv for relevant papers&quot;</span><span class="p">)</span>
+</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span>
+</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50"></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51"></a>        <span class="n">terms</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Terms you think are relevant to the user&#39;s query. Be creative&quot;</span><span class="p">)</span>
+</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Searching terms: </span><span class="si">{</span><span class="n">terms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54"></a>        <span class="n">found</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55"></a>        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">terms</span><span class="p">:</span>
+</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56"></a>            <span class="n">results</span> <span class="o">=</span> <span class="n">search_arxiv</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
+</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57"></a>            <span class="n">found</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58"></a>        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">found</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59"></a>
+</span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Add a new paper to the research collection&quot;</span><span class="p">)</span>
+</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">add_paper</span><span class="p">(</span>
+</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62"></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63"></a>        <span class="n">paper_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span>
+</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64"></a>            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65"></a>            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;ID of the paper from search results&quot;</span><span class="p">,</span>
+</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66"></a>            <span class="n">values</span><span class="o">=</span><span class="n">ContextRef</span><span class="p">(</span><span class="s2">&quot;paper_ids&quot;</span><span class="p">)</span>
+</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67"></a>        <span class="p">),</span>
+</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68"></a>        <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span>
+</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69"></a>            <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70"></a>            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Research topic/area&quot;</span><span class="p">,</span>
+</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71"></a>            <span class="n">values</span><span class="o">=</span><span class="n">ContextRef</span><span class="p">(</span><span class="s2">&quot;available_topics&quot;</span><span class="p">)</span>  <span class="c1"># Dynamic options!</span>
+</span><span id="__span-5-72"><a id="__codelineno-5-72" name="__codelineno-5-72"></a>        <span class="p">)</span>
+</span><span id="__span-5-73"><a id="__codelineno-5-73" name="__codelineno-5-73"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-5-74"><a id="__codelineno-5-74" name="__codelineno-5-74"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding </span><span class="si">{</span><span class="n">paper_id</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-75"><a id="__codelineno-5-75" name="__codelineno-5-75"></a>        <span class="n">paper</span> <span class="o">=</span> <span class="n">get_paper</span><span class="p">(</span><span class="n">paper_id</span><span class="p">)</span>
+</span><span id="__span-5-76"><a id="__codelineno-5-76" name="__codelineno-5-76"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">papers</span><span class="p">[</span><span class="n">topic</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">paper</span><span class="p">)</span>
+</span><span id="__span-5-77"><a id="__codelineno-5-77" name="__codelineno-5-77"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Added paper &#39;</span><span class="si">{</span><span class="n">paper</span><span class="o">.</span><span class="n">title</span><span class="si">}</span><span class="s2">&#39; by </span><span class="si">{</span><span class="n">paper</span><span class="o">.</span><span class="n">authors</span><span class="si">}</span><span class="s2"> to your collection under topic &#39;</span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+</span><span id="__span-5-78"><a id="__codelineno-5-78" name="__codelineno-5-78"></a>
+</span><span id="__span-5-79"><a id="__codelineno-5-79" name="__codelineno-5-79"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Read the entire content of a paper&quot;</span><span class="p">)</span>
+</span><span id="__span-5-80"><a id="__codelineno-5-80" name="__codelineno-5-80"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read_paper</span><span class="p">(</span>
+</span><span id="__span-5-81"><a id="__codelineno-5-81" name="__codelineno-5-81"></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-5-82"><a id="__codelineno-5-82" name="__codelineno-5-82"></a>        <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span>
+</span><span id="__span-5-83"><a id="__codelineno-5-83" name="__codelineno-5-83"></a>            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-5-84"><a id="__codelineno-5-84" name="__codelineno-5-84"></a>            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Exact title of the paper to get details for&quot;</span><span class="p">,</span>
+</span><span id="__span-5-85"><a id="__codelineno-5-85" name="__codelineno-5-85"></a>            <span class="n">values</span><span class="o">=</span><span class="n">ContextRef</span><span class="p">(</span><span class="s2">&quot;paper_titles&quot;</span><span class="p">)</span>  <span class="c1"># Only allow existing paper titles!</span>
+</span><span id="__span-5-86"><a id="__codelineno-5-86" name="__codelineno-5-86"></a>        <span class="p">)</span>
+</span><span id="__span-5-87"><a id="__codelineno-5-87" name="__codelineno-5-87"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-5-88"><a id="__codelineno-5-88" name="__codelineno-5-88"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reading </span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-89"><a id="__codelineno-5-89" name="__codelineno-5-89"></a>        <span class="n">current_topic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">current_topic</span>
+</span><span id="__span-5-90"><a id="__codelineno-5-90" name="__codelineno-5-90"></a>        <span class="k">for</span> <span class="n">paper</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">papers</span><span class="p">[</span><span class="n">current_topic</span><span class="p">]:</span>
+</span><span id="__span-5-91"><a id="__codelineno-5-91" name="__codelineno-5-91"></a>            <span class="k">if</span> <span class="n">title</span> <span class="ow">in</span> <span class="n">paper</span><span class="o">.</span><span class="n">title</span><span class="p">:</span>
+</span><span id="__span-5-92"><a id="__codelineno-5-92" name="__codelineno-5-92"></a>                <span class="k">return</span> <span class="n">read_paper</span><span class="p">(</span><span class="n">paper</span><span class="p">)</span>
+</span><span id="__span-5-93"><a id="__codelineno-5-93" name="__codelineno-5-93"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Paper &#39;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&#39; not found in collection.&quot;</span>
+</span><span id="__span-5-94"><a id="__codelineno-5-94" name="__codelineno-5-94"></a>
+</span><span id="__span-5-95"><a id="__codelineno-5-95" name="__codelineno-5-95"></a>    <span class="nd">@tool</span><span class="p">(</span><span class="s2">&quot;Update research focus topic, call this whenever you feel the subject has changed. Always call this before other tools if the subject has changed&quot;</span><span class="p">)</span>
+</span><span id="__span-5-96"><a id="__codelineno-5-96" name="__codelineno-5-96"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">set_focus_topic</span><span class="p">(</span>
+</span><span id="__span-5-97"><a id="__codelineno-5-97" name="__codelineno-5-97"></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-5-98"><a id="__codelineno-5-98" name="__codelineno-5-98"></a>        <span class="n">topic</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">ParamInfo</span><span class="p">(</span>
+</span><span id="__span-5-99"><a id="__codelineno-5-99" name="__codelineno-5-99"></a>            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-5-100"><a id="__codelineno-5-100" name="__codelineno-5-100"></a>            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;New research focus topic&quot;</span><span class="p">,</span>
+</span><span id="__span-5-101"><a id="__codelineno-5-101" name="__codelineno-5-101"></a>        <span class="p">)</span>
+</span><span id="__span-5-102"><a id="__codelineno-5-102" name="__codelineno-5-102"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-5-103"><a id="__codelineno-5-103" name="__codelineno-5-103"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New focus: </span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-104"><a id="__codelineno-5-104" name="__codelineno-5-104"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">current_topic</span> <span class="o">=</span> <span class="n">topic</span>
+</span><span id="__span-5-105"><a id="__codelineno-5-105" name="__codelineno-5-105"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Research focus updated to: </span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">&quot;</span>
 </span></code></pre></div></td></tr></table></div>
 <p>Now our tools are much smarter! The <code>ContextRef</code> creates dynamic constraints:
 - When adding papers, the <code>topic</code> parameter will only suggest topics that already exist in our collection
 - When getting paper details, the agent can only choose from actual paper titles
 - The available options update automatically as we add more papers</p>
-<h2 id="step-6-putting-it-all-together">Step 6: Putting It All Together</h2>
-<p>Let's see our complete research assistant in action:</p>
-<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-6-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-6-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-6-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-6-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-6-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-6-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-6-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-6-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-6-10">10</a></span>
-<span class="normal"><a href="#__codelineno-6-11">11</a></span>
-<span class="normal"><a href="#__codelineno-6-12">12</a></span>
-<span class="normal"><a href="#__codelineno-6-13">13</a></span>
-<span class="normal"><a href="#__codelineno-6-14">14</a></span>
-<span class="normal"><a href="#__codelineno-6-15">15</a></span>
-<span class="normal"><a href="#__codelineno-6-16">16</a></span>
-<span class="normal"><a href="#__codelineno-6-17">17</a></span>
-<span class="normal"><a href="#__codelineno-6-18">18</a></span>
-<span class="normal"><a href="#__codelineno-6-19">19</a></span>
-<span class="normal"><a href="#__codelineno-6-20">20</a></span>
-<span class="normal"><a href="#__codelineno-6-21">21</a></span>
-<span class="normal"><a href="#__codelineno-6-22">22</a></span>
-<span class="normal"><a href="#__codelineno-6-23">23</a></span>
-<span class="normal"><a href="#__codelineno-6-24">24</a></span>
-<span class="normal"><a href="#__codelineno-6-25">25</a></span>
-<span class="normal"><a href="#__codelineno-6-26">26</a></span>
-<span class="normal"><a href="#__codelineno-6-27">27</a></span>
-<span class="normal"><a href="#__codelineno-6-28">28</a></span>
-<span class="normal"><a href="#__codelineno-6-29">29</a></span>
-<span class="normal"><a href="#__codelineno-6-30">30</a></span>
-<span class="normal"><a href="#__codelineno-6-31">31</a></span>
-<span class="normal"><a href="#__codelineno-6-32">32</a></span>
-<span class="normal"><a href="#__codelineno-6-33">33</a></span>
-<span class="normal"><a href="#__codelineno-6-34">34</a></span>
-<span class="normal"><a href="#__codelineno-6-35">35</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="c1"># Start with an empty collection</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ResearchAgent</span><span class="p">(</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o&quot;</span><span class="p">,</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a>    <span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;your-openai-api-key&quot;</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a><span class="p">)</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7"></a><span class="c1"># Add some papers</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9"></a><span class="s1">Add this paper: &quot;Attention Is All You Need&quot; by Vaswani et al., 2017.</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10"></a><span class="s1">This paper introduced the Transformer architecture which revolutionized NLP.</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11"></a><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12"></a>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14"></a><span class="s1">Add &quot;BERT: Pre-training of Deep Bidirectional Transformers&quot; by Devlin et al., 2018.</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15"></a><span class="s1">BERT showed how to effectively pre-train language models for downstream tasks.</span>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16"></a><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17"></a>
-</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
-</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19"></a><span class="s1">Add &quot;Vision Transformer (ViT)&quot; by Dosovitskiy et al., 2020.</span>
-</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20"></a><span class="s1">This paper applied transformers directly to image classification.</span>
-</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21"></a><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
-</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22"></a>
-</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23"></a><span class="c1"># Now the agent has intelligent constraints</span>
-</span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24"></a><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Can you show me details about the Vision Transformer paper?&quot;</span><span class="p">)</span>
-</span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Response:&quot;</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>
-</span><span id="__span-6-26"><a id="__codelineno-6-26" name="__codelineno-6-26"></a>
-</span><span id="__span-6-27"><a id="__codelineno-6-27" name="__codelineno-6-27"></a><span class="c1"># Change focus</span>
-</span><span id="__span-6-28"><a id="__codelineno-6-28" name="__codelineno-6-28"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Set my research focus to Computer Vision&quot;</span><span class="p">)</span>
-</span><span id="__span-6-29"><a id="__codelineno-6-29" name="__codelineno-6-29"></a>
-</span><span id="__span-6-30"><a id="__codelineno-6-30" name="__codelineno-6-30"></a><span class="c1"># Ask for analysis</span>
-</span><span id="__span-6-31"><a id="__codelineno-6-31" name="__codelineno-6-31"></a><span class="n">final_response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-</span><span id="__span-6-32"><a id="__codelineno-6-32" name="__codelineno-6-32"></a>    <span class="s2">&quot;What are the key connections between the papers in my collection? &quot;</span>
-</span><span id="__span-6-33"><a id="__codelineno-6-33" name="__codelineno-6-33"></a>    <span class="s2">&quot;How did transformers evolve from NLP to computer vision?&quot;</span>
-</span><span id="__span-6-34"><a id="__codelineno-6-34" name="__codelineno-6-34"></a><span class="p">)</span>
-</span><span id="__span-6-35"><a id="__codelineno-6-35" name="__codelineno-6-35"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Analysis:&quot;</span><span class="p">,</span> <span class="n">final_response</span><span class="p">)</span>
+<h2 id="step-6-lets-run-it">Step 6: Let's run it!</h2>
+<p>First, we have to create our agent.</p>
+<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1">1</a></span>
+<span class="normal"><a href="#__codelineno-6-2">2</a></span>
+<span class="normal"><a href="#__codelineno-6-3">3</a></span>
+<span class="normal"><a href="#__codelineno-6-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">ResearchAgent</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;gpt-4o&quot;</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a>    <span class="n">api_key</span><span class="o">=</span><span class="n">API_KEY</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
+<p>Now lets run a couple messages through to see if it is working?</p>
+<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1">1</a></span>
+<span class="normal"><a href="#__codelineno-7-2">2</a></span>
+<span class="normal"><a href="#__codelineno-7-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a><span class="s1">Im trying to find a link between ai usage and climate change</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3"></a><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>New focus: AI and Climate Change
+</span></code></pre></div>
+<p>!!! note "Response"
+Let's explore research papers linking AI usage and climate change. I'll look for recent studies on this topic. Please hold on for a moment.Here are some research areas and findings regarding the connection between AI usage and climate change:</p>
+<ol>
+<li><strong>AI in Climate Modeling:</strong></li>
+<li>
+<p>AI helps improve climate models by enhancing predictions of weather patterns, temperature changes, and extreme events like hurricanes. Machine learning algorithms can analyze vast datasets to improve climate forecasts.</p>
+</li>
+<li>
+<p><strong>Monitoring and Reducing Emissions:</strong></p>
+</li>
+<li>
+<p>AI aids in monitoring industrial emissions and optimizing energy consumption in various sectors, potentially reducing overall carbon footprints. Smart grids and AI-enhanced energy management systems help in efficient resource usage.</p>
+</li>
+<li>
+<p><strong>Environmental Data Analysis:</strong></p>
+</li>
+<li>
+<p>AI processes environmental data from satellites and sensors to monitor deforestation, glacial melting, and other climate-related changes. This helps in providing timely insights for environmental protection efforts.</p>
+</li>
+<li>
+<p><strong>Sustainable Practices:</strong></p>
+</li>
+<li>
+<p>Machine learning supports the development of sustainable agricultural practices by analyzing crop yield data and predicting suitable planting strategies, reducing waste and resource usage.</p>
+</li>
+<li>
+<p><strong>AI's Carbon Footprint:</strong></p>
+</li>
+<li>Training AI models is energy-intensive, contributing to carbon emissions. Research is exploring more efficient algorithms and hardware to mitigate these effects.</li>
+</ol>
+<p>Would you like to dive deeper into any specific area or look for more detailed research papers?</p>
+<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1">1</a></span>
+<span class="normal"><a href="#__codelineno-9-2">2</a></span>
+<span class="normal"><a href="#__codelineno-9-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2"></a><span class="s1">Ya! Find some papers around AI&#39;s Carbon Footprint</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3"></a><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Searching terms: [&#39;AI carbon footprint&#39;, &#39;energy consumption AI&#39;, &#39;AI environmental impact&#39;]
+</span></code></pre></div>
+<p>Here are some papers related to AI's carbon footprint:</p>
+<ol>
+<li>
+<p><strong>Integrating AI's Carbon Footprint into Risk Management Frameworks: Strategies and Tools for Sustainable Compliance in Banking Sector</strong><br />
+<em>Author: Nataliya Tkachenko</em><br />
+   This paper explores integrating AI’s carbon footprint into risk management in the banking sector, highlighting advancements like energy-efficient models and green cloud computing.<br />
+<a href="https://arxiv.org/abs/2410.01818v1">Read more</a></p>
+</li>
+<li>
+<p><strong>Carbon-Aware End-to-End Data Movement</strong><br />
+<em>Authors: Jacob Goldverg, Hasibul Jamil, Elvis Rodriguez, Tevfik Kosar</em><br />
+   Investigates carbon emissions from data movement in cloud computing and proposes optimization strategies for reducing energy consumption.<br />
+<a href="https://arxiv.org/abs/2406.09650v1">Read more</a></p>
+</li>
+<li>
+<p><strong>Making AI Less "Thirsty": Uncovering and Addressing the Secret Water Footprint of AI Models</strong><br />
+<em>Authors: Pengfei Li, Jianyi Yang, Mohammad A. Islam, Shaolei Ren</em><br />
+   Tackles AI's overlooked water consumption, highlighting the necessity to address both water and carbon footprints for sustainable AI.<br />
+<a href="https://arxiv.org/abs/2304.03271v5">Read more</a></p>
+</li>
+<li>
+<p><strong>Towards Environmentally Equitable AI via Geographical Load Balancing</strong><br />
+<em>Authors: Pengfei Li, Jianyi Yang, Adam Wierman, Shaolei Ren</em><br />
+   Proposes equity-aware geographical load balancing to address regional disparities in AI's environmental impact.<br />
+<a href="https://arxiv.org/abs/2307.05494v2">Read more</a></p>
+</li>
+<li>
+<p><strong>CAFE: Carbon-Aware Federated Learning in Geographically Distributed Data Centers</strong><br />
+<em>Authors: Jieming Bian, Lei Wang, Shaolei Ren, Jie Xu</em><br />
+   Introduces a framework for carbon-aware federated learning to optimize training across distributed data centers while considering carbon intensity.<br />
+<a href="https://arxiv.org/abs/2311.03615v2">Read more</a></p>
+</li>
+</ol>
+<p>If you want to explore any specific paper in detail, let me know!</p>
+<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1">1</a></span>
+<span class="normal"><a href="#__codelineno-11-2">2</a></span>
+<span class="normal"><a href="#__codelineno-11-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2"></a><span class="s1">Add the papers that you think are the most relevant to linking AI and carbon</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3"></a><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>Adding 2410.01818v1 to AI and Climate Change
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>Adding 2406.09650v1 to AI and Climate Change
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>Adding 2304.03271v5 to AI and Climate Change
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>Adding 2407.05176v1 to AI and Climate Change
+</span></code></pre></div>
+<p>I've added the most relevant papers connecting AI and carbon emissions to your collection. If you need further assistance or wish to explore more papers, feel free to ask!</p>
+<div class="language-py highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-13-1">1</a></span>
+<span class="normal"><a href="#__codelineno-13-2">2</a></span>
+<span class="normal"><a href="#__codelineno-13-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2"></a><span class="s1">Analyze these papers and tell me what you learned with citiations</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3"></a><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>Reading Integrating AI&#39;s Carbon Footprint into Risk Management Frameworks: Strategies and Tools for Sustainable Compliance in Banking Sector
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>Reading Carbon-Aware End-to-End Data Movement
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>Reading Making AI Less &quot;Thirsty&quot;: Uncovering and Addressing the Secret Water Footprint of AI Models
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>Reading Towards Socially and Environmentally Responsible AI
+</span></code></pre></div>
+<p>Here's a summary and analysis of the selected papers linking AI and carbon:</p>
+<h3 id="1-integrating-ais-carbon-footprint-into-risk-management-frameworks-tkachenko-2024">1. <strong>Integrating AI's Carbon Footprint into Risk Management Frameworks</strong> (Tkachenko, 2024)</h3>
+<ul>
+<li><strong>Overview:</strong> This paper discusses how AI's carbon footprint can be integrated into the banking sector's risk management frameworks (RMFs). It highlights the regulatory requirements driving financial institutions to consider environmental impacts within AI governance.</li>
+<li><strong>Key Insights:</strong> AI models in banking require significant energy, contributing to carbon emissions. Efficient AI models and green cloud computing practices are recommended strategies to mitigate these impacts.</li>
+<li><strong>Importance:</strong> Integrating AI's carbon footprint into RMFs can help banks comply with sustainability regulations and demonstrate environmental responsibility.</li>
+</ul>
+<h3 id="2-carbon-aware-end-to-end-data-movement-goldverg-et-al-2024">2. <strong>Carbon-Aware End-to-End Data Movement</strong> (Goldverg et al., 2024)</h3>
+<ul>
+<li><strong>Overview:</strong> This study focuses on measuring and optimizing the carbon footprint of data movement across networks, a significant contributor to AI-related carbon emissions.</li>
+<li><strong>Key Insights:</strong> The paper introduces carbon-aware scheduling strategies that optimize data transfer times and routes to reduce carbon emissions. It highlights the need for detailed monitoring of network paths and end systems.</li>
+<li><strong>Importance:</strong> Addressing the carbon footprint in data movement is crucial for reducing the total carbon emissions associated with AI workloads.</li>
+</ul>
+<h3 id="3-making-ai-less-thirsty-li-et-al-2025">3. <strong>Making AI Less "Thirsty"</strong> (Li et al., 2025)</h3>
+<ul>
+<li><strong>Overview:</strong> This paper uncovers the water footprint of AI models, emphasizing that AI's environmental impact extends beyond carbon emissions to significant water consumption, particularly in data center cooling.</li>
+<li><strong>Key Insights:</strong> The water consumption associated with AI could become a major ecological challenge. The study presents methodologies to estimate and reduce AI's water footprint.</li>
+<li><strong>Importance:</strong> Highlighting AI's water usage as a crucial aspect of its environmental footprint encourages more holistic sustainability strategies.</li>
+</ul>
+<h3 id="4-towards-socially-and-environmentally-responsible-ai-li-et-al-2024">4. <strong>Towards Socially and Environmentally Responsible AI</strong> (Li et al., 2024)</h3>
+<ul>
+<li><strong>Overview:</strong> The paper proposes equitable geographical load balancing (GLB) to address AI's social and environmental inequalities, ensuring fair distribution of AI's benefits and burdens across regions.</li>
+<li><strong>Key Insights:</strong> The disparities in AI's resource allocation can lead to environmental and social inequity. Implementing equity-aware GLB can balance AI's negative impacts more fairly across regions.</li>
+<li><strong>Importance:</strong> By promoting social and environmental equity, this approach aims to foster responsible AI deployment.</li>
+</ul>
+<h3 id="conclusion">Conclusion</h3>
+<p>The research underscores the multifaceted environmental impacts of AI, including carbon and water footprints, and stresses the importance of equitable resource distribution. The integration of these concerns into frameworks such as RMFs in banking and carbon-aware scheduling in data movement are vital steps towards sustainable AI practices.</p>
+<p>If you want further analysis or details on specific papers, feel free to let me know!</p>
 <h2 id="what-makes-this-powerful">What Makes This Powerful</h2>
 <p>Our research assistant demonstrates all of PyAgentic's key strengths:</p>
 <ol>
