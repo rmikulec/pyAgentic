@@ -1,9 +1,17 @@
 [project]
-name = "pyagentic"
-version = "0.1.0"
-description = "Add your description here"
+name = "pyagentic-core"
+version = "1.0.0-a.5"
+description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
 requires-python = ">=3.13"
+authors = [ { name="Ryan Mikulec", email="rmikulec.dev@gmail.com" } ]
+license = { text = "MIT" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
 dependencies = [
     "colorlog>=6.9.0",
     "ipykernel>=6.29.5",
@@ -17,7 +25,46 @@ dev = [
     "deepdiff>=8.5.0",
     "flake8>=7.3.0",
     "pytest>=8.4.1",
+    "python-semantic-release>=10.3.1",
 ]
+
 demo = [
     "python-chess>=1.999",
 ]
+
+
+[tool.semantic_release]
+tag_format = "{version}"
+patch_without_tag = true
+version_source = "commit"           # derive versions from git tags
+upload_to_pypi = true            # turn on automatic PyPI upload
+version_toml = ["pyproject.toml:project.version"]
+commit_parser = "conventional"
+build_command = """
+    python -m pip install --upgrade pip
+    pip install uv
+    uv sync --group dev
+
+    uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
+    uv build
+"""
+
+[tool.semantic_release.commit_parser_options]
+minor_tags = ["feat"]
+patch_tags = ["bug", "fix"]
+parse_squash_commits = true
+ignore_merge_commits = true
+
+[tool.semantic_release.branches.feat_bug_fix]
+match            = "^(feat|bug|fix)/.*"
+prerelease       = true
+prerelease_token = "a"
+
+[tool.semantic_release.branches.main]
+match      = "^(main|master)$"
+prerelease = false
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyagentic*"]
