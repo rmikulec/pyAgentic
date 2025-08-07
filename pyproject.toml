@@ -15,7 +15,7 @@ classifiers = [
 dependencies = [
     "colorlog>=6.9.0",
     "ipykernel>=6.29.5",
-    "openai>=1.93.2",
+    "openai>=1.99.3",
     "typeguard>=4.4.4",
 ]
 
