@@ -77,7 +77,7 @@ class ToolResponse(BaseModel):
     @classmethod
     def from_tool_def(cls, tool_def: _ToolDefinition) -> Type[Self]:
         """
-        Creates a subclass of `ToolCalled`, using the Tool Definition to make the kwargs
+        Creates a subclass of `ToolResponse`, using the Tool Definition to make the kwargs
             accessible through pydantic
         """
         fields = {}
@@ -97,7 +97,7 @@ class ToolResponse(BaseModel):
             else:
                 raise Exception(f"Unsupported type: {param_type}")
 
-        return create_model(f"ToolCalled[{tool_def.name}]", __base__=cls, **fields)
+        return create_model(f"ToolResponse[{tool_def.name}]", __base__=cls, **fields)
 
 
 class AgentResponse(BaseModel):
