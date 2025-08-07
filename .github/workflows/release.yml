@@ -4,7 +4,6 @@ on:
   push:
     # stable on main, beta on beta branch, and any v*.*.* tag
     branches: [ "*" ]
-    tags:      [ '*.*.*' ]
 
 jobs:
   semantic-release:

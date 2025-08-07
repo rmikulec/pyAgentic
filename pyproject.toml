@@ -34,6 +34,11 @@ version_source = "commit"           # derive versions from git tags
 upload_to_pypi = true            # turn on automatic PyPI upload
 version_toml = ["pyproject.toml:project.version"]
 commit_parser = "conventional"
+build_command = """
+    uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
+    uv build
+"""
 
 [tool.semantic_release.commit_parser_options]
 minor_tags = ["feat"]
