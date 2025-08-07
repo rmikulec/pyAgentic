@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## v1.2.0-a.1 (2025-08-07)
+
+
+## v1.1.0-a.2 (2025-08-07)
+
+
+## v1.1.0-a.1 (2025-08-07)
+
+### Features
+
+- Adding a getting started page to the docs
+  ([`577b794`](https://github.com/rmikulec/pyAgentic/commit/577b794b6e8eff526de235d2adfc7a0b67b9fb10))
 ## v1.1.0 (2025-08-07)
 
 
