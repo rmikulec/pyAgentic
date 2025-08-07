@@ -54,7 +54,10 @@ class _ToolDefinition:
                 if issubclass(listed_type, Param):
                     params[name] = {"type": "array", "items": listed_type.to_openai(context)}
                 else:
-                    params[name] = {"type": _TYPE_MAP.get(listed_type, "string")}
+                    params[name] = {
+                        "type": "array",
+                        "items": {"type": _TYPE_MAP.get(listed_type, "string")},
+                    }
             elif issubclass(type_, Param):
                 params[name] = type_.to_openai(context)
             else:
