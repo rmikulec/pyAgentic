@@ -3,11 +3,11 @@
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Tests](https://github.com/pyagentic/pyagentic/workflows/Tests/badge.svg)](https://github.com/pyagentic/pyagentic/actions)
+[![Tests](https://github.com/rmikulec/pyagentic/workflows/Tests/badge.svg?branch=main)](https://github.com/rmikulec/pyAgentic/actions/workflows/testing.yml?query=branch%3Amain)
 
 A declarative framework for building AI agents with OpenAI integration. PyAgentic provides a clean, type-safe way to create intelligent agents using Python's metaclass system and modern async patterns.
 
-## ✨ Features
+##  Features
 
 - **Declarative Agent Definition** - Define agents using simple class-based syntax
 - **Type Safety** - Full typing support with Pydantic integration
@@ -22,7 +22,7 @@ A declarative framework for building AI agents with OpenAI integration. PyAgenti
 ### Installation
 
 ```bash
-pip install pyagentic
+pip install pyagentic-core
 ```
 
 ### Basic Example
@@ -53,14 +53,8 @@ response = await agent.run("What's the weather like in New York?")
 print(response)
 ```
 
-## 📚 Documentation
 
-- **[User Guide](docs/user-guide/)** - Complete guide to using PyAgentic
-- **[API Reference](docs/api-reference/)** - Detailed API documentation
-- **[Examples](examples/)** - Real-world examples and use cases
-- **[Contributing](docs/contributor-guide/contributing.md)** - How to contribute to PyAgentic
-
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 pyagentic/
@@ -78,37 +72,23 @@ pyagentic/
 └── notebooks/           # Jupyter notebooks
 ```
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](docs/contributor-guide/contributing.md) for details.
+Contributions are welcome! Details coming soon.
 
 ### Development Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/pyagentic/pyagentic.git
-cd pyagentic
+# Install dependencies
+uv sync --group dev
 
-# Install in development mode
-make install-dev
+# Formatting
+uv run black -l99 pyagentic
 
-# Run tests
-make test
-
-# Format code
-make format
+# Linting
+uv run flake8 --max-line-length 99 pyagentic
 ```
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- OpenAI for their excellent API and models
-- The Python community for amazing tools and libraries
-- All contributors who help make this project better
-
----
-
-**Made with ❤️ by the PyAgentic Team**
