@@ -78,6 +78,12 @@ jobs:
           fi
 
           printf '%s\n' "Verified upstream branch has not changed, continuing with release..."
+      
+      - name: Setup | Install project dependencies & uv CLI
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv
+          uv sync --group dev
 
       - name: Action | Semantic Version Release
         id: release
