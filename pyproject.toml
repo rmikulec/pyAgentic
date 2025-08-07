@@ -16,8 +16,9 @@ dependencies = [
     "colorlog>=6.9.0",
     "dotenv>=0.9.9",
     "ipykernel>=6.29.5",
-    "openai>=1.93.2",
     "taskipy>=1.14.1",
+    "openai>=1.99.3",
+    "pydantic>=2.11.7",
     "typeguard>=4.4.4",
 ]
 
