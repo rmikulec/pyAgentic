@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, create_model
-from typing import Type, get_origin, get_args, Self, Union
+from typing import Any, Type, get_origin, get_args, Self, Union
 
 from openai.types.responses import Response
 
@@ -10,11 +10,23 @@ from pyagentic._base._params import Param
 PRIMITIVES = (bool, str, int, float, type(None))
 
 
-def is_primitive(cls):
-    return cls in PRIMITIVES
+def is_primitive(type_: Any) -> bool:
+    """
+    Helper function to check if a type is a python primitive
+    """
+    return type_ in PRIMITIVES
 
 
 def param_to_pydantic(ParamClass: Type[Param]) -> Type[BaseModel]:
+    """
+    Converts a pyagentic Param Class to a pydantic BaseModel
+
+    Args:
+        - ParamClass(Type[Param]): A pyagentic ParamClass, this is any class that extends Param
+
+    Returns:
+        - Type[BaseModel]: A pydantic BaseModel with the same fields as the pyagentic ParamClass
+    """
     fields = {}
 
     for attr_name, (attr_type, attr_info) in ParamClass.__attributes__.items():
@@ -51,6 +63,13 @@ def param_to_pydantic(ParamClass: Type[Param]) -> Type[BaseModel]:
 
 
 class ToolResponse(BaseModel):
+    """
+    Tool response class to capture both the call from openai and the result from pyagentic.
+
+    Use `from_tool_def` to create a subclass that has the tool params as fields of the pydantic
+        model.
+    """
+
     raw_kwargs: str
     call_depth: int
     output: str
@@ -82,6 +101,14 @@ class ToolResponse(BaseModel):
 
 
 class AgentResponse(BaseModel):
+    """
+    Agent response class that captures the final output from an pyagentic agent and the raw
+        response from openai.
+
+    Each Agent will have a unique, predetermined Response Model that can easily be integrated in
+        a fastapi app. This is done by calling `from_tool_defs`.
+    """
+
     response: Response
     final_output: str
 
@@ -89,7 +116,17 @@ class AgentResponse(BaseModel):
     def from_tool_defs(
         cls, agent_name: str, tool_response_models: list[Type[ToolResponse]]
     ) -> Type[Self]:
-        ToolResult = Union[tuple(tool_response_models)]
-        return create_model(
-            f"{agent_name}Response", __base__=cls, tool_responses=(list[ToolResult], ...)
-        )
+        """
+        Creates a subclass of `AgentResponse`, using Tool Definitions to create a predetermined
+            schema of what the response will look like.
+        """
+        if tool_response_models:
+            ToolResult = Union[tuple(tool_response_models)]
+            return create_model(
+                f"{agent_name}Response", __base__=cls, tool_responses=(list[ToolResult], ...)
+            )
+        else:
+            return create_model(
+                f"{agent_name}Response",
+                __base__=cls,
+            )
