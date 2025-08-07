@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-a.2 (2025-08-07)
+
+### Bug Fixes
+
+- Testing out auto-release
+  ([`0df5016`](https://github.com/rmikulec/pyAgentic/commit/0df5016c347d768a5c2c60e100eecc6f6d8bad57))
+
+
 ## v1.0.0-a.1 (2025-08-07)
 
 ### Bug Fixes
