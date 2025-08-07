@@ -1,0 +1,10 @@
+site_name: PyAgentic
+nav:
+  - Home: index.md
+  - API Reference:
+      - Modules: reference/modules.md
+theme:
+  name: material
+plugins:
+  - search
+  - mkdocstrings
