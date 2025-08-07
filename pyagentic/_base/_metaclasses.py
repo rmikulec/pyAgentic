@@ -6,6 +6,8 @@ from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedCont
 from pyagentic._base._context import _AgentContext, ContextItem, computed_context
 from pyagentic._base._tool import _ToolDefinition
 
+from pyagentic.models.response import AgentResponse, ToolResponse
+
 
 @dataclass_transform(field_specifiers=(ContextItem,))
 class AgentMeta(type):
@@ -146,6 +148,14 @@ class AgentMeta(type):
         cls.__annotations__ = mcs._extract_annotations(bases, namespace)
 
         cls.__context_attrs__ = mcs._extract_context_attrs(cls.__annotations__, namespace)
+
+        cls.__tool_response_models__ = {
+            tool_name: ToolResponse.from_tool_def(tool_def)
+            for tool_name, tool_def in cls.__tool_defs__.items()
+        }
+        cls.__response_model__ = AgentResponse.from_tool_defs(
+            cls.__name__, list(cls.__tool_response_models__.values())
+        )
 
         sig = mcs._build_init_signature(cls)
 

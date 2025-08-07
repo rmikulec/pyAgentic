@@ -1,12 +1,14 @@
 import inspect
 import json
 import openai
-from typing import Callable, Any, TypeVar, ClassVar
+from typing import Callable, Any, TypeVar, ClassVar, Type
 
 from pyagentic.logging import get_logger
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import ContextItem
 from pyagentic._base._metaclasses import AgentMeta
+
+from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
 logger = get_logger(__name__)
@@ -24,7 +26,7 @@ async def _safe_run(fn, *args, **kwargs):
 
 
 class Agent(metaclass=AgentMeta):
-    __abstract_base__ = True
+    __abstract_base__ = ClassVar[True]
     """
     Base agent class to be extended in order to define a new Agent
 
@@ -47,6 +49,8 @@ class Agent(metaclass=AgentMeta):
     __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
     __system_message__: ClassVar[str]
     __input_template__: ClassVar[str] = None
+    __response_model__: ClassVar[Type[AgentResponse]] = None
+    __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]
 
     # Base Attributes
     model: str
@@ -56,7 +60,7 @@ class Agent(metaclass=AgentMeta):
     def __post_init__(self):
         self.client: openai.AsyncOpenAI = openai.AsyncOpenAI(api_key=self.api_key)
 
-    async def _process_tool_call(self, tool_call) -> bool:
+    async def _process_tool_call(self, tool_call) -> ToolResponse:
         if tool_call.type != "function_call":
             return False
         self.context._messages.append(tool_call)
@@ -94,7 +98,10 @@ class Agent(metaclass=AgentMeta):
         self.context._messages.append(
             {"type": "function_call_output", "call_id": tool_call.call_id, "output": result}
         )
-        return True
+        ToolCalledModel = self.__tool_response_models__[tool_call.name]
+        return ToolCalledModel(
+            raw_kwargs=tool_call.arguments, call_depth=0, output=result, **compiled_args
+        )
 
     async def _build_tool_defs(self) -> list[dict]:
         tool_defs = []
@@ -160,13 +167,13 @@ class Agent(metaclass=AgentMeta):
             self.context._messages.extend(reasoning)
 
         # Dispatch any tool calls
-        made_calls = False
+        tool_responses = []
         for tool_call in tool_calls:
-            await self._process_tool_call(tool_call)
-            made_calls = True
+            tool_response = await self._process_tool_call(tool_call)
+            tool_responses.append(tool_response)
 
         # If tools ran, re-invoke LLM for natural reply
-        if made_calls:
+        if tool_responses:
             try:
                 response = await self.client.responses.create(
                     model=self.model,
@@ -191,4 +198,8 @@ class Agent(metaclass=AgentMeta):
         if self.emitter:
             await _safe_run(self.emitter, AiUpdate(status=Status.SUCCEDED, message=ai_message))
 
-        return ai_message
+        return self.__response_model__(
+            response=response,
+            final_output=ai_message,
+            tool_responses=tool_responses,
+        )

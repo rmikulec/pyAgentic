@@ -11,6 +11,15 @@
 
 - Adding a getting started page to the docs
   ([`577b794`](https://github.com/rmikulec/pyAgentic/commit/577b794b6e8eff526de235d2adfc7a0b67b9fb10))
+## v1.1.0 (2025-08-07)
+
+
+## v1.0.1-a.1 (2025-08-07)
+
+### Bug Fixes
+
+- Ensuring openai package is up-to-date
+  ([`a9653ea`](https://github.com/rmikulec/pyAgentic/commit/a9653eabd5b4fab573855c61add1336e5c11f268))
 
 
 ## v1.0.0 (2025-08-07)
