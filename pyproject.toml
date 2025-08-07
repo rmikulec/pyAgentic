@@ -41,6 +41,10 @@ upload_to_pypi = true            # turn on automatic PyPI upload
 version_toml = ["pyproject.toml:project.version"]
 commit_parser = "conventional"
 build_command = """
+    python -m pip install --upgrade pip
+    pip install uv
+    uv sync --group dev
+
     uv lock --upgrade-package "$PACKAGE_NAME"
     git add uv.lock
     uv build
