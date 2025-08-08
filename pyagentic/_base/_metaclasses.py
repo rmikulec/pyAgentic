@@ -26,6 +26,8 @@ class AgentMeta(type):
       - Dynamically injects an __init__ signature based on class __annotations__
     """
 
+    __BaseAgent__ = None
+
     @staticmethod
     def _extract_tool_defs(namespace) -> dict[str, _ToolDefinition]:
         """
@@ -178,27 +180,55 @@ class AgentMeta(type):
         return __init__
 
     def __new__(mcs, name, bases, namespace, **kwargs):
-        # Create a new Agent class
+        """
+        This metaclass is attached to the Agent base class, so that when a new subclass of Agent
+            is created, then this class will automatically set up class variables that define
+            the functionality of the agent.
+
+            - __tool_defs__: dictionary holding all tool defintions registered by @tool
+            - __context_attrs__: dictionary holding tuple of type and item for all attributes
+                that are either have a default of ContextItem or use @computed_context
+            - __tool_response_models__: dictionary holding pydantic response models for each tool
+            - __response_model__: The response model of the current agent that is being built
+        """
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
         # If it is a base Agent, then return
         if namespace.get("__abstract_base__", False):
+            mcs.__BaseAgent__ = cls
             return cls
+        cls.__abstract_base__ = False
         # Verify system message is set
         if "__system_message__" not in namespace:
             raise SystemMessageNotDeclared()
         # Attach tool definitions
-        cls.__tool_defs__ = mcs._extract_tool_defs(namespace)
+        cls.__tool_defs__ = {}
+        for base in bases:
+            if not base.__abstract_base__:
+                cls.__tool_defs__ |= base.__tool_defs__
+        cls.__tool_defs__ |= mcs._extract_tool_defs(namespace)
         # Attach new annotations
-        cls.__annotations__ = mcs._extract_annotations(bases, namespace)
+        cls.__annotations__ = {}
+        for base in bases:
+            if not base.__abstract_base__:
+                cls.__annotations__ |= base.__annotations__
+        cls.__annotations__ |= mcs._extract_annotations(bases, namespace)
         # Attach context attributes (ContextItems and computed_context)
-        cls.__context_attrs__ = mcs._extract_context_attrs(cls.__annotations__, namespace)
+        cls.__context_attrs__ = {}
+        for base in bases:
+            if not base.__abstract_base__:
+                cls.__context_attrs__ |= base.__context_attrs__
+        cls.__context_attrs__ |= mcs._extract_context_attrs(cls.__annotations__, namespace)
         # Create tool response models
         cls.__tool_response_models__ = {
             tool_name: ToolResponse.from_tool_def(tool_def)
             for tool_name, tool_def in cls.__tool_defs__.items()
         }
         # Attach linked agents
-        cls.__linked_agents__ = mcs._extract_linked_agents(cls.__annotations__, cls.__bases__[0])
+        cls.__linked_agents__ = {}
+        for base in bases:
+            if not base.__abstract_base__:
+                cls.__linked_agents__ |= base.__linked_agents__
+        cls.__linked_agents__ |= mcs._extract_linked_agents(cls.__annotations__, mcs.__BaseAgent__)
         # Create final Agent response model, using the tool response models
         tool_response_models = list(cls.__tool_response_models__.values())
         linked_agent_response_models = [
