@@ -9,7 +9,11 @@ from pyagentic._base._tool import _ToolDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
 
-from pyagentic._utils._typing import analyze_type, TypeCategory
+from pyagentic._utils._typing import analyze_type
+
+
+class Agent:
+    pass
 
 
 @dataclass_transform(field_specifiers=(ContextItem,))
@@ -153,7 +157,10 @@ class AgentMeta(type):
             for agent_name in self.__linked_agents__.keys():
                 agent_instance = kwargs.get(agent_name, None)
 
-                if not agent_instance:
+                # Not sure if there is a better way, but setting model = "validation"
+                #   bypasses checking agent in args. This is so the Validator is able to create
+                #   a dummy agent wihout having to worry about creating a chain of linked agents
+                if not agent_instance and kwargs["model"] != "validation":
                     raise AttributeError(f"Linked Agent {agent_name} not found")
                 compiled[agent_name] = agent_instance
 
@@ -202,11 +209,10 @@ class AgentMeta(type):
             tool_response_models=tool_response_models,
             linked_agents_response_models=linked_agent_response_models,
         )
-        _AgentConstructionValidator(cls).validate()
         # Build the new init
         sig = mcs._build_init_signature(cls)
         cls.__init__ = mcs._build_init(sig)
 
         # Validate agent
-
+        _AgentConstructionValidator(cls).validate()
         return cls
