@@ -2,8 +2,11 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import get_type_hints, Any, List, Dict, Type
 
+from typeguard import check_type, TypeCheckError
+
 from pyagentic._base._resolver import ContextualMixin, MaybeContext
 from pyagentic._base._context import _AgentContext
+from pyagentic._utils._typing import analyze_type, TypeCategory
 
 # simple mapping from Python types to JSON Schema/OpenAI types
 _TYPE_MAP: Dict[Type[Any], str] = {
@@ -83,29 +86,36 @@ class Param:
             TypeError: if a provided value does not match the annotated type,
                        or if unexpected fields are passed.
         """
-        cls = type(self)
-        hints = get_type_hints(cls)
+        for field_name, (field_type, field_info) in self.__attributes__.items():
+            type_info = analyze_type(field_type, self.__class__.__bases__[0])
+            value = kwargs.get(field_name, field_info.default)
 
-        # Assign annotated fields
-        for name, typ in hints.items():
-            if name in kwargs:
-                value = kwargs.pop(name)
-                # simple type check
-                if not isinstance(value, typ) and value is not None:
-                    raise TypeError(f"Field '{name}' expected {typ}, got {type(value)}")
-                setattr(self, name, value)
-            else:
-                # use class‐level default if given, else None
-                attr = getattr(cls, name, None)
-                if isinstance(attr, ParamInfo):
-                    default = attr.default
-                else:
-                    default = attr
-                setattr(self, name, default)
+            try:
+                check_type(value, field_type)
+            except TypeCheckError:
+                raise TypeError(f"Field '{field_name}' expected {field_type}, got {type(value)}")
 
-        if kwargs:
-            unexpected = ", ".join(kwargs)
-            raise TypeError(f"Unexpected fields for {cls.__name__}: {unexpected}")
+            match type_info.category:
+
+                case TypeCategory.PRIMITIVE:
+                    setattr(self, field_name, value)
+                case TypeCategory.LIST_PRIMITIVE:
+                    setattr(self, field_name, value)
+                case TypeCategory.SUBCLASS:
+                    value = field_type(**value) if type(value) == dict else value
+                    setattr(self, field_name, value)
+                case TypeCategory.LIST_SUBCLASS:
+                    listed_value = (
+                        [type_info.inner_type(**param_kwargs) for param_kwargs in value]
+                        if isinstance(value, list) and all(isinstance(v, dict) for v in value)
+                        else value
+                    )
+                    setattr(self, field_name, listed_value)
+
+        unexpected_args = [kwarg for kwarg in kwargs if kwarg not in self.__attributes__]
+        if unexpected_args:
+            unexpected = ", ".join(unexpected_args)
+            raise TypeError(f"Unexpected fields for {self.__class__.__name__}: {unexpected}")
 
     def __repr__(self):
         vals = ", ".join(f"{k}={v!r}" for k, v in self.dict().items())
