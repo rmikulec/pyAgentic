@@ -210,7 +210,4 @@ class ContextRef:
         val = context
         for part in self.path.split("."):
             val = getattr(val, part)
-            # if it’s wrapped in our Context helper, drill into .value
-            if hasattr(val, "value"):
-                val = val.value
         return val() if callable(val) else val
