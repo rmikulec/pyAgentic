@@ -1,9 +1,10 @@
 import inspect
 import json
 import openai
-from typing import Callable, Any, TypeVar, ClassVar, Type
+from typing import Callable, Any, TypeVar, ClassVar, Type, Self
 
 from pyagentic.logging import get_logger
+from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import ContextItem
 from pyagentic._base._metaclasses import AgentMeta
@@ -48,9 +49,11 @@ class Agent(metaclass=AgentMeta):
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
     __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
     __system_message__: ClassVar[str]
+    __description__: ClassVar[str]
     __input_template__: ClassVar[str] = None
     __response_model__: ClassVar[Type[AgentResponse]] = None
     __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]
+    __linked_agents__: ClassVar[dict[str, Type[Self]]]
 
     # Base Attributes
     model: str
@@ -60,9 +63,22 @@ class Agent(metaclass=AgentMeta):
     def __post_init__(self):
         self.client: openai.AsyncOpenAI = openai.AsyncOpenAI(api_key=self.api_key)
 
+    async def _process_agent_call(self, tool_call) -> AgentResponse:
+        logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
+        self.context._messages.append(tool_call)
+        try:
+            agent = getattr(self, tool_call.name)
+            kwargs = json.loads(tool_call.arguments)
+            response = await agent.run(**kwargs)
+            result = f"Agent {tool_call.name}: {response.final_output}"
+        except Exception as e:
+            result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
+        self.context._messages.append(
+            {"type": "function_call_output", "call_id": tool_call.call_id, "output": result}
+        )
+        return response
+
     async def _process_tool_call(self, tool_call) -> ToolResponse:
-        if tool_call.type != "function_call":
-            return False
         self.context._messages.append(tool_call)
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
@@ -98,8 +114,8 @@ class Agent(metaclass=AgentMeta):
         self.context._messages.append(
             {"type": "function_call_output", "call_id": tool_call.call_id, "output": result}
         )
-        ToolCalledModel = self.__tool_response_models__[tool_call.name]
-        return ToolCalledModel(
+        ToolResponseModel = self.__tool_response_models__[tool_call.name]
+        return ToolResponseModel(
             raw_kwargs=tool_call.arguments, call_depth=0, output=result, **compiled_args
         )
 
@@ -109,6 +125,9 @@ class Agent(metaclass=AgentMeta):
         for tool_def in self.__tool_defs__.values():
             # Check if any of the tool params use a ContextRef
             # convert to openai schema
+            tool_defs.append(tool_def.to_openai(self.context))
+        for name, agent in self.__linked_agents__.items():
+            tool_def = agent.get_tool_definition(name)
             tool_defs.append(tool_def.to_openai(self.context))
         return tool_defs
 
@@ -168,9 +187,16 @@ class Agent(metaclass=AgentMeta):
 
         # Dispatch any tool calls
         tool_responses = []
+        agent_responses = []
         for tool_call in tool_calls:
-            tool_response = await self._process_tool_call(tool_call)
-            tool_responses.append(tool_response)
+            if tool_call.type != "function_call":
+                continue
+            elif tool_call.name in self.__tool_defs__:
+                tool_response = await self._process_tool_call(tool_call)
+                tool_responses.append(tool_response)
+            elif tool_call.name in self.__linked_agents__:
+                agent_response = await self._process_agent_call(tool_call)
+                agent_responses.append(agent_response)
 
         # If tools ran, re-invoke LLM for natural reply
         if tool_responses:
@@ -198,8 +224,18 @@ class Agent(metaclass=AgentMeta):
         if self.emitter:
             await _safe_run(self.emitter, AiUpdate(status=Status.SUCCEDED, message=ai_message))
 
-        return self.__response_model__(
-            response=response,
-            final_output=ai_message,
-            tool_responses=tool_responses,
+        response_fields = {"final_output": ai_message}
+        if self.__tool_defs__:
+            response_fields["tool_responses"] = tool_responses
+        if self.__linked_agents__:
+            response_fields["agent_responses"] = agent_responses
+
+        return self.__response_model__(**response_fields)
+
+    @classmethod
+    def get_tool_definition(cls, name: str):
+        return _ToolDefinition(
+            name=name,
+            description=cls.__description__,
+            parameters={"input_": (str, ParamInfo(required=True))},
         )
