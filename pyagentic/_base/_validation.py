@@ -61,7 +61,7 @@ class _AgentConstructionValidator:
                     if isinstance(attr, ContextRef):
                         if attr.path not in AgentClass.__context_attrs__:
                             self.problems.append(
-                                f"tool.{tool_name}.param.{param_name}.{info_field.name}: Ref not found in context: {attr.path}" # noqa E501
+                                f"tool.{tool_name}.param.{param_name}.{info_field.name}: Ref not found in context: {attr.path}"  # noqa E501
                             )
                         sample_value = self.sample_agent.context.get(attr.path)
                         try:
@@ -69,7 +69,7 @@ class _AgentConstructionValidator:
                         except TypeCheckError:
                             self.problems.append(
                                 (
-                                    f"tool.{tool_name}.param.{param_name}.{info_field.name}: Ref typing does not match param info field:\n" # noqa E501
+                                    f"tool.{tool_name}.param.{param_name}.{info_field.name}: Ref typing does not match param info field:\n"  # noqa E501
                                     f"  Expected: {expected_type}\n"
                                     f"  Recieved: {type(sample_value).__name__}\n"
                                 )
@@ -106,7 +106,7 @@ class _AgentConstructionValidator:
                 except TypeCheckError:
                     self.problems.append(
                         (
-                            f"context.{context_name}: Default value does not match context item typing:\n" # noqa E501
+                            f"context.{context_name}: Default value does not match context item typing:\n"  # noqa E501
                             f"  Expected: {context_type}\n"
                             f"  Recieved: {type(default)}\n"
                         )
