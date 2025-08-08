@@ -5,7 +5,7 @@ from typing import Callable, Any, TypeVar, ClassVar, Type, Self
 
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
-from pyagentic._base._tool import _ToolDefinition
+from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._context import ContextItem
 from pyagentic._base._metaclasses import AgentMeta
 
@@ -54,6 +54,7 @@ class Agent(metaclass=AgentMeta):
     __response_model__: ClassVar[Type[AgentResponse]] = None
     __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]
     __linked_agents__: ClassVar[dict[str, Type[Self]]]
+    __call_params__: ClassVar[dict[str, tuple[TypeVar, ParamInfo]]]
 
     # Base Attributes
     model: str
@@ -69,7 +70,7 @@ class Agent(metaclass=AgentMeta):
         try:
             agent = getattr(self, tool_call.name)
             kwargs = json.loads(tool_call.arguments)
-            response = await agent.run(**kwargs)
+            response = await agent(**kwargs)
             result = f"Agent {tool_call.name}: {response.final_output}"
         except Exception as e:
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
@@ -232,10 +233,12 @@ class Agent(metaclass=AgentMeta):
 
         return self.__response_model__(**response_fields)
 
+    async def __call__(self, user_input: str):
+        return await self.run(input_=user_input)
+
     @classmethod
-    def get_tool_definition(cls, name: str):
-        return _ToolDefinition(
-            name=name,
-            description=cls.__description__,
-            parameters={"input_": (str, ParamInfo(required=True))},
-        )
+    def get_tool_definition(cls, name: str) -> _ToolDefinition:
+        tool_def = tool(cls.__description__)(cls.__call__).__tool_def__
+        # Override the name
+        tool_def.name = name
+        return tool_def

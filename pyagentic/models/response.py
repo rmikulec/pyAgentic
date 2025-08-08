@@ -1,8 +1,6 @@
 from pydantic import BaseModel, Field, create_model
 from typing import Type, Self, Union
 
-from openai.types.responses import Response
-
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._params import Param
 
