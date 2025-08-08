@@ -91,7 +91,8 @@ class Param:
             value = kwargs.get(field_name, field_info.default)
 
             try:
-                check_type(value, field_type)
+                if not type_info.is_subclass:
+                    check_type(value, field_type)
             except TypeCheckError:
                 raise TypeError(f"Field '{field_name}' expected {field_type}, got {type(value)}")
 
