@@ -1,7 +1,7 @@
 import inspect
 import json
 import openai
-from typing import Callable, Any, TypeVar, ClassVar, Type, Self
+from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform
 
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
@@ -24,6 +24,13 @@ async def _safe_run(fn, *args, **kwargs):
     else:
         result = fn(*args, **kwargs)
     return result
+
+
+@dataclass_transform(field_specifiers=(ContextItem,))
+class AgentExtension:
+    """Inherit this in any mixin that contributes fields to the Agent __init__."""
+
+    pass
 
 
 class Agent(metaclass=AgentMeta):
