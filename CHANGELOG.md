@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.2.1 (2025-08-08)
+
+### Bug Fixes
+
+- Added support for nested params in tool arg compile
+  ([`a455b3f`](https://github.com/rmikulec/pyAgentic/commit/a455b3f57156653d4fff5f3dcd2ed336839ae64d))
+
+- Removed unneeded code in context
+  ([`f0c1ea8`](https://github.com/rmikulec/pyAgentic/commit/f0c1ea8ff5d1cda4bdd066dd29cc84efaaad6316))
+
+
 ## v1.2.0 (2025-08-07)
 
 
