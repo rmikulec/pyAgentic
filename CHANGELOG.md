@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0-a.1 (2025-08-08)
+
+### Features
+
+- Implemented a rough outline on how agents are linked
+  ([`da95d8c`](https://github.com/rmikulec/pyAgentic/commit/da95d8c6ef1439a5c023665ce0d0c0b5d3592527))
+
+
 ## v1.2.1 (2025-08-08)
 
 ### Bug Fixes
