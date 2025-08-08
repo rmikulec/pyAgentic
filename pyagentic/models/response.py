@@ -114,24 +114,24 @@ class AgentResponse(BaseModel):
         a fastapi app. This is done by calling `from_tool_defs`.
     """
 
-    response: Response
     final_output: str
 
     @classmethod
     def from_tool_defs(
-        cls, agent_name: str, tool_response_models: list[Type[ToolResponse]]
+        cls,
+        agent_name: str,
+        tool_response_models: list[Type[ToolResponse]],
+        linked_agents_response_models: list[Type[Self]],
     ) -> Type[Self]:
         """
         Creates a subclass of `AgentResponse`, using Tool Definitions to create a predetermined
             schema of what the response will look like.
         """
+        fields = {}
         if tool_response_models:
             ToolResult = Union[tuple(tool_response_models)]
-            return create_model(
-                f"{agent_name}Response", __base__=cls, tool_responses=(list[ToolResult], ...)
-            )
-        else:
-            return create_model(
-                f"{agent_name}Response",
-                __base__=cls,
-            )
+            fields["tool_responses"] = (list[ToolResult], ...)
+        if linked_agents_response_models:
+            AgentResult = Union[tuple(linked_agents_response_models)]
+            fields["agent_responses"] = (list[AgentResult], ...)
+        return create_model(f"{agent_name}Response", __base__=cls, **fields)

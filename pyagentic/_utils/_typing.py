@@ -54,20 +54,23 @@ def analyze_type(type_: type, base_class: type) -> TypeInfo:
     """
     origin = get_origin(type_)
 
-    if origin == list:
-        inner_type = get_args(type_)[0]
-        if is_primitive(inner_type):
-            return TypeInfo(TypeCategory.LIST_PRIMITIVE, type_, inner_type)
-        elif issubclass(inner_type, base_class):
-            return TypeInfo(TypeCategory.LIST_SUBCLASS, type_, inner_type)
+    try:
+        if origin == list:
+            inner_type = get_args(type_)[0]
+            if is_primitive(inner_type):
+                return TypeInfo(TypeCategory.LIST_PRIMITIVE, type_, inner_type)
+            elif issubclass(inner_type, base_class):
+                return TypeInfo(TypeCategory.LIST_SUBCLASS, type_, inner_type)
+            else:
+                return TypeInfo(TypeCategory.UNSUPPORTED, type_, inner_type)
+
+        elif is_primitive(type_):
+            return TypeInfo(TypeCategory.PRIMITIVE, type_)
+
+        elif issubclass(type_, base_class):
+            return TypeInfo(TypeCategory.SUBCLASS, type_)
+
         else:
-            return TypeInfo(TypeCategory.UNSUPPORTED, type_, inner_type)
-
-    elif is_primitive(type_):
-        return TypeInfo(TypeCategory.PRIMITIVE, type_)
-
-    elif issubclass(type_, base_class):
-        return TypeInfo(TypeCategory.SUBCLASS, type_)
-
-    else:
+            return TypeInfo(TypeCategory.UNSUPPORTED, type_)
+    except TypeError:
         return TypeInfo(TypeCategory.UNSUPPORTED, type_)

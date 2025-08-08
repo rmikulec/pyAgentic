@@ -27,10 +27,7 @@ class _AgentConstructionValidator:
     def __init__(self, AgentClass: Type["Agent"]):
         self.problems = []
         self.AgentClass = AgentClass
-        self.sample_agent = self.AgentClass(
-            model="testing",
-            api_key="validation",
-        )
+        self.sample_agent = self.AgentClass()
 
     def validate(self):
         """

@@ -9,6 +9,8 @@ from pyagentic._base._tool import _ToolDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
 
+from pyagentic._utils._typing import analyze_type, TypeCategory
+
 
 @dataclass_transform(field_specifiers=(ContextItem,))
 class AgentMeta(type):
@@ -70,6 +72,21 @@ class AgentMeta(type):
         return context_attrs
 
     @staticmethod
+    def _extract_linked_agents(annotations, Agent) -> dict[str, "Agent"]:
+        """
+        Extracts any class field from annotations and namespace where the value is that of
+            `ContextItem`, these will later be appeneded to the agents context. This will return
+            both the type and the user defined context item.
+        """
+        linked_agents = {}
+        for attr_name, attr_type in annotations.items():
+            type_info = analyze_type(attr_type, Agent)
+            if type_info.is_subclass:
+                linked_agents[attr_name] = attr_type
+
+        return linked_agents
+
+    @staticmethod
     def _build_init_signature(cls) -> inspect.Signature:
         """
         Builds the signature for the classes __init__, injecting any context item attributes
@@ -80,6 +97,8 @@ class AgentMeta(type):
         for field_name, field_type in cls.__annotations__.items():
             if field_name in cls.__context_attrs__:
                 default_val = cls.__context_attrs__[field_name][1].get_default_value()
+            elif field_name in cls.__linked_agents__:
+                default_val = None
             else:
                 default_val = getattr(cls, field_name, inspect._empty)
             param = inspect.Parameter(
@@ -106,7 +125,7 @@ class AgentMeta(type):
                 name=self.__class__.__name__, ctx_map=self.__context_attrs__
             )
 
-            context_kwargs = {}
+            compiled = {}
             for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
                 # Skip compted contexts, this validaiton will happen with the validator
                 #   using a dry run with supplied default values
@@ -121,15 +140,22 @@ class AgentMeta(type):
                         raise UnexpectedContextItemType(
                             name=attr_name, expected=attr_type, recieved=type(val)
                         )
-                    context_kwargs[attr_name] = val
+                    compiled[attr_name] = val
                 else:
-                    context_kwargs[attr_name] = attr_default.get_default_value()
+                    compiled[attr_name] = attr_default.get_default_value()
 
             self.context = ContextClass(
                 instructions=self.__system_message__,
                 input_template=self.__input_template__,
-                **context_kwargs,
+                **compiled,
             )
+            # ------------- Retrieve Linked Agents -------------------
+            for agent_name in self.__linked_agents__.keys():
+                agent_instance = kwargs.get(agent_name, None)
+
+                if not agent_instance:
+                    raise AttributeError(f"Linked Agent {agent_name} not found")
+                compiled[agent_name] = agent_instance
 
             bound = sig.bind(self, *args, **kwargs)
 
@@ -164,16 +190,23 @@ class AgentMeta(type):
             tool_name: ToolResponse.from_tool_def(tool_def)
             for tool_name, tool_def in cls.__tool_defs__.items()
         }
+        # Attach linked agents
+        cls.__linked_agents__ = mcs._extract_linked_agents(cls.__annotations__, cls.__bases__[0])
         # Create final Agent response model, using the tool response models
+        tool_response_models = list(cls.__tool_response_models__.values())
+        linked_agent_response_models = [
+            agent.__response_model__ for agent in cls.__linked_agents__.values()
+        ]
         cls.__response_model__ = AgentResponse.from_tool_defs(
-            cls.__name__, list(cls.__tool_response_models__.values())
+            agent_name=cls.__name__,
+            tool_response_models=tool_response_models,
+            linked_agents_response_models=linked_agent_response_models,
         )
-
+        _AgentConstructionValidator(cls).validate()
         # Build the new init
         sig = mcs._build_init_signature(cls)
         cls.__init__ = mcs._build_init(sig)
 
         # Validate agent
-        _AgentConstructionValidator(cls).validate()
 
         return cls
