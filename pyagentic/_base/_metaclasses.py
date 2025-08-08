@@ -1,7 +1,8 @@
 import inspect
 from typing import dataclass_transform, TypeVar
-from typeguard import check_type
+from typeguard import check_type, TypeCheckError
 
+from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
 from pyagentic._base._context import _AgentContext, ContextItem, computed_context
 from pyagentic._base._tool import _ToolDefinition
@@ -98,18 +99,25 @@ class AgentMeta(type):
             of different tasks.
         """
 
-        def __init__(self, *args, **kwargs):  # type: ignore
+        def __init__(self, *args, **kwargs):
+
+            # -------- ContextClass Construction --------------------
             ContextClass = _AgentContext.make_ctx_class(
                 name=self.__class__.__name__, ctx_map=self.__context_attrs__
             )
 
             context_kwargs = {}
             for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
+                # Skip compted contexts, this validaiton will happen with the validator
+                #   using a dry run with supplied default values
                 if attr_type == computed_context:
                     continue
+                # Add all ContextItems to the kwargs, checking type as it goes
                 if attr_name in kwargs:
                     val = kwargs[attr_name]
-                    if not check_type(val, attr_type):
+                    try:
+                        check_type(val, attr_type)
+                    except TypeCheckError:
                         raise UnexpectedContextItemType(
                             name=attr_name, expected=attr_type, recieved=type(val)
                         )
@@ -124,6 +132,8 @@ class AgentMeta(type):
             )
 
             bound = sig.bind(self, *args, **kwargs)
+
+            # Add all other arguements to instance
             for name, val in list(bound.arguments.items())[1:]:  # skip 'self'
                 if name in self.__context_attrs__:
                     pass
@@ -135,29 +145,35 @@ class AgentMeta(type):
         return __init__
 
     def __new__(mcs, name, bases, namespace, **kwargs):
+        # Create a new Agent class
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-
+        # If it is a base Agent, then return
         if namespace.get("__abstract_base__", False):
             return cls
-
+        # Verify system message is set
         if "__system_message__" not in namespace:
             raise SystemMessageNotDeclared()
-
+        # Attach tool definitions
         cls.__tool_defs__ = mcs._extract_tool_defs(namespace)
-
+        # Attach new annotations
         cls.__annotations__ = mcs._extract_annotations(bases, namespace)
-
+        # Attach context attributes (ContextItems and computed_context)
         cls.__context_attrs__ = mcs._extract_context_attrs(cls.__annotations__, namespace)
-
+        # Create tool response models
         cls.__tool_response_models__ = {
             tool_name: ToolResponse.from_tool_def(tool_def)
             for tool_name, tool_def in cls.__tool_defs__.items()
         }
+        # Create final Agent response model, using the tool response models
         cls.__response_model__ = AgentResponse.from_tool_defs(
             cls.__name__, list(cls.__tool_response_models__.values())
         )
 
+        # Build the new init
         sig = mcs._build_init_signature(cls)
-
         cls.__init__ = mcs._build_init(sig)
+
+        # Validate agent
+        _AgentConstructionValidator(cls).validate()
+
         return cls

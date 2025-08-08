@@ -22,6 +22,12 @@ def test_context_item_default_factory():
     assert item.get_default_value() == 4
 
 
+def test_context_item_raises_no_default():
+    with pytest.raises(AttributeError) as e:
+        item = ContextItem()
+    assert "default or default_factory must be given" in str(e)
+
+
 def test_computed_context_flag():
     @computed_context
     def test():

@@ -1,20 +1,12 @@
 from pydantic import BaseModel, Field, create_model
-from typing import Any, Type, get_origin, get_args, Self, Union
+from typing import Type, Self, Union
 
 from openai.types.responses import Response
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._params import Param
 
-
-PRIMITIVES = (bool, str, int, float, type(None))
-
-
-def is_primitive(type_: Any) -> bool:
-    """
-    Helper function to check if a type is a python primitive
-    """
-    return type_ in PRIMITIVES
+from pyagentic._utils._typing import TypeCategory, analyze_type
 
 
 def param_to_pydantic(ParamClass: Type[Param]) -> Type[BaseModel]:
@@ -30,36 +22,36 @@ def param_to_pydantic(ParamClass: Type[Param]) -> Type[BaseModel]:
     fields = {}
 
     for attr_name, (attr_type, attr_info) in ParamClass.__attributes__.items():
-        if get_origin(attr_type) == list:
-            origin_type = get_args(attr_type)[0]
-            if is_primitive(origin_type):
+        type_info = analyze_type(attr_type, Param)
+
+        match type_info.category:
+
+            case TypeCategory.PRIMITIVE:
+                fields[attr_name] = (
+                    attr_type,
+                    Field(default=attr_info.default, description=attr_info.description),
+                )
+            case TypeCategory.LIST_PRIMITIVE:
                 fields[attr_name] = (
                     list[attr_type],
                     Field(default=attr_info.default, description=attr_info.description),
                 )
-            elif issubclass(origin_type, Param):
-                SubParamModel = param_to_pydantic(origin_type)
+            case TypeCategory.SUBCLASS:
+                SubParamModel = param_to_pydantic(attr_type)
+                fields[attr_name] = (
+                    SubParamModel,
+                    Field(default=attr_info.default, description=attr_info.description),
+                )
+            case TypeCategory.LIST_SUBCLASS:
+                SubParamModel = param_to_pydantic(type_info.inner_type)
                 fields[attr_name] = (
                     list[SubParamModel],
                     Field(default=attr_info.default, description=attr_info.description),
                 )
-            else:
+            case _:
                 raise Exception(f"Unsupported type: {attr_type}")
-        elif is_primitive(attr_type):
-            fields[attr_name] = (
-                attr_type,
-                Field(default=attr_info.default, description=attr_info.description),
-            )
-        elif issubclass(attr_type, Param):
-            SubParamModel = param_to_pydantic(attr_type)
-            fields[attr_name] = (
-                SubParamModel,
-                Field(default=attr_info.default, description=attr_info.description),
-            )
-        else:
-            raise Exception(f"Unsupported type: {attr_type}")
 
-    return create_model(f"{ParamClass.__name__}", **fields)
+    return create_model(f"{ParamClass.__name__}Model", **fields)
 
 
 class ToolResponse(BaseModel):
@@ -82,20 +74,33 @@ class ToolResponse(BaseModel):
         """
         fields = {}
         for param_name, (param_type, param_info) in tool_def.parameters.items():
-            if get_origin(param_type) == list:
-                pass
-            elif is_primitive(param_type):
-                fields[param_name] = (
-                    param_type,
-                    Field(default=param_info.default, description=param_info.description),
-                )
-            elif issubclass(param_type, Param):
-                fields[param_name] = (
-                    param_to_pydantic(param_type),
-                    Field(default=param_info.default, description=param_info.description),
-                )
-            else:
-                raise Exception(f"Unsupported type: {param_type}")
+            type_info = analyze_type(param_type, Param)
+            match type_info.category:
+
+                case TypeCategory.PRIMITIVE:
+                    fields[param_name] = (
+                        param_type,
+                        Field(default=param_info.default, description=param_info.description),
+                    )
+                case TypeCategory.LIST_PRIMITIVE:
+                    fields[param_name] = (
+                        param_type,
+                        Field(default=param_info.default, description=param_info.description),
+                    )
+                case TypeCategory.SUBCLASS:
+                    ParamSubModel = param_to_pydantic(param_type)
+                    fields[param_name] = (
+                        ParamSubModel,
+                        Field(default=param_info.default, description=param_info.description),
+                    )
+                case TypeCategory.LIST_SUBCLASS:
+                    ParamSubModel = param_to_pydantic(type_info.inner_type)
+                    fields[param_name] = (
+                        list[ParamSubModel],
+                        Field(default=param_info.default, description=param_info.description),
+                    )
+                case _:
+                    raise Exception(f"Unsupported type: {param_type}")
 
         return create_model(f"ToolResponse[{tool_def.name}]", __base__=cls, **fields)
 
