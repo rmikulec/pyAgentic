@@ -34,7 +34,7 @@ class TypeInfo:
         return self.category in [TypeCategory.LIST_PRIMITIVE, TypeCategory.LIST_SUBCLASS]
 
     @property
-    def is_param(self) -> bool:
+    def is_subclass(self) -> bool:
         return self.category in [TypeCategory.SUBCLASS, TypeCategory.LIST_SUBCLASS]
 
     @property
