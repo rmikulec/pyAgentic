@@ -6,6 +6,7 @@ repo_url: https://github.com/rmikulec/pyagentic
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Inheritance: Inheritance.md
   - API Reference:
       - Modules: reference/modules.md
 
