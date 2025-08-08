@@ -26,6 +26,7 @@ def test_param_declaration_with_info():
 
     assert info.description == "This is a test", "Supplied ParamInfo is not being set when given"
 
+
 def test_param_declaration_nested_param():
 
     class Nested(Param):
@@ -40,6 +41,7 @@ def test_param_declaration_nested_param():
         info, ParamInfo
     ), "Default ParamInfo not being set when not supplied in definition"
 
+
 def test_param_creation():
 
     class Test(Param):
@@ -49,6 +51,7 @@ def test_param_creation():
 
     assert test.field == 2
 
+
 def test_param_creation_invalid_type():
 
     class Test(Param):
@@ -56,7 +59,7 @@ def test_param_creation_invalid_type():
 
     with pytest.raises(TypeError) as e:
         test = Test(field="string")
-    
+
     assert "Field 'field' expected" in str(e)
 
 
@@ -70,14 +73,16 @@ def test_param_creation_unexpected_field():
 
     assert "Unexpected fields for" in str(e)
 
+
 def test_param_creation_with_info():
-    
+
     class Test(Param):
         field: int = ParamInfo(default=2)
 
     test = Test()
 
     assert test.field == 2
+
 
 def test_param_creation_nested_param():
 

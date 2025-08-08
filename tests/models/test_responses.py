@@ -9,10 +9,7 @@ from pyagentic.models.response import param_to_pydantic, ToolResponse, AgentResp
 def test_tool_response_creation():
 
     @tool("tool response creation")
-    def test(
-        a: int,
-        b: str
-    ) -> str:
+    def test(a: int, b: str) -> str:
         pass
 
     ResponseClass = ToolResponse.from_tool_def(test.__tool_def__)
@@ -22,6 +19,7 @@ def test_tool_response_creation():
 
     assert ResponseClass.model_fields["a"].annotation == int
     assert ResponseClass.model_fields["b"].annotation == str
+
 
 def test_tool_response_creation_with_info():
 
@@ -36,13 +34,11 @@ def test_tool_response_creation_with_info():
     assert ResponseClass.model_fields["a"].default == 1
     assert ResponseClass.model_fields["a"].description == "test"
 
+
 def test_tool_response_creation_with_lists():
 
     @tool("tool response creation")
-    def test(
-        a: list[int],
-        b: list[str]
-    ) -> str:
+    def test(a: list[int], b: list[str]) -> str:
         pass
 
     ResponseClass = ToolResponse.from_tool_def(test.__tool_def__)
@@ -52,6 +48,7 @@ def test_tool_response_creation_with_lists():
 
     assert ResponseClass.model_fields["a"].annotation == list[int]
     assert ResponseClass.model_fields["b"].annotation == list[str]
+
 
 def test_tool_response_creation_with_param():
 
@@ -76,15 +73,14 @@ def test_tool_response_creation_with_param():
     assert "a" in ResponseClass.model_fields
     assert ResponseClass.model_fields["a"].annotation.model_fields["a"].annotation == int
 
+
 def test_tool_response_creation_with_listed_param():
 
     class TestParam(Param):
         a: int
 
     @tool("tool response creation")
-    def test(
-        a: list[TestParam]
-    ) -> str:
+    def test(a: list[TestParam]) -> str:
         pass
 
     ResponseClass = ToolResponse.from_tool_def(test.__tool_def__)

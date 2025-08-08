@@ -51,7 +51,7 @@ def param_to_pydantic(ParamClass: Type[Param]) -> Type[BaseModel]:
             case _:
                 raise Exception(f"Unsupported type: {attr_type}")
 
-    return create_model(f"{ParamClass.__name__}", **fields)
+    return create_model(f"{ParamClass.__name__}Model", **fields)
 
 
 class ToolResponse(BaseModel):
