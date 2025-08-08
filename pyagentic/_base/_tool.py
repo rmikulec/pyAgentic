@@ -115,7 +115,9 @@ class _ToolDefinition:
                         param_args = kwargs[name]
                         compiled_args[name] = type_(**param_args)
                     case TypeCategory.LIST_SUBCLASS:
-                        compiled_args[name] = [type_info.inner_type(**param_args) for param_args in kwargs[name]]
+                        compiled_args[name] = [
+                            type_info.inner_type(**param_args) for param_args in kwargs[name]
+                        ]
             else:
                 compiled_args[name] = info.default
 

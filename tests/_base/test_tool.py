@@ -63,6 +63,7 @@ def test_tool_declaration_with_annotated_non_string_primitive():
         info.description == "this is a test"
     ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"  # noqa E501
 
+
 def test_tool_declarion_with_listed_string():
 
     @tool("Primitive Test")
@@ -95,6 +96,7 @@ def test_tool_declaration_with_param():
     assert (
         type_ == TestParam
     ), "Attribute not being set as given Param class in tool def, got: {type_}, expected: TestParam"  # noqa E501
+
 
 def test_tool_declaration_with_listed_param():
     class TestParam(Param):
@@ -152,30 +154,21 @@ def test_tool_declarion_with_listed_string():
 def test_tool_compile_args():
     class TestParam(Param):
         field: int
-    
+
     @tool("Testing compile args")
     def test(
         primitive: str,
         listed_primitive: list[str],
         param: TestParam,
-        listed_param: list[TestParam]
+        listed_param: list[TestParam],
     ) -> str:
         pass
 
     kwargs = {
         "primitive": "test",
         "listed_primitive": ["a", "b"],
-        "param": {
-            "field": 1
-        },
-        "listed_param": [
-            {
-                "field": 2
-            },
-            {
-                "field": 3
-            }
-        ]
+        "param": {"field": 1},
+        "listed_param": [{"field": 2}, {"field": 3}],
     }
 
     compiled_args = test.__tool_def__.compile_args(**kwargs)
@@ -191,38 +184,28 @@ def test_tool_compile_args():
 
     for i, param in enumerate(compiled_args["listed_param"]):
         assert isinstance(param, TestParam)
-        assert param.field == 2+i
+        assert param.field == 2 + i
 
 
 def test_tool_compile_args_nested_param():
     class NestedParam(Param):
         field: int
-    
+
     class TestParam(Param):
         param_field: NestedParam
 
     @tool("Testing compile args with nested params")
-    def test(
-        param: TestParam,
-        listed_param: list[TestParam]
-    ) -> str:
+    def test(param: TestParam, listed_param: list[TestParam]) -> str:
         pass
 
     kwargs = {
-        "param": {
-            "param_field": {"field": 1}
-        },
+        "param": {"param_field": {"field": 1}},
         "listed_param": [
-            {
-                "param_field": {"field": 2}
-            },
-            {
-                "param_field": {"field": 3}
-            },
-        ] 
+            {"param_field": {"field": 2}},
+            {"param_field": {"field": 3}},
+        ],
     }
     compiled_args = test.__tool_def__.compile_args(**kwargs)
-
 
 
 def test_tool_openai_export(mock_context):
@@ -321,6 +304,7 @@ def test_tool_openai_export_multiple_params(mock_context):
 
     assert not diff, f"OpenAI Export does not match expected: \n {diff.pretty()}"
 
+
 def test_tool_openai_export_listed_primitive(mock_context):
     @tool("OpenAI Export Test")
     def test(list_: list[str]) -> str:
@@ -348,6 +332,7 @@ def test_tool_openai_export_listed_primitive(mock_context):
     diff = DeepDiff(openai_tool, expected, ignore_order=True)
 
     assert not diff, f"OpenAI Export does not match expected: \n {diff.pretty()}"
+
 
 def test_tool_openai_export_listed_param(mock_context):
     class TestParam(Param):
