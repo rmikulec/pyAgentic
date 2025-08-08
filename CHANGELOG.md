@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.3.0-a.3 (2025-08-08)
+
+### Bug Fixes
+
+- Reworked inheritance to follow MRO order
+  ([`283b3aa`](https://github.com/rmikulec/pyAgentic/commit/283b3aaf649be9002da1e7d869117c5e096ef3a3))
+
+### Features
+
+- Added agent extension to allow users to declare mixins
+  ([`d79e268`](https://github.com/rmikulec/pyAgentic/commit/d79e2689b973c62851243fd10d38077639d3ca4a))
+
+- Added agent inheritance
+  ([`a5cad6e`](https://github.com/rmikulec/pyAgentic/commit/a5cad6e61000d379046d2106041f58b0f53671a5))
+
+
 ## v1.3.0-a.2 (2025-08-08)
 
 
