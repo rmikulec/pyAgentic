@@ -1,7 +1,7 @@
 import inspect
 import json
 import openai
-from typing import Callable, Any, TypeVar, ClassVar, Type, Self
+from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform
 
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
@@ -24,6 +24,28 @@ async def _safe_run(fn, *args, **kwargs):
     else:
         result = fn(*args, **kwargs)
     return result
+
+
+@dataclass_transform(field_specifiers=(ContextItem,))
+class AgentExtension:
+    """Inherit this in any mixin that contributes fields to the Agent __init__."""
+    __annotations__: dict[str, Any] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # Merge annotations from all AgentExtension bases (oldest first),
+        # then let the subclass' own annotations win on key conflicts.
+        merged: dict[str, Any] = {}
+        for base in reversed(cls.__mro__[1:]):  # skip cls, walk up towards object
+            if issubclass(base, AgentExtension):
+                ann = getattr(base, "__annotations__", None)
+                if ann:
+                    merged.update(ann)
+
+        merged.update(getattr(cls, "__annotations__", {}))
+        # Assign a fresh dict so we don't mutate a base class' annotations
+        cls.__annotations__ = dict(merged)
 
 
 class Agent(metaclass=AgentMeta):
