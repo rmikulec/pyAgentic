@@ -1,10 +1,12 @@
 import inspect
-from typing import Callable, Any, TypeVar, get_type_hints, get_args, get_origin
+from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
 from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
 from pyagentic._base._context import _AgentContext
 from pyagentic._base._exceptions import ToolDeclarationFailed
+
+from pyagentic._utils._typing import TypeCategory, analyze_type
 
 
 class _ToolDefinition:
@@ -49,19 +51,24 @@ class _ToolDefinition:
         required = []
 
         for name, (type_, default) in self.parameters.items():
-            if get_origin(type_) == list:
-                listed_type = get_args(type_)[0]
-                if issubclass(listed_type, Param):
-                    params[name] = {"type": "array", "items": listed_type.to_openai(context)}
-                else:
+            type_info = analyze_type(type_, Param)
+
+            match type_info.category:
+                case TypeCategory.PRIMITIVE:
+                    params[name] = {"type": _TYPE_MAP.get(type_, "string")}
+                case TypeCategory.LIST_PRIMITIVE:
                     params[name] = {
                         "type": "array",
-                        "items": {"type": _TYPE_MAP.get(listed_type, "string")},
+                        "items": {"type": _TYPE_MAP.get(type_info.inner_type, "string")},
                     }
-            elif issubclass(type_, Param):
-                params[name] = type_.to_openai(context)
-            else:
-                params[name] = {"type": _TYPE_MAP.get(type_, "string")}
+                case TypeCategory.SUBCLASS:
+                    params[name] = type_.to_openai(context)
+                case TypeCategory.LIST_SUBCLASS:
+                    params[name] = {
+                        "type": "array",
+                        "items": type_info.inner_type.to_openai(context),
+                    }
+
             if isinstance(default, ParamInfo):
                 resolved_default = default.resolve(context)
                 if resolved_default.description:
@@ -97,18 +104,18 @@ class _ToolDefinition:
 
         for name, (type_, info) in self.parameters.items():
             if name in kwargs:
-                if get_origin(type_) == list:
-                    listed_type = get_args(type_)[0]
-                    if issubclass(listed_type, Param):
-                        list_ = [type_(**param_args) for param_args in kwargs[name]]
-                    else:
-                        list_ = kwargs[name]
-                    compiled_args[name] = list_
-                elif issubclass(type_, Param):
-                    param_args = kwargs[name]
-                    compiled_args[name] = type_(**param_args)
-                else:
-                    compiled_args[name] = kwargs[name]
+                type_info = analyze_type(type_, Param)
+
+                match type_info.category:
+                    case TypeCategory.PRIMITIVE:
+                        compiled_args[name] = kwargs[name]
+                    case TypeCategory.LIST_PRIMITIVE:
+                        compiled_args[name] = kwargs[name]
+                    case TypeCategory.SUBCLASS:
+                        param_args = kwargs[name]
+                        compiled_args[name] = type_(**param_args)
+                    case TypeCategory.LIST_SUBCLASS:
+                        compiled_args[name] = [type_(**param_args) for param_args in kwargs[name]]
             else:
                 compiled_args[name] = info.default
 
