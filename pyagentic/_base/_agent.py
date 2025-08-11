@@ -1,6 +1,7 @@
 import inspect
 import json
 import openai
+from functools import wraps
 from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform
 
 from pyagentic.logging import get_logger
@@ -29,6 +30,7 @@ async def _safe_run(fn, *args, **kwargs):
 @dataclass_transform(field_specifiers=(ContextItem,))
 class AgentExtension:
     """Inherit this in any mixin that contributes fields to the Agent __init__."""
+
     __annotations__: dict[str, Any] = {}
 
     def __init_subclass__(cls, **kwargs):
@@ -260,7 +262,13 @@ class Agent(metaclass=AgentMeta):
 
     @classmethod
     def get_tool_definition(cls, name: str) -> _ToolDefinition:
-        tool_def = tool(cls.__description__)(cls.__call__).__tool_def__
-        # Override the name
-        tool_def.name = name
-        return tool_def
+        desc = getattr(cls, "__description__", "") or ""
+
+        # fresh async wrapper so each class gets its own function object
+        @wraps(cls.__call__)
+        async def _invoke(self, *args, **kwargs):
+            return await cls.__call__(self, *args, **kwargs)
+
+        td = tool(desc)(_invoke).__tool_def__  # decorator attaches metadata to the wrapper
+        td.name = name
+        return td
