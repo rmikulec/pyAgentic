@@ -155,10 +155,10 @@ def test_tool_compile_args():
 
     compiled_args = test.__tool_def__.compile_args(**kwargs)
 
-    assert compiled_args["primitive"] is str
+    assert type(compiled_args["primitive"]) == str
     assert compiled_args["primitive"] == "test"
 
-    assert compiled_args["listed_primitive"] is list
+    assert type(compiled_args["listed_primitive"]) == list
     assert compiled_args["listed_primitive"] == ["a", "b"]
 
     assert isinstance(compiled_args["param"], TestParam)
