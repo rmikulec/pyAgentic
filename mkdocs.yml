@@ -23,6 +23,13 @@ plugins:
             source_repository: "https://github.com/rmikulec/pyAgentic"
             source_branch: "main"  # or "master" or any branch you use
             source_directory: "pyagentic"
+            members: true
+            filters:
+              - "!^__.*__$"  # Regex to exclude __dunder__ methods
+            # Show init args as class signature
+            show_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
