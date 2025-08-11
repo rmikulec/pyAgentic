@@ -5,7 +5,10 @@ repo_url: https://github.com/rmikulec/pyagentic
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
+  - User Guide:
+    - Getting Started: getting-started.md
+    - Inheritance: Inheritance.md
+    - Agent Linking: agent-linking.md
   - API Reference:
       - Modules: reference/modules.md
 
@@ -17,9 +20,16 @@ plugins:
           options:
             show_source: true
             source_link: true
-            source_repository: "https://github.com/YOUR_USERNAME/YOUR_REPO"
+            source_repository: "https://github.com/rmikulec/pyAgentic"
             source_branch: "main"  # or "master" or any branch you use
             source_directory: "pyagentic"
+            members: true
+            filters:
+              - "!^__.*__$"  # Regex to exclude __dunder__ methods
+            # Show init args as class signature
+            show_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true

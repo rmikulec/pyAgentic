@@ -2,6 +2,41 @@
 
 <!-- version list -->
 
+## v1.3.0-a.4 (2025-08-11)
+
+### Bug Fixes
+
+- Made metaclass thread safe as well as made class attribute immutable
+  ([`4ff5e1a`](https://github.com/rmikulec/pyAgentic/commit/4ff5e1aa709fbeadc313ec83b403593b91e7dd6d))
+
+
+## v1.3.0-a.3 (2025-08-08)
+
+### Bug Fixes
+
+- Reworked inheritance to follow MRO order
+  ([`283b3aa`](https://github.com/rmikulec/pyAgentic/commit/283b3aaf649be9002da1e7d869117c5e096ef3a3))
+
+### Features
+
+- Added agent extension to allow users to declare mixins
+  ([`d79e268`](https://github.com/rmikulec/pyAgentic/commit/d79e2689b973c62851243fd10d38077639d3ca4a))
+
+- Added agent inheritance
+  ([`a5cad6e`](https://github.com/rmikulec/pyAgentic/commit/a5cad6e61000d379046d2106041f58b0f53671a5))
+
+
+## v1.3.0-a.2 (2025-08-08)
+
+
+## v1.3.0-a.1 (2025-08-08)
+
+### Features
+
+- Implemented a rough outline on how agents are linked
+  ([`da95d8c`](https://github.com/rmikulec/pyAgentic/commit/da95d8c6ef1439a5c023665ce0d0c0b5d3592527))
+
+
 ## v1.2.1 (2025-08-08)
 
 ### Bug Fixes
