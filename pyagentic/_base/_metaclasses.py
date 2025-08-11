@@ -1,5 +1,7 @@
 import inspect
-from typing import dataclass_transform, TypeVar
+import threading
+from typing import dataclass_transform, TypeVar, Mapping
+from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
@@ -31,6 +33,7 @@ class AgentMeta(type):
     """
 
     __BaseAgent__ = None
+    _lock = threading.RLock()
 
     @staticmethod
     def _inherited_namespace_from_bases(bases: tuple[type, ...]) -> dict[str, object]:
@@ -63,7 +66,7 @@ class AgentMeta(type):
         return dict(ChainMap(*(vars(c) for c in mro_bases)))
 
     @staticmethod
-    def _extract_tool_defs(namespace) -> dict[str, _ToolDefinition]:
+    def _extract_tool_defs(namespace) -> Mapping[str, _ToolDefinition]:
         """
         Extracts tool definitions from a given namespace
 
@@ -74,7 +77,7 @@ class AgentMeta(type):
         for attr_name, attr_value in namespace.items():
             if hasattr(attr_value, "__tool_def__"):
                 tools[attr_name] = attr_value.__tool_def__
-        return tools
+        return MappingProxyType(tools)
 
     @staticmethod
     def _extract_annotations(namespace, bases) -> dict[str, TypeVar]:
@@ -94,7 +97,9 @@ class AgentMeta(type):
         return annotations
 
     @staticmethod
-    def _extract_context_attrs(annotations, namespace) -> dict[str, tuple[TypeVar, ContextItem]]:
+    def _extract_context_attrs(
+        annotations, namespace
+    ) -> Mapping[str, tuple[TypeVar, ContextItem]]:
         """
         Extracts any class field from annotations and namespace where the value is that of
             `ContextItem`, these will later be appeneded to the agents context. This will return
@@ -109,10 +114,10 @@ class AgentMeta(type):
         for name, value in namespace.items():
             if getattr(value, "_is_context", False):
                 context_attrs[name] = (computed_context, value)
-        return context_attrs
+        return MappingProxyType(context_attrs)
 
     @staticmethod
-    def _extract_linked_agents(annotations, Agent) -> dict[str, "Agent"]:
+    def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
         """
         Extracts any class field from annotations and namespace where the value is that of
             `ContextItem`, these will later be appeneded to the agents context. This will return
@@ -124,7 +129,7 @@ class AgentMeta(type):
             if type_info.is_subclass:
                 linked_agents[attr_name] = attr_type
 
-        return linked_agents
+        return MappingProxyType(linked_agents)
 
     @staticmethod
     def _build_init_signature(cls) -> inspect.Signature:
@@ -211,12 +216,11 @@ class AgentMeta(type):
                 agent_instance = kwargs.get(agent_name, None)
                 compiled[agent_name] = agent_instance
 
-            bound = sig.bind(self, *args, **kwargs)
-
+            bound = sig.bind(self, *args, **(kwargs | compiled))
             # Add all other arguements to instance
             for name, val in list(bound.arguments.items())[1:]:  # skip 'self'
                 if name in self.__context_attrs__:
-                    pass
+                    continue
                 setattr(self, name, val)
 
             self.__post_init__()
@@ -263,15 +267,16 @@ class AgentMeta(type):
         Since system message is not inherited, an exception is raised if the user does not
             supply one
         """
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        # If it is a base Agent, then return
-        if namespace.get("__abstract_base__", False):
-            mcs.__BaseAgent__ = cls
-            return cls
-        cls.__abstract_base__ = False
-        # Verify system message is set
-        if "__system_message__" not in namespace:
-            raise SystemMessageNotDeclared()
+        with mcs._lock:
+            cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+            # If it is a base Agent, then return
+            if namespace.get("__abstract_base__", False):
+                mcs.__BaseAgent__ = cls
+                return cls
+            cls.__abstract_base__ = False
+            # Verify system message is set
+            if "__system_message__" not in namespace:
+                raise SystemMessageNotDeclared()
 
         """
         Extract and attach Agent attributes
@@ -292,12 +297,15 @@ class AgentMeta(type):
             values, the namespaces are not used. Instead, it relies on the MRO ordered annotations
             to build a dict of any agents are are linked.
         """
-        cls.__tool_defs__ = mcs._extract_tool_defs(inherited_namespace | namespace)
-        cls.__annotations__ = mcs._extract_annotations(inherited_namespace | namespace, bases)
-        cls.__context_attrs__ = mcs._extract_context_attrs(
-            cls.__annotations__, inherited_namespace | namespace
-        )
-        cls.__linked_agents__ = mcs._extract_linked_agents(cls.__annotations__, mcs.__BaseAgent__)
+        tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
+        annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
+        context_attrs = mcs._extract_context_attrs(annotations, inherited_namespace | namespace)
+        linked_agents = mcs._extract_linked_agents(annotations, mcs.__BaseAgent__)
+        with mcs._lock:
+            cls.__tool_defs__ = tool_defs
+            cls.__annotations__ = annotations
+            cls.__context_attrs__ = context_attrs
+            cls.__linked_agents__ = linked_agents
 
         """
         Create response models. Response models are created on class declaration to give the agent
@@ -311,19 +319,22 @@ class AgentMeta(type):
         __response_model__: The final pydantic response model of the agent. This is constructed
             using the tool definition models, and any response model of linked agents.
         """
-        cls.__tool_response_models__ = {
+        tool_response_models = {
             tool_name: ToolResponse.from_tool_def(tool_def)
             for tool_name, tool_def in cls.__tool_defs__.items()
         }
-        tool_response_models = list(cls.__tool_response_models__.values())
-        linked_agent_response_models = [
+        tool_response_model_list = list(tool_response_models.values())
+        linked_agent_response_model_list = [
             agent.__response_model__ for agent in cls.__linked_agents__.values()
         ]
-        cls.__response_model__ = AgentResponse.from_tool_defs(
+        ResponseModel = AgentResponse.from_tool_defs(
             agent_name=cls.__name__,
-            tool_response_models=tool_response_models,
-            linked_agents_response_models=linked_agent_response_models,
+            tool_response_models=tool_response_model_list,
+            linked_agents_response_models=linked_agent_response_model_list,
         )
+        with mcs._lock:
+            cls.__tool_response_models__ = MappingProxyType(tool_response_models)
+            cls.__response_model__ = ResponseModel
 
         """
         Build the new init
@@ -344,7 +355,9 @@ class AgentMeta(type):
             After that it attaches any linked agents to the parent agent.
         """
         sig = mcs._build_init_signature(cls)
-        cls.__init__ = mcs._build_init(sig)
+        __init__ = mcs._build_init(sig)
+        with mcs._lock:
+            cls.__init__ = __init__
 
         """
         Validate and return
