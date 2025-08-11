@@ -7,8 +7,9 @@ nav:
   - Home: index.md
   - User Guide:
     - Getting Started: getting-started.md
-    - Inheritance: Inheritance.md
+    - Inheritance: inheritance.md
     - Agent Linking: agent-linking.md
+    - Responses: responses.md
   - API Reference:
       - Modules: reference/modules.md
 
