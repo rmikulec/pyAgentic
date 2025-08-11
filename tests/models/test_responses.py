@@ -3,7 +3,7 @@ from typing import get_args
 from pyagentic._base._tool import tool
 from pyagentic._base._params import Param, ParamInfo
 
-from pyagentic.models.response import param_to_pydantic, ToolResponse, AgentResponse
+from pyagentic.models.response import param_to_pydantic, ToolResponse
 
 
 def test_tool_response_creation():
