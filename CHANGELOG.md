@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0-a.4 (2025-08-11)
+
+### Bug Fixes
+
+- Made metaclass thread safe as well as made class attribute immutable
+  ([`4ff5e1a`](https://github.com/rmikulec/pyAgentic/commit/4ff5e1aa709fbeadc313ec83b403593b91e7dd6d))
+
+
 ## v1.3.0-a.3 (2025-08-08)
 
 ### Bug Fixes
