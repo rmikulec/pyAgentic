@@ -103,7 +103,7 @@ class Param:
                 case TypeCategory.LIST_PRIMITIVE:
                     setattr(self, field_name, value)
                 case TypeCategory.SUBCLASS:
-                    value = field_type(**value) if type(value) == dict else value
+                    value = field_type(**value) if type(value) is dict else value
                     setattr(self, field_name, value)
                 case TypeCategory.LIST_SUBCLASS:
                     listed_value = (

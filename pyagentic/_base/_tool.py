@@ -142,7 +142,7 @@ def tool(
         # Check return type
         types = get_type_hints(fn)
         return_type = types.pop("return", None)
-        if return_type != str:
+        if return_type != str and fn.__name__ != "__call__":
             raise ToolDeclarationFailed(
                 tool_name=fn.__name__, message="Method must have a return type of `str`"
             )

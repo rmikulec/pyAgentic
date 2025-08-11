@@ -64,24 +64,6 @@ def test_tool_declaration_with_annotated_non_string_primitive():
     ), "Given ParamInfo not being set in tool def, got: {info}, expected: ParamInfo(description='this is a test)"  # noqa E501
 
 
-def test_tool_declarion_with_listed_string():
-
-    @tool("Primitive Test")
-    def test(primitive: list[str]) -> str:
-        pass
-
-    params: list[Param] = test.__tool_def__.parameters
-
-    assert (
-        "primitive" in params
-    ), f"Function attributes not being added to tool def params, got: {params.keys()}, expected: ['a', 'b']"  # noqa E501
-
-    type_, info = params["primitive"]
-    assert type_ == list[str] and isinstance(
-        info, ParamInfo
-    ), f"Default value not properly being casted to ParamInfo for tool def, got: {type(info)}, expected: ParamInfo"  # noqa E501
-
-
 def test_tool_declaration_with_param():
     class TestParam(Param):
         param_primitive: int

@@ -1,5 +1,10 @@
 import inspect
-from typing import dataclass_transform, TypeVar
+import threading
+import warnings
+from typing import dataclass_transform, TypeVar, Mapping
+from types import MappingProxyType
+from collections import ChainMap
+from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
 
 from pyagentic._base._validation import _AgentConstructionValidator
@@ -8,6 +13,14 @@ from pyagentic._base._context import _AgentContext, ContextItem, computed_contex
 from pyagentic._base._tool import _ToolDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
+
+from pyagentic._utils._typing import analyze_type
+
+
+# Placeholder class for Agent type annotation
+# Can't import actual agent as it would cause a circular import error
+class Agent:
+    pass
 
 
 @dataclass_transform(field_specifiers=(ContextItem,))
@@ -20,22 +33,55 @@ class AgentMeta(type):
       - Dynamically injects an __init__ signature based on class __annotations__
     """
 
+    __BaseAgent__ = None
+    _lock = threading.RLock()
+
     @staticmethod
-    def _extract_tool_defs(namespace) -> dict[str, _ToolDefinition]:
+    def _inherited_namespace_from_bases(bases: tuple[type, ...]) -> dict[str, object]:
+        """
+        Build the inherited (raw) namespace you'd see via MRO lookup for a class with `bases`.
+        Returns a dict where earlier bases in the MRO win.
+        """
+        # Build a graph: any hashable node -> list of parents.
+        # We'll use a sentinel NEW for the (not-yet-created) class.
+        NEW = object()
+        graph = {NEW: list(bases)}
+
+        # Add all reachable base classes and their parents.
+        stack = list(bases)
+        seen = set()
+        while stack:
+            cls = stack.pop()
+            if cls in seen or cls is object:
+                continue
+            seen.add(cls)
+            parents = [b for b in cls.__bases__ if b is not object]
+            graph[cls] = parents
+            stack.extend(parents)
+
+        # C3 linearize starting from NEW
+        order = linearize(graph)[NEW]
+        mro_bases = [c for c in order if isinstance(c, type) and c is not object]
+
+        # Chain the raw class dicts in MRO precedence (leftmost wins)
+        return dict(ChainMap(*(vars(c) for c in mro_bases)))
+
+    @staticmethod
+    def _extract_tool_defs(namespace) -> Mapping[str, _ToolDefinition]:
         """
         Extracts tool definitions from a given namespace
 
         Any method with the `@tool` descriptor will be attached to the `__tool_defs__` class
             attribute
         """
-        tools = {}
+        tools: dict[str, _ToolDefinition] = {}
         for attr_name, attr_value in namespace.items():
             if hasattr(attr_value, "__tool_def__"):
                 tools[attr_name] = attr_value.__tool_def__
-        return tools
+        return MappingProxyType(tools)
 
     @staticmethod
-    def _extract_annotations(bases, namespace) -> dict[str, TypeVar]:
+    def _extract_annotations(namespace, bases) -> dict[str, TypeVar]:
         """
         Extracts all annotations from current class and all its subclasses. Combines them into
             one dictionary, with class order respected (subclasses overide parent classes.)
@@ -52,13 +98,15 @@ class AgentMeta(type):
         return annotations
 
     @staticmethod
-    def _extract_context_attrs(annotations, namespace) -> dict[str, tuple[TypeVar, ContextItem]]:
+    def _extract_context_attrs(
+        annotations, namespace
+    ) -> Mapping[str, tuple[TypeVar, ContextItem]]:
         """
         Extracts any class field from annotations and namespace where the value is that of
             `ContextItem`, these will later be appeneded to the agents context. This will return
             both the type and the user defined context item.
         """
-        context_attrs = {}
+        context_attrs: dict[str, tuple[TypeVar, ContextItem]] = {}
         for attr_name, attr_type in annotations.items():
             default = namespace.get(attr_name, None)
             if isinstance(default, ContextItem):
@@ -67,29 +115,74 @@ class AgentMeta(type):
         for name, value in namespace.items():
             if getattr(value, "_is_context", False):
                 context_attrs[name] = (computed_context, value)
-        return context_attrs
+        return MappingProxyType(context_attrs)
+
+    @staticmethod
+    def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
+        """
+        Extracts any class field from annotations and namespace where the value is that of
+            `ContextItem`, these will later be appeneded to the agents context. This will return
+            both the type and the user defined context item.
+        """
+        linked_agents: dict[str, "Agent"] = {}
+        for attr_name, attr_type in annotations.items():
+            type_info = analyze_type(attr_type, Agent)
+            if type_info.has_forward_ref:
+                msg = (
+                    f"Forward reference for agents are unsupported: '{attr_name}': {attr_type!r}. "
+                    "Make sure the forward ref was not used for an agent, or a TypeError may occur"
+                )
+                warnings.warn(msg, RuntimeWarning, stacklevel=2)
+            elif type_info.is_subclass:
+                linked_agents[attr_name] = attr_type
+
+        return MappingProxyType(linked_agents)
 
     @staticmethod
     def _build_init_signature(cls) -> inspect.Signature:
         """
-        Builds the signature for the classes __init__, injecting any context item attributes
-            defined by the user properly into the inits signature. This allows IDE's to be able
-            to recognize user-defined class attributes when initializing a class.
+        Build __init__ signature with all non-default (required) params
+        before any defaulted (optional) params.
         """
-        params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_ONLY)]
+        self_param = inspect.Parameter("self", inspect.Parameter.POSITIONAL_ONLY)
+
+        required: list[inspect.Parameter] = []
+        optional: list[inspect.Parameter] = []
+        agents: list[inspect.Parameter] = []  # Agents go last in signature for better order
+
         for field_name, field_type in cls.__annotations__.items():
             if field_name in cls.__context_attrs__:
-                default_val = cls.__context_attrs__[field_name][1].get_default_value()
+                param = inspect.Parameter(
+                    field_name,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=cls.__context_attrs__[field_name][1].get_default_value(),
+                    annotation=field_type,
+                )
+                optional.append(param)
+            elif field_name in cls.__linked_agents__:
+                # Treat linked agents as optional by default
+                param = inspect.Parameter(
+                    field_name,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=None,
+                    annotation=field_type,
+                )
+                agents.append(param)
             else:
-                default_val = getattr(cls, field_name, inspect._empty)
-            param = inspect.Parameter(
-                field_name,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=default_val,
-                annotation=field_type,
-            )
-            params.append(param)
-        return inspect.Signature(params)
+                default = getattr(cls, field_name, inspect._empty)
+                param = inspect.Parameter(
+                    field_name,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=default,
+                    annotation=field_type,
+                )
+
+                if default is inspect._empty:
+                    required.append(param)
+                else:
+                    optional.append(param)
+
+        return inspect.Signature([self_param, *required, *optional, *agents])
 
     @staticmethod
     def _build_init(sig):
@@ -106,7 +199,7 @@ class AgentMeta(type):
                 name=self.__class__.__name__, ctx_map=self.__context_attrs__
             )
 
-            context_kwargs = {}
+            compiled = {}
             for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
                 # Skip compted contexts, this validaiton will happen with the validator
                 #   using a dry run with supplied default values
@@ -121,59 +214,165 @@ class AgentMeta(type):
                         raise UnexpectedContextItemType(
                             name=attr_name, expected=attr_type, recieved=type(val)
                         )
-                    context_kwargs[attr_name] = val
+                    compiled[attr_name] = val
                 else:
-                    context_kwargs[attr_name] = attr_default.get_default_value()
+                    compiled[attr_name] = attr_default.get_default_value()
 
             self.context = ContextClass(
                 instructions=self.__system_message__,
                 input_template=self.__input_template__,
-                **context_kwargs,
+                **compiled,
             )
+            # ------------- Retrieve Linked Agents -------------------
+            for agent_name in self.__linked_agents__.keys():
+                agent_instance = kwargs.get(agent_name, None)
+                compiled[agent_name] = agent_instance
 
-            bound = sig.bind(self, *args, **kwargs)
-
+            bound = sig.bind(self, *args, **(kwargs | compiled))
             # Add all other arguements to instance
             for name, val in list(bound.arguments.items())[1:]:  # skip 'self'
                 if name in self.__context_attrs__:
-                    pass
+                    continue
                 setattr(self, name, val)
 
             self.__post_init__()
 
-        __init__.__signature__ = sig  # type: ignore
+        __init__.__signature__ = sig
+        __init__.__annotations__ = {
+            p.name: p.annotation for p in sig.parameters.values() if p.name != "self"
+        }
         return __init__
 
     def __new__(mcs, name, bases, namespace, **kwargs):
-        # Create a new Agent class
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        # If it is a base Agent, then return
-        if namespace.get("__abstract_base__", False):
-            return cls
-        # Verify system message is set
-        if "__system_message__" not in namespace:
-            raise SystemMessageNotDeclared()
-        # Attach tool definitions
-        cls.__tool_defs__ = mcs._extract_tool_defs(namespace)
-        # Attach new annotations
-        cls.__annotations__ = mcs._extract_annotations(bases, namespace)
-        # Attach context attributes (ContextItems and computed_context)
-        cls.__context_attrs__ = mcs._extract_context_attrs(cls.__annotations__, namespace)
-        # Create tool response models
-        cls.__tool_response_models__ = {
+        """
+        This metaclass is attached to the Agent base class, so that when a new subclass of Agent
+            is created, then this class will automatically set up class variables that define
+            the functionality of the agent.
+
+            - __tool_defs__: dictionary holding all tool defintions registered by @tool
+            - __context_attrs__: dictionary holding tuple of type and item for all attributes
+                that are either have a default of ContextItem or use @computed_context
+            - __tool_response_models__: dictionary holding pydantic response models for each tool
+            - __response_model__: The response model of the current agent that is being built
+
+        Inhertance is repected in MRO order. Tools, context attributes, computed contexts and
+            linked agents can all be inherited, from other agents or mixins.
+            __system_message__ and __input_template__ are *not* inherited
+        """
+
+        """
+        Create an inherited namespace by combining all bases in MRO order.
+        This uses c3linearize to determine the order, allowing uses to extend other Agents
+            and / or any mixins.
+        Mixins are classes that do not extend Agent, but can offer Agent attributes, like
+            tools, context items, and/or linked agents
+        """
+        inherited_namespace = mcs._inherited_namespace_from_bases(bases)
+
+        """
+        Declare the new Agent subclass.
+        If this is the base agent being declared (usually on import), then the initializtion of
+            tools, context items, etc.. will be skipped, and this class will be stored in the meta
+            for future use.
+        All other Agent subclasses will have __abstract_base__ marked as False, so that future
+            implementions "know" it is not the base.
+        Since system message is not inherited, an exception is raised if the user does not
+            supply one
+        """
+        with mcs._lock:
+            cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+            # If it is a base Agent, then return
+            if namespace.get("__abstract_base__", False):
+                mcs.__BaseAgent__ = cls
+                return cls
+            cls.__abstract_base__ = False
+            # Verify system message is set
+            if "__system_message__" not in namespace:
+                raise SystemMessageNotDeclared()
+
+        """
+        Extract and attach Agent attributes
+
+        __tool_defs__: Tool definitions (from any method marked with an @tool decorator) are
+            extracted from both the current namespace and the MRO ordered inherited namespace
+
+        __annotations__: Python annotations are extracted using the namespace and the inherited
+            namespace
+
+        __context_attrs__: Context attributes (from any class attribute with a ContextItem in
+            the namespace, or any method marked with a @computed_context decorator) are extracted
+            from both the current namespace and the inherited namespace. This also needs the
+            classes annotations, in order to attach the annotation to the context attribute for
+            later validation
+
+        __linked_agents__: Linked agents work a bit differently, since they cannot have default
+            values, the namespaces are not used. Instead, it relies on the MRO ordered annotations
+            to build a dict of any agents are are linked.
+        """
+        tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
+        annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
+        context_attrs = mcs._extract_context_attrs(annotations, inherited_namespace | namespace)
+        linked_agents = mcs._extract_linked_agents(annotations, mcs.__BaseAgent__)
+        with mcs._lock:
+            cls.__tool_defs__ = tool_defs
+            cls.__annotations__ = annotations
+            cls.__context_attrs__ = context_attrs
+            cls.__linked_agents__ = linked_agents
+
+        """
+        Create response models. Response models are created on class declaration to give the agent
+            a predetermined output. This allows developers to know exactly what the output of the
+            agent will be, before even creating an instance of the agent.
+
+        __tool_response_models__: All tools have their own pydantic response model, these need
+            to be build using their Tool Definition. This needs to be stored on the agent, so that
+            it can create instances of the tool response after calling the tool.
+
+        __response_model__: The final pydantic response model of the agent. This is constructed
+            using the tool definition models, and any response model of linked agents.
+        """
+        tool_response_models = {
             tool_name: ToolResponse.from_tool_def(tool_def)
             for tool_name, tool_def in cls.__tool_defs__.items()
         }
-        # Create final Agent response model, using the tool response models
-        cls.__response_model__ = AgentResponse.from_tool_defs(
-            cls.__name__, list(cls.__tool_response_models__.values())
+        tool_response_model_list = list(tool_response_models.values())
+        linked_agent_response_model_list = [
+            agent.__response_model__ for agent in cls.__linked_agents__.values()
+        ]
+        ResponseModel = AgentResponse.from_tool_defs(
+            agent_name=cls.__name__,
+            tool_response_models=tool_response_model_list,
+            linked_agents_response_models=linked_agent_response_model_list,
         )
+        with mcs._lock:
+            cls.__tool_response_models__ = MappingProxyType(tool_response_models)
+            cls.__response_model__ = ResponseModel
 
-        # Build the new init
+        """
+        Build the new init
+
+        The base init just accepts *args and **kwargs, this is changed by building a new init
+            signature. The new signature combines any context attributes, agents, and any other
+            dataclass field in the following order:
+                1. required: any dataclass field with no value in the namespace
+                2. optional: mostly context attributes, can include dataclass fields with values in
+                    the namespace
+                3. linked agents: These come last in order to keep a clear order in the init. They
+                    all default to None. So if the user does not supply a linked agent, then the
+                    parent agent will ignore it.
+
+        The new init function then creates a new AgentContext class, using the context attributes
+            as its attributes. It loads in all the context items in it using the specified defaults
+            and attaches it to the agent.
+            After that it attaches any linked agents to the parent agent.
+        """
         sig = mcs._build_init_signature(cls)
-        cls.__init__ = mcs._build_init(sig)
+        __init__ = mcs._build_init(sig)
+        with mcs._lock:
+            cls.__init__ = __init__
 
-        # Validate agent
+        """
+        Validate and return
+        """
         _AgentConstructionValidator(cls).validate()
-
         return cls
