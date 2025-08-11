@@ -1,4 +1,4 @@
-from typing import get_origin, get_args, Any, Optional
+from typing import get_origin, get_args, Any, Optional, ForwardRef
 from dataclasses import dataclass
 from enum import Enum
 
@@ -41,6 +41,27 @@ class TypeInfo:
     def effective_type(self) -> type:
         """Returns the type to work with (inner type for lists, base type otherwise)"""
         return self.inner_type if self.is_list else self.base_type
+
+    @property
+    def has_forward_ref(self) -> bool:
+        """
+        True if either base_type or inner_type is a forward reference
+        (e.g., a string annotation or typing.ForwardRef). Safe across Python versions.
+        """
+
+        def _is_forward_ref(t) -> bool:
+            if t is None:
+                return False
+            # Strings from deferred annotations / forward refs
+            if isinstance(t, str):
+                return True
+            # typing.ForwardRef in 3.8+ (internal shape has varied, so duck-type too)
+            if isinstance(t, ForwardRef):
+                return True
+            # Fallback: anything that looks like a ForwardRef (duck-typing)
+            return hasattr(t, "__forward_arg__")  # covers older/private ForwardRef variants
+
+        return _is_forward_ref(self.base_type) or _is_forward_ref(self.inner_type)
 
 
 def analyze_type(type_: type, base_class: type) -> TypeInfo:
