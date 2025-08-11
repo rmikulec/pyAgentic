@@ -1,5 +1,6 @@
 import inspect
 import threading
+import warnings
 from typing import dataclass_transform, TypeVar, Mapping
 from types import MappingProxyType
 from collections import ChainMap
@@ -126,7 +127,13 @@ class AgentMeta(type):
         linked_agents: dict[str, "Agent"] = {}
         for attr_name, attr_type in annotations.items():
             type_info = analyze_type(attr_type, Agent)
-            if type_info.is_subclass:
+            if type_info.has_forward_ref:
+                msg = (
+                    f"Forward reference for agents are unsupported: '{attr_name}': {attr_type!r}. "
+                    "Make sure the forward ref was not used for an agent, or a TypeError may occur"
+                )
+                warnings.warn(msg, RuntimeWarning, stacklevel=2)
+            elif type_info.is_subclass:
                 linked_agents[attr_name] = attr_type
 
         return MappingProxyType(linked_agents)
@@ -162,13 +169,18 @@ class AgentMeta(type):
                 )
                 agents.append(param)
             else:
+                default = getattr(cls, field_name, inspect._empty)
                 param = inspect.Parameter(
                     field_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=getattr(cls, field_name, inspect._empty),
+                    default=default,
                     annotation=field_type,
                 )
-                required.append(param)
+
+                if default is inspect._empty:
+                    required.append(param)
+                else:
+                    optional.append(param)
 
         return inspect.Signature([self_param, *required, *optional, *agents])
 
