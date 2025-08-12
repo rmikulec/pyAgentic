@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.4.0-a.1 (2025-08-12)
+
+### Features
+
+- Updated agent to be able to call responses api multipel times in one run call, allowing it to
+  string together tools
+  ([`f544ac2`](https://github.com/rmikulec/pyAgentic/commit/f544ac28a41ff3119bcd3796acf7e6b5299945b1))
+
+
 ## v1.3.0 (2025-08-11)
 
 
