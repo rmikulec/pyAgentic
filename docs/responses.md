@@ -32,10 +32,23 @@ class EmailAgent(Agent):
     @tool("Send email")
     def send_email(self, to: str, urgent: bool = False) -> str: ...
 
-response = await agent.run("Send urgent email to john@company.com")
-response.final_output           # "I've sent the email to John"
-response.tool_responses[0].to   # "john@company.com" 
-response.tool_responses[0].urgent  # True
+response = await agent.run("Send urgent email to john about moving to our next apartment")
+```
+
+```json
+{
+  "final_output": "I've sent the email to John. Let me know if there's anything else you need!",
+  "tool_responses": [
+    {
+      "raw_kwargs": "{\"to\":\"john@example.com\",\"message\":\"Subject: Moving Forward with the Next Apartment\\n\\nHi John,\\n\\nI hope this message finds you well. I wanted to discuss our plans for moving to the next apartment. Please let me know when would be a good time for us to chat or meet to go over the specifics.\\n\\nLooking forward to hearing from you soon.\\n\\nBest,\\n[Your Name]\",\"urgent\":false}",
+      "call_depth": 0,
+      "output": "Email sent",
+      "to": "john@example.com",
+      "message": "Subject: Moving Forward with the Next Apartment\n\nHi John,\n\nI hope this message finds you well. I wanted to discuss our plans for moving to the next apartment. Please let me know when would be a good time for us to chat or meet to go over the specifics.\n\nLooking forward to hearing from you soon.\n\nBest,\n[Your Name]",
+      "urgent": false
+    }
+  ]
+}
 ```
 
 This gives you both the conversational response and programmatic access to exactly what the agent did.
