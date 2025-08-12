@@ -294,7 +294,7 @@ Now lets run a couple messages through to see if it is working?
 
 === "Set Focus"
     ``` py linenums="1"
-    await agent.run('''
+    await agent('''
     Im trying to find a link between ai usage and climate change
     ''')
     ```
@@ -324,7 +324,7 @@ Now lets run a couple messages through to see if it is working?
 
 === "Find Papers"
     ``` py linenums="1"
-    response = await agent.run('''
+    response = await agent('''
     Ya! Find some papers around AI's Carbon Footprint
     ''')
     ```
@@ -364,7 +364,7 @@ Now lets run a couple messages through to see if it is working?
 
 === "Add Papers"
     ``` py linenums="1"
-    response = await agent.run('''
+    response = await agent('''
     Add the papers that you think are the most relevant to linking AI and carbon
     ''')
     ```
@@ -380,7 +380,7 @@ Now lets run a couple messages through to see if it is working?
 
 === "Analyze"
     ``` py linenums="1"
-    response = await agent.run('''
+    response = await agent('''
     Analyze these papers and tell me what you learned with citiations
     ''')
     ```

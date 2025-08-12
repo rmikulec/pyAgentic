@@ -22,7 +22,7 @@ class ReportAgent(Agent):
     database: DatabaseAgent  # Linked agent
 
 # The report agent can now automatically call the database agent
-response = await report_agent.run("Create a sales report for Q4")
+response = await report_agent("Create a sales report for Q4")
 ```
 
 When the report agent runs, the LLM sees the database agent as an available tool in its toolset. If the LLM determines it needs database information to complete the task, it will automatically call the database agent. PyAgentic handles all the communication, context passing, and response integration behind the scenes.
@@ -71,7 +71,7 @@ class ReportAgent(Agent):
     analyzer: AnalysisAgent
 
 # The LLM can now call the analyzer with specific parameters
-response = await report_agent.run("Create a detailed analysis report")
+response = await report_agent("Create a detailed analysis report")
 ```
 
 With this setup, the parent agent's LLM can call the analysis agent with specific parameters like `analysis_type="advanced"`, giving it precise control over the linked agent's behavior.
@@ -99,7 +99,7 @@ class DataAgent(Agent):
     searcher: SearchAgent
 
 # The LLM can now call the searcher with structured parameters
-result = await data_agent.run("Find customer records for 'John Smith'")
+result = await data_agent("Find customer records for 'John Smith'")
 ```
 
 When using `Param` classes, PyAgentic automatically generates the proper OpenAI tool schema, complete with parameter types, defaults, and descriptions. This makes the linked agent's interface clear to the calling LLM and ensures type safety throughout the system.
