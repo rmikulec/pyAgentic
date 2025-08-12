@@ -9,9 +9,9 @@ A declarative, type-safe framework for building AI agents with OpenAI integratio
 
 ## Documentation
 
-Read the **[Getting Started!](https://rmikulec.github.io/pyAgentic/getting-started/)**
+Read the **[Getting Started](https://rmikulec.github.io/pyAgentic/getting-started/)**!
 
-Complete documentation, tutorials, and examples can be found [here](https://rmikulec.github.io/pyagentic)**
+Complete documentation, tutorials, and examples can be found **[here](https://rmikulec.github.io/pyagentic)**
 
 ## Features
 
