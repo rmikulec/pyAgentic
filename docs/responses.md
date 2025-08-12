@@ -17,7 +17,7 @@ The response model is predetermined when the agent class is defined. Each agent 
 Every agent response includes a `final_output` field containing the LLM's natural language response:
 
 ```python
-response = await agent.run("Hello")
+response = await agent("Hello")
 response.final_output  # "Hi there! How can I help?"
 ```
 
@@ -32,7 +32,7 @@ class EmailAgent(Agent):
     @tool("Send email")
     def send_email(self, to: str, urgent: bool = False) -> str: ...
 
-response = await agent.run("Send urgent email to john about moving to our next apartment")
+response = await agent("Send urgent email to john about moving to our next apartment")
 ```
 
 ```json
@@ -81,7 +81,7 @@ class ReportAgent(Agent):
     @tool("Create chart")
     def make_chart(self, type: str): ...
 
-response = await agent.run("Create sales chart")
+response = await agent("Create sales chart")
 response.final_output                    # Main agent response
 response.tool_responses[0].type          # "sales"
 response.agent_responses[0].final_output # Database agent response
