@@ -2,6 +2,9 @@
 
 <!-- version list -->
 
+## v1.4.1-a.1 (2025-08-12)
+
+
 ## v1.4.0 (2025-08-12)
 
 
@@ -13,6 +16,13 @@
   string together tools
   ([`f544ac2`](https://github.com/rmikulec/pyAgentic/commit/f544ac28a41ff3119bcd3796acf7e6b5299945b1))
 
+
+## v1.3.1-a.1 (2025-08-11)
+
+### Bug Fixes
+
+- Updating docs to be more clear and concise
+  ([`88c7eca`](https://github.com/rmikulec/pyAgentic/commit/88c7eca85bc79c074c0bed539981c66b2255bea9))
 
 ## v1.3.0 (2025-08-11)
 

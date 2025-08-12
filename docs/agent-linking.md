@@ -1,340 +1,137 @@
-# Agent Linking in PyAgentic
+# Agent Linking
 
-PyAgentic provides a powerful agent linking system that allows agents to call other agents as tools. This enables you to build complex multi-agent systems where agents can collaborate, delegate tasks, and leverage each other's specialized capabilities.
-
-## Table of Contents
-
-- [What is Agent Linking?](#what-is-agent-linking)
-- [Basic Agent Linking](#basic-agent-linking)
-- [How Agent Linking Works](#how-agent-linking-works)
-- [Use Cases](#use-cases)
-- [Best Practices](#best-practices)
-- [What Not to Do](#what-not-to-do)
-
-## What is Agent Linking?
-
-Agent linking allows one agent to invoke another agent as if it were a tool. When you declare a linked agent, PyAgentic automatically:
-
-1. Makes the linked agent available as a tool in the parent agent's toolset
-2. Handles communication between agents seamlessly
-3. Manages context and response propagation
-4. Provides type safety and inheritance support
-
-## Basic Agent Linking
-
-To link agents, simply declare them as type-annotated attributes in your agent class:
-
-```python
-from pyagentic import Agent
-
-class SpecialistAgent(Agent):
-    __system_message__ = "I am a domain specialist."
-    __description__ = "Provides specialized knowledge and analysis"
-    
-    @tool("Analyze specialized data")
-    def analyze(self, data: str) -> str:
-        return f"Specialized analysis of: {data}"
-
-class CoordinatorAgent(Agent):
-    __system_message__ = "I coordinate with specialists to solve complex problems."
-    
-    # Link the specialist agent
-    specialist: SpecialistAgent
-
-# Usage
-specialist = SpecialistAgent(model="gpt-4", api_key=API_KEY)
-coordinator = CoordinatorAgent(
-    model="gpt-4", 
-    api_key=API_KEY, 
-    specialist=specialist
-)
-
-# The coordinator can now call the specialist automatically
-response = await coordinator.run("Please analyze this complex dataset: [data]")
-```
+Agent linking allows you to build multi-agent systems where agents can call other agents as specialized tools. This enables complex workflows where different agents handle their areas of expertise while a coordinator orchestrates the overall process.
 
 ## How Agent Linking Works
 
-When an agent is linked:
+When you declare an agent as an attribute of another agent class, PyAgentic automatically makes it available as a tool. The linked agent appears in the parent's toolset with its `__description__` as the tool description. When the LLM decides to use that "tool," PyAgentic seamlessly calls the linked agent and integrates its response.
 
-1. **Tool Registration**: The linked agent appears as a tool with its `__description__` as the tool description
-2. **Automatic Invocation**: When the LLM calls the linked agent tool, PyAgentic automatically invokes the linked agent's `run()` method
-3. **Response Integration**: The linked agent's response is integrated back into the parent agent's context
-4. **Error Handling**: Failures in linked agents are gracefully handled and reported
+This happens at the class definition level - each agent knows about its linked agents before any instances are created, ensuring type safety and predictable behavior.
+
+## Basic Linking
+
+The simplest way to link agents is by declaring them as typed attributes in your agent class. This creates a direct relationship where the parent agent can call the child agent as needed:
 
 ```python
-class DataAgent(Agent):
-    __system_message__ = "I process data files."
-    __description__ = "Reads, processes, and validates data files"
+class DatabaseAgent(Agent):
+    __system_message__ = "I query databases"
+    __description__ = "Retrieves and analyzes data from databases"
+    
+class ReportAgent(Agent):
+    __system_message__ = "I generate business reports"
+    database: DatabaseAgent  # Linked agent
 
+# The report agent can now automatically call the database agent
+response = await report_agent.run("Create a sales report for Q4")
+```
+
+When the report agent runs, the LLM sees the database agent as an available tool in its toolset. If the LLM determines it needs database information to complete the task, it will automatically call the database agent. PyAgentic handles all the communication, context passing, and response integration behind the scenes.
+
+## Multiple Linked Agents
+
+Real-world applications often require coordination between multiple specialized agents. You can link as many agents as needed to create sophisticated workflows where each agent contributes its expertise:
+
+```python
+class EmailAgent(Agent):
+    __system_message__ = "I send emails"
+    __description__ = "Sends and manages email communications"
+    
+class CalendarAgent(Agent):
+    __system_message__ = "I manage calendars"
+    __description__ = "Schedules meetings and manages calendar events"
+    
+class AssistantAgent(Agent):
+    __system_message__ = "I help with daily tasks"
+    
+    email: EmailAgent
+    calendar: CalendarAgent
+
+response = await assistant.run("Schedule a meeting with John and send him the details")
+```
+
+With multiple linked agents, the coordinator can intelligently decide which agents to call and in what order. In this example, the assistant might first call the calendar agent to schedule the meeting, then use that information to call the email agent to send the details. The LLM automatically determines the optimal workflow based on the task requirements.
+
+## Custom Agent Parameters
+
+By default, when a linked agent is called, it receives the full user input as a single string. However, you can customize this behavior to create more sophisticated interactions by implementing custom `__call__` methods and using `Param` classes to define structured input parameters.
+
+### Basic Custom __call__
+
+Overriding the `__call__` method gives you complete control over how your linked agent processes input. This allows you to define specific parameters that the parent agent can pass:
+
+```python
 class AnalysisAgent(Agent):
-    __system_message__ = "I perform statistical analysis."
-    __description__ = "Performs statistical analysis and generates insights"
+    __system_message__ = "I analyze data"
+    __description__ = "Performs statistical analysis on datasets"
+    
+    async def __call__(self, data: str, analysis_type: str = "basic") -> str: ...
 
 class ReportAgent(Agent):
-    __system_message__ = "I coordinate data processing and analysis to generate reports."
-    
-    data_processor: DataAgent
+    __system_message__ = "I generate reports"
     analyzer: AnalysisAgent
-    
-    @tool("Generate final report")
-    def generate_report(self, title: str) -> str:
-        return f"Generated report: {title}"
 
-# Create the pipeline
-data_agent = DataAgent(model="gpt-4", api_key=API_KEY)
-analysis_agent = AnalysisAgent(model="gpt-4", api_key=API_KEY)
-report_agent = ReportAgent(
-    model="gpt-4", 
-    api_key=API_KEY,
-    data_processor=data_agent,
-    analyzer=analysis_agent
-)
-
-# The report agent can coordinate both agents automatically
-result = await report_agent.run("Create a comprehensive report from the sales data")
+# The LLM can now call the analyzer with specific parameters
+response = await report_agent.run("Create a detailed analysis report")
 ```
 
-## Use Cases
+With this setup, the parent agent's LLM can call the analysis agent with specific parameters like `analysis_type="advanced"`, giving it precise control over the linked agent's behavior.
 
-### 1. Specialized Task Delegation
+### Using Param for Structured Input
 
-Break complex problems into specialized sub-tasks:
+For more complex scenarios with multiple parameters, validation, and documentation, use `Param` classes. These provide type safety and automatic schema generation:
 
 ```python
-class ResearchAgent(Agent):
-    __system_message__ = "I gather and summarize research information."
-    __description__ = "Searches and summarizes academic and web sources"
+from pyagentic import Param
 
-class WritingAgent(Agent):
-    __system_message__ = "I create well-structured written content."
-    __description__ = "Writes articles, reports, and documentation with proper structure"
+class SearchParams(Param):
+    query: str
+    max_results: int = 10
+    include_metadata: bool = True
 
-class EditingAgent(Agent):
-    __system_message__ = "I review and improve written content."
-    __description__ = "Reviews content for grammar, style, and clarity"
-
-class ContentCreatorAgent(Agent):
-    __system_message__ = "I coordinate research, writing, and editing to create high-quality content."
+class SearchAgent(Agent):
+    __system_message__ = "I search databases"
+    __description__ = "Searches databases with advanced filtering"
     
-    researcher: ResearchAgent
-    writer: WritingAgent
-    editor: EditingAgent
+    async def __call__(self, params: SearchParams) -> str: ...
 
-# Usage for creating a comprehensive article
-content_creator = ContentCreatorAgent(model="gpt-4", api_key=API_KEY, ...)
-article = await content_creator.run("Create an article about renewable energy trends")
+class DataAgent(Agent):
+    __system_message__ = "I manage data operations"
+    searcher: SearchAgent
+
+# The LLM can now call the searcher with structured parameters
+result = await data_agent.run("Find customer records for 'John Smith'")
 ```
 
-### 2. Multi-Domain Expertise
-
-Combine different areas of expertise:
-
-```python
-class TechnicalAgent(Agent):
-    __system_message__ = "I provide technical software development expertise."
-    __description__ = "Analyzes technical requirements and provides development guidance"
-
-class BusinessAgent(Agent):
-    __system_message__ = "I provide business strategy and market analysis."
-    __description__ = "Evaluates business impact and strategic considerations"
-
-class ProductManagerAgent(Agent):
-    __system_message__ = "I make product decisions by considering both technical and business factors."
-    
-    tech_expert: TechnicalAgent
-    business_expert: BusinessAgent
-
-# The PM agent can consult both experts for balanced decisions
-pm = ProductManagerAgent(model="gpt-4", api_key=API_KEY, ...)
-decision = await pm.run("Should we implement real-time collaboration features?")
-```
-
-### 3. Hierarchical Processing
-
-Create processing pipelines with clear stages:
-
-```python
-class ValidationAgent(Agent):
-    __system_message__ = "I validate and clean input data."
-    __description__ = "Validates data format, checks for errors, and cleans input"
-
-class ProcessingAgent(Agent):
-    __system_message__ = "I perform core data processing operations."
-    __description__ = "Transforms and processes validated data"
-
-class OutputAgent(Agent):
-    __system_message__ = "I format and present processed results."
-    __description__ = "Formats results and generates user-friendly output"
-
-class DataPipelineAgent(Agent):
-    __system_message__ = "I orchestrate a complete data processing pipeline."
-    
-    validator: ValidationAgent
-    processor: ProcessingAgent
-    formatter: OutputAgent
-
-# Creates a structured processing flow
-pipeline = DataPipelineAgent(model="gpt-4", api_key=API_KEY, ...)
-result = await pipeline.run("Process this customer data: [raw_data]")
-```
+When using `Param` classes, PyAgentic automatically generates the proper OpenAI tool schema, complete with parameter types, defaults, and descriptions. This makes the linked agent's interface clear to the calling LLM and ensures type safety throughout the system.
 
 ## Best Practices
 
-### 1. Clear Agent Responsibilities
+### Clear Descriptions
 
-Each agent should have a clear, focused responsibility:
+Since linked agents appear as tools to the parent agent, their `__description__` attribute becomes crucial. This description is what the LLM uses to decide when and how to use the linked agent:
 
 ```python
-# Good: Focused, single-responsibility agents
+class DatabaseAgent(Agent):
+    __system_message__ = "I query databases"
+    __description__ = "Retrieves and analyzes data from SQL databases"
+```
+
+A well-written description should be specific enough to guide the LLM's decision-making while being concise. Think of it as the "tool tooltip" that helps the parent agent understand the linked agent's capabilities and appropriate use cases.
+
+### Keep Agents Focused
+
+The single responsibility principle applies strongly to linked agents. Each agent should have a clear, focused purpose that makes it easy for other agents to understand when to use it:
+
+```python
 class EmailAgent(Agent):
-    __system_message__ = "I handle email communication."
-    __description__ = "Sends, formats, and manages email communications"
-
-class CalendarAgent(Agent):
-    __system_message__ = "I manage calendar and scheduling."
-    __description__ = "Schedules meetings, checks availability, and manages calendar events"
-
-class AssistantAgent(Agent):
-    __system_message__ = "I help with daily tasks using email and calendar capabilities."
+    __description__ = "Sends and manages emails"
     
+class CalendarAgent(Agent):
+    __description__ = "Manages calendar events and scheduling"
+    
+class AssistantAgent(Agent):
     email: EmailAgent
     calendar: CalendarAgent
 ```
 
-### 2. Meaningful Agent Descriptions
-
-Always provide clear `__description__` attributes - they become the tool descriptions:
-
-```python
-class DatabaseAgent(Agent):
-    __system_message__ = "I interact with databases."
-    # This description helps the parent agent understand when to use this agent
-    __description__ = "Queries databases, performs CRUD operations, and manages data persistence"
-```
-
-### 3. Optional vs Required Linking
-
-Agents can be optionally linked by not providing them during initialization:
-
-```python
-class FlexibleAgent(Agent):
-    __system_message__ = "I can work with or without a helper."
-    
-    helper: HelperAgent  # Optional - can be None
-    
-    @tool("Process with optional help")
-    def process(self, data: str) -> str:
-        if self.helper is not None:
-            # Use helper if available
-            return f"Processed with help: {data}"
-        else:
-            # Fallback behavior
-            return f"Processed independently: {data}"
-
-# Can create with or without the helper
-agent = FlexibleAgent(model="gpt-4", api_key=API_KEY)  # helper will be None
-```
-
-### 4. Agent Composition Over Deep Nesting
-
-Prefer composition over deeply nested agent hierarchies:
-
-```python
-# Good: Flat composition
-class ServiceAgent(Agent):
-    __system_message__ = "I coordinate multiple service operations."
-    
-    auth: AuthAgent
-    database: DatabaseAgent
-    cache: CacheAgent
-    logger: LoggerAgent
-
-# Avoid: Deep nesting
-class DeepAgent(Agent):
-    level1: Level1Agent  # which has level2: Level2Agent, etc.
-```
-
-## What Not to Do
-
-### 1. Avoid Circular Dependencies
-
-Don't create circular references between agents:
-
-```python
-# Bad: Circular dependency
-class AgentA(Agent):
-    __system_message__ = "I am Agent A"
-    agent_b: 'AgentB'  # AgentA depends on AgentB
-
-class AgentB(Agent):
-    __system_message__ = "I am Agent B" 
-    agent_a: AgentA  # AgentB depends on AgentA - CIRCULAR!
-
-# This can lead to infinite loops and stack overflows
-```
-
-### 2. Don't Over-Link
-
-Avoid linking too many agents to a single coordinator:
-
-```python
-# Bad: Too many linked agents makes the coordinator unfocused
-class OverComplexAgent(Agent):
-    __system_message__ = "I do everything with many helpers."
-    
-    agent1: Agent1
-    agent2: Agent2
-    agent3: Agent3
-    agent4: Agent4
-    agent5: Agent5
-    agent6: Agent6  # Too many!
-    # ... this becomes hard to manage and reason about
-
-# Better: Group related functionality
-class DatabaseGroup(Agent):
-    __system_message__ = "I handle all database operations."
-    reader: DatabaseReaderAgent
-    writer: DatabaseWriterAgent
-
-class APIGroup(Agent):
-    __system_message__ = "I handle all API operations."
-    client: APIClientAgent
-    validator: APIValidatorAgent
-
-class MainAgent(Agent):
-    __system_message__ = "I coordinate database and API operations."
-    database: DatabaseGroup
-    api: APIGroup
-```
-
-### 3. Don't Link Stateful Agents Carelessly
-
-Be careful when linking agents that maintain important state:
-
-```python
-# Potentially problematic: Shared stateful agent
-shared_counter = CounterAgent(model="gpt-4", api_key=API_KEY)
-
-agent1 = WorkerAgent(model="gpt-4", api_key=API_KEY, counter=shared_counter)
-agent2 = WorkerAgent(model="gpt-4", api_key=API_KEY, counter=shared_counter)
-
-# Both agents modify the same counter - this might cause unexpected behavior
-```
-
-### 4. Don't Neglect Error Handling
-
-Consider what happens when linked agents fail:
-
-```python
-class RobustAgent(Agent):
-    __system_message__ = "I handle failures gracefully."
-    
-    unreliable_helper: UnreliableAgent
-    
-    @tool("Process with fallback")
-    def process_safely(self, data: str) -> str:
-        # The framework handles agent failures, but you can add logic
-        # to check responses and implement fallback strategies
-        return f"Processing {data} with robust error handling"
-```
+Focused agents are easier to compose, test, and maintain. They also make the overall system behavior more predictable since each agent's role is clearly defined.
