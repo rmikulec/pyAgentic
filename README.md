@@ -15,15 +15,15 @@ Complete documentation, tutorials, and examples can be found [here](https://rmik
 
 ## Features
 
-- ** Declarative Design** - Define agents with simple class-based syntax and decorators
-- ** Powerful Tools** - Easy `@tool` decoration with automatic OpenAI schema generation
-- ** Persistent Context** - Stateful agents with `ContextItem` fields that persist across conversations
-- ** Agent Linking** - Compose complex workflows by linking agents together
-- ** Structured Responses** - Type-safe Pydantic responses with full tool execution details
-- ** Dynamic Constraints** - Use `ContextRef` to create smart parameter validation
-- ** Inheritance & Extensions** - Build agent hierarchies and mix in cross-cutting capabilities
-- ** Native Async Support** - Built for scalable applications with async/await throughout
-- ** Type Safety** - Complete typing support with validation and IDE autocompletion
+- **Declarative Design** - Define agents with simple class-based syntax and decorators
+- **Powerful Tools** - Easy `@tool` decoration with automatic OpenAI schema generation
+- **Persistent Context** - Stateful agents with `ContextItem` fields that persist across conversations
+- **Agent Linking** - Compose complex workflows by linking agents together
+- **Structured Responses** - Type-safe Pydantic responses with full tool execution details
+- **Dynamic Constraints** - Use `ContextRef` to create smart parameter validation
+- **Inheritance & Extensions** - Build agent hierarchies and mix in cross-cutting capabilities
+- **Native Async Support** - Built for scalable applications with async/await throughout
+- **Type Safety** - Complete typing support with validation and IDE autocompletion
 
 ## Quick Start
 
@@ -121,7 +121,7 @@ class DataAgent(Agent):
             description="Dataset to analyze",
             values=ContextRef("dataset_names")  # LLM can only pick from available datasets
     )) -> str: ...
-
+```
 
 ## Contributing
 
