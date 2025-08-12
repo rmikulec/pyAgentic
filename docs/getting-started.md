@@ -433,6 +433,57 @@ Our research assistant demonstrates all of PyAgentic's key strengths:
 4. **Type Safety**: All parameters are properly typed and validated
 5. **Natural Evolution**: Easy to add new capabilities without breaking existing functionality
 
+## Controlling Tool Usage with max_call_depth
+
+By default, PyAgentic agents can only call tools once per conversation turn, then must provide a final response. This prevents endless tool-calling loops but might limit complex workflows. You can control this behavior with the `max_call_depth` parameter:
+
+```python
+# Allow multiple rounds of tool calling
+agent = ResearchAgent(
+    model="gpt-4o",
+    api_key=API_KEY,
+    max_call_depth=3  # Allow up to 3 rounds of tool calls
+)
+```
+
+### How max_call_depth Works
+
+- **Depth 0**: Agent can call tools, then must respond
+- **Depth 1 (default)**: After tools execute, agent can call more tools or respond  
+- **Depth 2+**: Agent can continue calling tools in multiple rounds
+
+Each "depth" represents a full round of tool calling. Within each round, the agent can make multiple parallel tool calls, but after each round completes, it decides whether to call more tools or give a final answer.
+
+### When to Increase max_call_depth
+
+**Use higher depths (2-4) when your agent needs to:**
+- Search for information, then analyze what it found
+- Read multiple files and synthesize information  
+- Perform multi-step research or analysis
+- Chain tool outputs together
+
+**Keep default (1) when your agent:**
+- Has simple, single-purpose tools
+- Should respond quickly without complex workflows
+- Might get stuck in tool-calling loops
+
+### Example: Research Agent with Multiple Depths
+
+```
+With max_call_depth=1 (default):
+User: "Research AI and climate change" 
+  → Agent calls search() → Responds with results
+
+With max_call_depth=3:
+User: "Research AI and climate change"
+  → Depth 0: Agent calls search()  
+  → Depth 1: Agent calls add_paper() for multiple papers
+  → Depth 2: Agent calls read_paper() to analyze content
+  → Final response with comprehensive analysis
+```
+
+This allows your agent to perform sophisticated multi-step workflows while preventing infinite loops.
+
 ## Key Concepts Summary
 
 - **`Agent`**: Base class that handles OpenAI integration and orchestration
@@ -441,6 +492,7 @@ Our research assistant demonstrates all of PyAgentic's key strengths:
 - **`ParamInfo`**: Metadata for tool parameters (descriptions, requirements, defaults)  
 - **`@computed_context`**: Dynamic properties that recalculate on each access
 - **`ContextRef`**: Links tool parameters to live context data for smart constraints
+- **`max_call_depth`**: Controls how many rounds of tool calling are allowed per turn
 
 ## Next Steps
 
