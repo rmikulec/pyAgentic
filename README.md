@@ -5,7 +5,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tests](https://github.com/rmikulec/pyagentic/workflows/Tests/badge.svg?branch=main)](https://github.com/rmikulec/pyAgentic/actions/workflows/testing.yml?query=branch%3Amain)
 
-A declarative, type-safe framework for building AI agents with OpenAI integration. PyAgentic lets you create sophisticated LLM agents using clean Python class syntax, with full support for tools, persistent context, agent linking, and structured responses.
+A declarative, type-safe framework for building AI agents with OpenAI integration. PyAgentic lets you create sophisticated LLM agents using clean Python class syntax, with full support for tools, persistent context, agent linking, and agent inheritance.
 
 ## Documentation
 
