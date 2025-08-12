@@ -84,6 +84,7 @@ class Agent(metaclass=AgentMeta):
     model: str
     api_key: str
     emitter: Callable[[Any], str] = None
+    max_call_depth: int = 1
 
     def __post_init__(self):
         self.client: openai.AsyncOpenAI = openai.AsyncOpenAI(api_key=self.api_key)
@@ -103,7 +104,7 @@ class Agent(metaclass=AgentMeta):
         )
         return response
 
-    async def _process_tool_call(self, tool_call) -> ToolResponse:
+    async def _process_tool_call(self, tool_call, call_depth) -> ToolResponse:
         self.context._messages.append(tool_call)
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
@@ -141,7 +142,7 @@ class Agent(metaclass=AgentMeta):
         )
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(
-            raw_kwargs=tool_call.arguments, call_depth=0, output=result, **compiled_args
+            raw_kwargs=tool_call.arguments, call_depth=call_depth, output=result, **compiled_args
         )
 
     async def _build_tool_defs(self) -> list[dict]:
@@ -166,70 +167,90 @@ class Agent(metaclass=AgentMeta):
         Returns:
             str: The output of the agent
         """
-
-        # Generate and insert the new system message
+        # Prime context with the user message
         self.context.add_user_message(input_)
 
-        # Create the tool list
+        # Build tools once (if yours can change each turn, move inside the loop)
         tool_defs = await self._build_tool_defs()
 
-        # Begin the first pass on generating a response from openai
+        # Tracking
+        tool_responses: list = []
+        agent_responses: list = []
+        processed_call_ids: set[str] = set()
+
+        # Optional status emit
         if self.emitter:
-            await _safe_run(
-                self.emitter,
-                EmitUpdate(
-                    status=Status.GENERATING,
-                ),
-            )
-        try:
-            response = await self.client.responses.create(
-                model=self.model,
-                input=self.context.messages,
-                tools=tool_defs,
-                max_tool_calls=5,
-                parallel_tool_calls=True,
-                tool_choice="auto",
-            )
-            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
-            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
-        except Exception as e:
-            logger.exception(e)
-            # On failure, emit an udpate, update the messages, and return a standard message
-            if self.emitter:
-                await _safe_run(
-                    self.emitter,
-                    EmitUpdate(
-                        status=Status.ERROR,
-                    ),
+            await _safe_run(self.emitter, EmitUpdate(status=Status.GENERATING))
+
+        depth = 0
+        final_ai_message: str | None = None
+
+        while depth < self.max_call_depth:
+            # Ask the LLM what to do next (may return tool calls or final text)
+            try:
+                response = await self.client.responses.create(
+                    model=self.model,
+                    input=self.context.messages,
+                    tools=tool_defs,
+                    max_tool_calls=5,
+                    parallel_tool_calls=True,
+                    tool_choice="auto",
                 )
-            self.context._messages.append(
-                {"role": "assistant", "content": "Failed to generate a response"}
-            )
-            return f"OpenAI failed to generate a response: {e}"
+            except Exception as e:
+                # Error handling mirrors your original
+                logger.exception(e)
+                if self.emitter:
+                    await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
+                self.context._messages.append(
+                    {"role": "assistant", "content": "Failed to generate a response"}
+                )
+                return f"OpenAI failed to generate a response: {e}"
 
-        if reasoning:
-            self.context._messages.extend(reasoning)
+            # Persist any reasoning traces (optional)
+            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
+            if reasoning:
+                self.context._messages.extend(reasoning)
 
-        # Dispatch any tool calls
-        tool_responses = []
-        agent_responses = []
-        for tool_call in tool_calls:
-            if tool_call.type != "function_call":
-                continue
-            elif tool_call.name in self.__tool_defs__:
-                tool_response = await self._process_tool_call(tool_call)
-                tool_responses.append(tool_response)
-            elif tool_call.name in self.__linked_agents__:
-                agent_response = await self._process_agent_call(tool_call)
-                agent_responses.append(agent_response)
+            # Collect function/tool calls from this turn
+            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
 
-        # If tools ran, re-invoke LLM for natural reply
-        if tool_responses:
+            # If the model produced a final text (no calls), we can stop
+            if not tool_calls:
+                final_ai_message = response.output_text
+                break
+
+            # Execute tool/agent calls and append their results to context
+            for tool_call in tool_calls:
+                # Avoid double-processing if model re-sends the same id
+                call_id = getattr(tool_call, "id", None)
+                if call_id and call_id in processed_call_ids:
+                    continue
+                if call_id:
+                    processed_call_ids.add(call_id)
+
+                if tool_call.type != "function_call":
+                    continue
+
+                # Route to tools vs linked agents
+                if tool_call.name in self.__tool_defs__:
+                    result = await self._process_tool_call(tool_call, call_depth=depth)
+                    tool_responses.append(result)
+
+                elif tool_call.name in self.__linked_agents__:
+                    result = await self._process_agent_call(tool_call)
+                    agent_responses.append(result)
+
+            # After executing tools, advance depth and loop to let the LLM react
+            depth += 1
+
+        # If we hit depth limit and still don’t have a final text, ask once naturally
+        if final_ai_message is None:
             try:
                 response = await self.client.responses.create(
                     model=self.model,
                     input=self.context.messages,
                 )
+                final_ai_message = response.output_text
             except Exception as e:
                 logger.exception(e)
                 if self.emitter:
@@ -241,15 +262,15 @@ class Agent(metaclass=AgentMeta):
                 )
                 return f"OpenAI failed to generate a response: {e}"
 
-        # Parse and finalize the Ai Response
-        ai_message = response.output_text
-
-        self.context._messages.append({"role": "assistant", "content": ai_message})
+        # Finalize
+        self.context._messages.append({"role": "assistant", "content": final_ai_message})
 
         if self.emitter:
-            await _safe_run(self.emitter, AiUpdate(status=Status.SUCCEDED, message=ai_message))
+            await _safe_run(
+                self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_message)
+            )
 
-        response_fields = {"final_output": ai_message}
+        response_fields = {"final_output": final_ai_message}
         if self.__tool_defs__:
             response_fields["tool_responses"] = tool_responses
         if self.__linked_agents__:
