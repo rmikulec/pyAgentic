@@ -151,16 +151,16 @@ Several tools are used to maintain code quality:
 #### Formatting with Black
 ```bash
 # Format all Python files
-uv run black pyagentic tests
+uv run black -l99 pyagentic tests
 
 # Check formatting without making changes
-uv run black --check pyagentic tests
+uv run black -l99 --check pyagentic tests
 ```
 
 #### Linting with Flake8
 ```bash
 # Run linting checks
-uv run flake8 pyagentic tests --max-line-length=99
+uv run flake8 --max-line-length=99 pyagentic tests 
 ```
 
 
@@ -172,7 +172,7 @@ uv run pytest tests
 
 # Run tests with coverage
 uv run coverage run -m pytest tests
-
+```
 
 ### Documentation
 
