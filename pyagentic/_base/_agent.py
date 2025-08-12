@@ -68,6 +68,8 @@ class Agent(metaclass=AgentMeta):
         - emitter (Callable): A function that will be called to recieve intermittant information
             about the agent's process. A common use case is that of a websocket, to be able
             to recieve information about the process as it is happening
+        - max_call_depth(int): How many loops of tool calling the agent does on one run.
+            Defaults to 1.
     """
     # Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
@@ -272,6 +274,7 @@ class Agent(metaclass=AgentMeta):
 
         response_fields = {"final_output": final_ai_message}
         if self.__tool_defs__:
+            print(tool_responses)
             response_fields["tool_responses"] = tool_responses
         if self.__linked_agents__:
             response_fields["agent_responses"] = agent_responses
