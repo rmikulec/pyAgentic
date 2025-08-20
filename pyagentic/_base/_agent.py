@@ -4,6 +4,8 @@ import openai
 from functools import wraps
 from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform
 
+from pydantic import BaseModel
+
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
@@ -71,15 +73,20 @@ class Agent(metaclass=AgentMeta):
         - max_call_depth(int): How many loops of tool calling the agent does on one run.
             Defaults to 1.
     """
-    # Class Attributes
+    # Immutable Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
     __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
+    __linked_agents__: ClassVar[dict[str, Type[Self]]]
+
+    # User-set Class Attributes
     __system_message__: ClassVar[str]
     __description__: ClassVar[str]
     __input_template__: ClassVar[str] = None
+    __response_format__: ClassVar[Type[BaseModel]] = None
+
+    # Accesible Class Attributes
     __response_model__: ClassVar[Type[AgentResponse]] = None
     __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]
-    __linked_agents__: ClassVar[dict[str, Type[Self]]]
     __call_params__: ClassVar[dict[str, tuple[TypeVar, ParamInfo]]]
 
     # Base Attributes
@@ -190,14 +197,25 @@ class Agent(metaclass=AgentMeta):
         while depth < self.max_call_depth:
             # Ask the LLM what to do next (may return tool calls or final text)
             try:
-                response = await self.client.responses.create(
-                    model=self.model,
-                    input=self.context.messages,
-                    tools=tool_defs,
-                    max_tool_calls=5,
-                    parallel_tool_calls=True,
-                    tool_choice="auto",
-                )
+                if self.__response_format__:
+                    response = await self.client.responses.parse(
+                        model=self.model,
+                        input=self.context.messages,
+                        tools=tool_defs,
+                        max_tool_calls=5,
+                        parallel_tool_calls=True,
+                        tool_choice="auto",
+                        text_format=self.__response_format__,
+                    )
+                else:
+                    response = await self.client.responses.create(
+                        model=self.model,
+                        input=self.context.messages,
+                        tools=tool_defs,
+                        max_tool_calls=5,
+                        parallel_tool_calls=True,
+                        tool_choice="auto",
+                    )
             except Exception as e:
                 # Error handling mirrors your original
                 logger.exception(e)
@@ -218,7 +236,19 @@ class Agent(metaclass=AgentMeta):
 
             # If the model produced a final text (no calls), we can stop
             if not tool_calls:
-                final_ai_message = response.output_text
+                if self.__response_format__:
+                    final_ai_message = response.output_parsed
+                    self.context._messages.append(
+                        {
+                            "role": "assistant",
+                            "content": final_ai_message.model_dump_json(indent=2),
+                        }
+                    )
+                else:
+                    final_ai_message = response.output_text
+                    self.context._messages.append(
+                        {"role": "assistant", "content": final_ai_message}
+                    )
                 break
 
             # Execute tool/agent calls and append their results to context
@@ -248,11 +278,28 @@ class Agent(metaclass=AgentMeta):
         # If we hit depth limit and still don’t have a final text, ask once naturally
         if final_ai_message is None:
             try:
-                response = await self.client.responses.create(
-                    model=self.model,
-                    input=self.context.messages,
-                )
-                final_ai_message = response.output_text
+                if self.__response_format__:
+                    response = await self.client.responses.parse(
+                        model=self.model,
+                        input=self.context.messages,
+                        text_format=self.__response_format__,
+                    )
+                    final_ai_message = response.output_parsed
+                    self.context._messages.append(
+                        {
+                            "role": "assistant",
+                            "content": final_ai_message.model_dump_json(indent=2),
+                        }
+                    )
+                else:
+                    response = await self.client.responses.create(
+                        model=self.model,
+                        input=self.context.messages,
+                    )
+                    final_ai_message = response.output_text
+                    self.context._messages.append(
+                        {"role": "assistant", "content": final_ai_message}
+                    )
             except Exception as e:
                 logger.exception(e)
                 if self.emitter:
@@ -264,9 +311,6 @@ class Agent(metaclass=AgentMeta):
                 )
                 return f"OpenAI failed to generate a response: {e}"
 
-        # Finalize
-        self.context._messages.append({"role": "assistant", "content": final_ai_message})
-
         if self.emitter:
             await _safe_run(
                 self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_message)
@@ -274,7 +318,6 @@ class Agent(metaclass=AgentMeta):
 
         response_fields = {"final_output": final_ai_message}
         if self.__tool_defs__:
-            print(tool_responses)
             response_fields["tool_responses"] = tool_responses
         if self.__linked_agents__:
             response_fields["agent_responses"] = agent_responses
