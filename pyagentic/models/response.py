@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, create_model
-from typing import Type, Self, Union
+from typing import Type, Self, Union, Any
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._params import Param
@@ -62,7 +62,7 @@ class ToolResponse(BaseModel):
 
     raw_kwargs: str
     call_depth: int
-    output: str
+    output: Any
 
     @classmethod
     def from_tool_def(cls, tool_def: _ToolDefinition) -> Type[Self]:
@@ -112,7 +112,7 @@ class AgentResponse(BaseModel):
         a fastapi app. This is done by calling `from_tool_defs`.
     """
 
-    final_output: str
+    final_output: Union[str, Type[BaseModel]]
 
     @classmethod
     def from_tool_defs(
@@ -120,6 +120,7 @@ class AgentResponse(BaseModel):
         agent_name: str,
         tool_response_models: list[Type[ToolResponse]],
         linked_agents_response_models: list[Type[Self]],
+        response_format: Union[str, Type[BaseModel]],
     ) -> Type[Self]:
         """
         Creates a subclass of `AgentResponse`, using Tool Definitions to create a predetermined
@@ -132,4 +133,8 @@ class AgentResponse(BaseModel):
         if linked_agents_response_models:
             AgentResult = Union[tuple(linked_agents_response_models)]
             fields["agent_responses"] = (list[AgentResult], ...)
+        if response_format:
+            fields["final_output"] = (response_format, ...)
+        else:
+            fields["final_output"] = (str, ...)
         return create_model(f"{agent_name}Response", __base__=cls, **fields)

@@ -343,6 +343,7 @@ class AgentMeta(type):
             agent_name=cls.__name__,
             tool_response_models=tool_response_model_list,
             linked_agents_response_models=linked_agent_response_model_list,
+            response_format=cls.__response_format__,
         )
         with mcs._lock:
             cls.__tool_response_models__ = MappingProxyType(tool_response_models)
