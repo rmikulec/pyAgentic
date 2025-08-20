@@ -32,6 +32,14 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Learn about responses](responses.md)
 
+- :material-format-list-numbered: **[Structured Outputs](structured-output.md)**
+
+    ---
+
+    Using Pydantic models to enforce structured output schemas for your agents.
+
+    [:octicons-arrow-right-24: Learn about structured outputs](structured-output.md)
+
 - :material-link-variant: **[Agent Linking](agent-linking.md)**
 
     ---
