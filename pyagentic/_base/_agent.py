@@ -99,6 +99,7 @@ class Agent(metaclass=AgentMeta):
     backend: LLMBackend = None
     emitter: Callable[[Any], str] = None
     max_call_depth: int = 1
+    default_args: dict = None
 
     def __post_init__(self):
         try:
@@ -111,22 +112,24 @@ class Agent(metaclass=AgentMeta):
 
         try:
             assert backend.upper() in LLMBackends.__members__
+            
+            default_args = self.default_args if self.default_args else {}
+
             self.backend = LLMBackends[backend.upper()].value(
-                model=model_name, api_key=self.api_key
+                model=model_name, api_key=self.api_key, **default_args
             )
         except AssertionError:
             raise InvalidLLMSetup(model=self.model, reason="backend-not-found")
+        
+        if self.__response_format__ and not self.backend.__supports_structured_outputs__:
+            raise Exception("Response format is not support with this backend")
+        
+        if self.__tool_defs__ and not self.backend.__supports_tool_calls__:
+            raise Exception("Tools are not support with this backend")
 
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
-        self.context._messages.append(
-            Message(
-                type="function_call",
-                call_id=tool_call.id,
-                name=tool_call.name,
-                arguments=tool_call.arguments,
-            )
-        )
+        self.context._messages.append(self.backend.to_tool_call_message(tool_call))
         try:
             agent = getattr(self, tool_call.name)
             kwargs = json.loads(tool_call.arguments)
@@ -135,19 +138,12 @@ class Agent(metaclass=AgentMeta):
         except Exception as e:
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
         self.context._messages.append(
-            self.backend.to_tool_call_message(result=result, id_=tool_call.id)
+            self.backend.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         return response
 
     async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
-        self.context._messages.append(
-            Message(
-                type="function_call",
-                call_id=tool_call.id,
-                name=tool_call.name,
-                arguments=tool_call.arguments,
-            )
-        )
+        self.context._messages.append(self.backend.to_tool_call_message(tool_call))
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
@@ -180,7 +176,7 @@ class Agent(metaclass=AgentMeta):
 
         # Record output for LLM
         self.context._messages.append(
-            self.backend.to_tool_call_message(result=result, id_=tool_call.id)
+            self.backend.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(

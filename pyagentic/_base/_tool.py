@@ -85,6 +85,29 @@ class _ToolDefinition:
             "parameters": {"type": "object", "properties": dict(params)},
             "required": required,
         }
+    
+    def to_anthropic(self, context: _AgentContext) -> dict:
+        """
+        Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
+          - name, description copied over
+          - input_schema derived from OpenAI `parameters`
+          - required moved from top-level to inside input_schema
+        """
+        openai_spec = self.to_openai(context)
+
+        # Copy to avoid mutating original
+        input_schema = dict(openai_spec.get("parameters", {"type": "object", "properties": {}}))
+        required = openai_spec.get("required") or []
+        if required:
+            # Anthropic expects `required` inside the JSON Schema object
+            input_schema = {**input_schema, "required": list(required)}
+
+        return {
+            "name": openai_spec.get("name", self.name),
+            "description": openai_spec.get("description", self.description),
+            "input_schema": input_schema,
+        }
+
 
     def to_openai_v1(self, context: _AgentContext):
         openai_spec = self.to_openai(context)

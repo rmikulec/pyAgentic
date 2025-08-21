@@ -5,13 +5,8 @@ from pydantic import BaseModel
 
 @dataclass
 class Message:
-    type: Optional[str] = None
     role: Optional[str] = None
     content: Optional[str] = None
-    name: Optional[str] = None
-    arguments: Optional[str] = None
-    call_id: Optional[str] = None
-    output: Optional[str] = None
 
     def to_dict(self, exclude_none: bool = True):
         d = {}

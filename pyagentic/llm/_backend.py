@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import _AgentContext
-from pyagentic.models.llm import Message, Response
+from pyagentic.models.llm import Message, Response, ToolCall
 
 
 class LLMBackend(ABC):
@@ -16,7 +16,10 @@ class LLMBackend(ABC):
     def __init__(self, model: str, api_key: str, *, base_url: str = False, **kwargs): ...
 
     @abstractmethod
-    def to_tool_call_message(self, result, id_) -> Message: ...
+    def to_tool_call_message(self, tool_call: ToolCall) -> Message: ...
+
+    @abstractmethod
+    def to_tool_call_result_message(self, result, id_) -> Message: ...
 
     @abstractmethod
     async def generate(
