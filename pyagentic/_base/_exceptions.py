@@ -1,3 +1,6 @@
+from typing import Literal
+
+
 class ToolDeclarationFailed(Exception):
 
     def __init__(self, tool_name, message):
@@ -36,4 +39,23 @@ class InvalidContextRefMismatchTyping(Exception):
             f"ContextRef('{ref_path}') for {self.__class__.__name__}.{field_name}  "
             f"is of type {recieved_type}, expected {expected_type}"
         )
+        super().__init__(message)
+
+
+class InvalidLLMSetup(Exception):
+    def __init__(self, model: str, reason: Literal["backend-not-found", "invalid-format"]):
+        message = f"'{model}' is an invalid model"
+
+        match reason:
+            case "backend-not-found":
+                message += (
+                    f"{model.split('::')[0]} is an unsupported backend."
+                    "   Please use one of []"
+                    "   or provide a custom backend with `backend`"
+                )
+            case "invalid-format":
+                message += f"{model} is in invalid format. Please provide model with <backend>::<model_name>"
+            case _:
+                message += reason
+
         super().__init__(message)

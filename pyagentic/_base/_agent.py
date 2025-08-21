@@ -11,9 +11,13 @@ from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._context import ContextItem
 from pyagentic._base._metaclasses import AgentMeta
+from pyagentic._base._exceptions import InvalidLLMSetup
 
 from pyagentic.models.response import ToolResponse, AgentResponse
+from pyagentic.models.llm import Message, ToolCall
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
+from pyagentic.llm._backend import LLMBackend
+from pyagentic.llm import LLMBackends
 
 logger = get_logger(__name__)
 
@@ -92,15 +96,37 @@ class Agent(metaclass=AgentMeta):
     # Base Attributes
     model: str
     api_key: str
+    backend: LLMBackend = None
     emitter: Callable[[Any], str] = None
     max_call_depth: int = 1
 
     def __post_init__(self):
-        self.client: openai.AsyncOpenAI = openai.AsyncOpenAI(api_key=self.api_key)
+        try:
+            values = self.model.split("::")
+            assert len(values) == 2
+        except AssertionError:
+            raise InvalidLLMSetup(model=self.model, reason="invalid-format")
 
-    async def _process_agent_call(self, tool_call) -> AgentResponse:
+        backend, model_name = values
+
+        try:
+            assert backend.upper() in LLMBackends.__members__
+            self.backend = LLMBackends[backend.upper()].value(
+                model=model_name, api_key=self.api_key
+            )
+        except AssertionError:
+            raise InvalidLLMSetup(model=self.model, reason="backend-not-found")
+
+    async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
-        self.context._messages.append(tool_call)
+        self.context._messages.append(
+            Message(
+                type="function_call",
+                call_id=tool_call.id,
+                name=tool_call.name,
+                arguments=tool_call.arguments,
+            )
+        )
         try:
             agent = getattr(self, tool_call.name)
             kwargs = json.loads(tool_call.arguments)
@@ -109,12 +135,19 @@ class Agent(metaclass=AgentMeta):
         except Exception as e:
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
         self.context._messages.append(
-            {"type": "function_call_output", "call_id": tool_call.call_id, "output": result}
+            self.backend.to_tool_call_message(result=result, id_=tool_call.id)
         )
         return response
 
-    async def _process_tool_call(self, tool_call, call_depth) -> ToolResponse:
-        self.context._messages.append(tool_call)
+    async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
+        self.context._messages.append(
+            Message(
+                type="function_call",
+                call_id=tool_call.id,
+                name=tool_call.name,
+                arguments=tool_call.arguments,
+            )
+        )
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
@@ -147,23 +180,23 @@ class Agent(metaclass=AgentMeta):
 
         # Record output for LLM
         self.context._messages.append(
-            {"type": "function_call_output", "call_id": tool_call.call_id, "output": result}
+            self.backend.to_tool_call_message(result=result, id_=tool_call.id)
         )
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(
             raw_kwargs=tool_call.arguments, call_depth=call_depth, output=result, **compiled_args
         )
 
-    async def _build_tool_defs(self) -> list[dict]:
+    async def _get_tool_defs(self) -> list[_ToolDefinition]:
         tool_defs = []
         # iterate through registered tools
         for tool_def in self.__tool_defs__.values():
             # Check if any of the tool params use a ContextRef
             # convert to openai schema
-            tool_defs.append(tool_def.to_openai(self.context))
+            tool_defs.append(tool_def)
         for name, agent in self.__linked_agents__.items():
             tool_def = agent.get_tool_definition(name)
-            tool_defs.append(tool_def.to_openai(self.context))
+            tool_defs.append(tool_def)
         return tool_defs
 
     async def run(self, input_: str) -> str:
@@ -180,7 +213,7 @@ class Agent(metaclass=AgentMeta):
         self.context.add_user_message(input_)
 
         # Build tools once (if yours can change each turn, move inside the loop)
-        tool_defs = await self._build_tool_defs()
+        tool_defs = await self._get_tool_defs()
 
         # Tracking
         tool_responses: list = []
@@ -192,76 +225,40 @@ class Agent(metaclass=AgentMeta):
             await _safe_run(self.emitter, EmitUpdate(status=Status.GENERATING))
 
         depth = 0
-        final_ai_message: str | None = None
+        final_ai_output: str | None = None
 
         while depth < self.max_call_depth:
             # Ask the LLM what to do next (may return tool calls or final text)
             try:
-                if self.__response_format__:
-                    response = await self.client.responses.parse(
-                        model=self.model,
-                        input=self.context.messages,
-                        tools=tool_defs,
-                        max_tool_calls=5,
-                        parallel_tool_calls=True,
-                        tool_choice="auto",
-                        text_format=self.__response_format__,
-                    )
-                else:
-                    response = await self.client.responses.create(
-                        model=self.model,
-                        input=self.context.messages,
-                        tools=tool_defs,
-                        max_tool_calls=5,
-                        parallel_tool_calls=True,
-                        tool_choice="auto",
-                    )
+                response = await self.backend.generate(
+                    context=self.context,
+                    tool_defs=tool_defs,
+                    response_format=self.__response_format__,
+                )
             except Exception as e:
                 # Error handling mirrors your original
                 logger.exception(e)
                 if self.emitter:
                     await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
                 self.context._messages.append(
-                    {"role": "assistant", "content": "Failed to generate a response"}
+                    Message(role="assistant", content="Failed to generate a response")
                 )
                 return f"OpenAI failed to generate a response: {e}"
 
-            # Persist any reasoning traces (optional)
-            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
-            if reasoning:
-                self.context._messages.extend(reasoning)
-
-            # Collect function/tool calls from this turn
-            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
-
             # If the model produced a final text (no calls), we can stop
-            if not tool_calls:
+            if not response.tool_calls:
                 if self.__response_format__:
-                    final_ai_message = response.output_parsed
-                    self.context._messages.append(
-                        {
-                            "role": "assistant",
-                            "content": final_ai_message.model_dump_json(indent=2),
-                        }
-                    )
-                else:
-                    final_ai_message = response.output_text
-                    self.context._messages.append(
-                        {"role": "assistant", "content": final_ai_message}
-                    )
+                    final_ai_output = response.parsed if response.parsed else response.text
+                    self.context._messages.append(Message(role="assistant", content=response.text))
                 break
 
             # Execute tool/agent calls and append their results to context
-            for tool_call in tool_calls:
+            for tool_call in response.tool_calls:
                 # Avoid double-processing if model re-sends the same id
-                call_id = getattr(tool_call, "id", None)
-                if call_id and call_id in processed_call_ids:
+                if tool_call.id and tool_call.id in processed_call_ids:
                     continue
-                if call_id:
-                    processed_call_ids.add(call_id)
 
-                if tool_call.type != "function_call":
-                    continue
+                processed_call_ids.add(tool_call.id)
 
                 # Route to tools vs linked agents
                 if tool_call.name in self.__tool_defs__:
@@ -276,30 +273,13 @@ class Agent(metaclass=AgentMeta):
             depth += 1
 
         # If we hit depth limit and still don’t have a final text, ask once naturally
-        if final_ai_message is None:
+        if final_ai_output is None:
             try:
-                if self.__response_format__:
-                    response = await self.client.responses.parse(
-                        model=self.model,
-                        input=self.context.messages,
-                        text_format=self.__response_format__,
-                    )
-                    final_ai_message = response.output_parsed
-                    self.context._messages.append(
-                        {
-                            "role": "assistant",
-                            "content": final_ai_message.model_dump_json(indent=2),
-                        }
-                    )
-                else:
-                    response = await self.client.responses.create(
-                        model=self.model,
-                        input=self.context.messages,
-                    )
-                    final_ai_message = response.output_text
-                    self.context._messages.append(
-                        {"role": "assistant", "content": final_ai_message}
-                    )
+                response = await self.backend.generate(
+                    context=self.context,
+                    response_format=self.__response_format__,
+                )
+                final_ai_output = response.parsed if response.parsed else response.text
             except Exception as e:
                 logger.exception(e)
                 if self.emitter:
@@ -307,16 +287,16 @@ class Agent(metaclass=AgentMeta):
                         self.emitter, EmitUpdate(status=Status.ERROR, message="Generation failed")
                     )
                 self.context._messages.append(
-                    {"role": "assistant", "content": "Failed to generate a response"}
+                    Message(role="assistant", content="Failed to generate a response")
                 )
                 return f"OpenAI failed to generate a response: {e}"
 
         if self.emitter:
             await _safe_run(
-                self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_message)
+                self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
             )
 
-        response_fields = {"final_output": final_ai_message}
+        response_fields = {"final_output": final_ai_output, "backend_info": self.backend._info}
         if self.__tool_defs__:
             response_fields["tool_responses"] = tool_responses
         if self.__linked_agents__:

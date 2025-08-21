@@ -86,6 +86,10 @@ class _ToolDefinition:
             "required": required,
         }
 
+    def to_openai_v1(self, context: _AgentContext):
+        openai_spec = self.to_openai(context)
+        return {"type": "function", "function": {**openai_spec}}
+
     def compile_args(self, **kwargs) -> dict[str, Any]:
         """
         Converts the definition to an "openai-ready" dictionary

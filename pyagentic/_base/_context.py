@@ -3,6 +3,7 @@ from typing import Any, Callable, Type, Self
 from dataclasses import dataclass, make_dataclass, field, asdict
 
 from pyagentic._base._exceptions import InvalidContextRefNotFoundInContext
+from pyagentic.models.llm import Message
 
 
 @dataclass
@@ -82,7 +83,7 @@ class _AgentContext:
 
     instructions: str
     input_template: str = None
-    _messages: list = field(default_factory=list)
+    _messages: list[Message] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         """
@@ -113,12 +114,12 @@ class _AgentContext:
         return self.instructions.format(**self.as_dict())
 
     @property
-    def messages(self) -> list[dict[str, str]]:
+    def messages(self) -> list[Message]:
         """
         List of openai-ready messages with the most up-to-date system message
         """
         messages = self._messages.copy()
-        messages.insert(0, {"role": "system", "content": self.system_message})
+        messages.insert(0, Message(role="system", content=self.system_message))
         return messages
 
     def add_user_message(self, message: str):
@@ -138,7 +139,7 @@ class _AgentContext:
             content = self.input_template.format(**data)
         else:
             content = message
-        self._messages.append({"role": "user", "content": content})
+        self._messages.append(Message(role="user", content=content))
 
     def get(self, name: str) -> Any:
         """
