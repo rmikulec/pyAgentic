@@ -85,7 +85,7 @@ class _ToolDefinition:
             "parameters": {"type": "object", "properties": dict(params)},
             "required": required,
         }
-    
+
     def to_anthropic(self, context: _AgentContext) -> dict:
         """
         Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
@@ -107,7 +107,6 @@ class _ToolDefinition:
             "description": openai_spec.get("description", self.description),
             "input_schema": input_schema,
         }
-
 
     def to_openai_v1(self, context: _AgentContext):
         openai_spec = self.to_openai(context)

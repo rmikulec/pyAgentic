@@ -112,7 +112,7 @@ class Agent(metaclass=AgentMeta):
 
         try:
             assert backend.upper() in LLMBackends.__members__
-            
+
             default_args = self.default_args if self.default_args else {}
 
             self.backend = LLMBackends[backend.upper()].value(
@@ -120,10 +120,10 @@ class Agent(metaclass=AgentMeta):
             )
         except AssertionError:
             raise InvalidLLMSetup(model=self.model, reason="backend-not-found")
-        
+
         if self.__response_format__ and not self.backend.__supports_structured_outputs__:
             raise Exception("Response format is not support with this backend")
-        
+
         if self.__tool_defs__ and not self.backend.__supports_tool_calls__:
             raise Exception("Tools are not support with this backend")
 
