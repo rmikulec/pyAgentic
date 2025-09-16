@@ -21,7 +21,7 @@ class OpenAIMessage(Message):
     # Tool Usage
     name: Optional[str] = None
     arguments: Optional[str] = None
-    tool_use_id: Optional[str] = None
+    call_id: Optional[str] = None
     output: Optional[str] = None
 
 
@@ -37,7 +37,7 @@ class OpenAIBackend(LLMBackend):
         self._default_extra = kwargs or {}
 
     def to_tool_call_message(self, tool_call: ToolCall):
-        return Message(
+        return OpenAIMessage(
             type="function_call",
             call_id=tool_call.id,
             name=tool_call.name,
@@ -45,7 +45,7 @@ class OpenAIBackend(LLMBackend):
         )
 
     def to_tool_call_result_message(self, result, id_):
-        return Message(type="function_call_output", call_id=id_, output=result)
+        return OpenAIMessage(type="function_call_output", call_id=id_, output=result)
 
     async def generate(
         self,
@@ -55,6 +55,9 @@ class OpenAIBackend(LLMBackend):
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
     ) -> Response:
+
+        if tool_defs is None:
+            tool_defs = []
 
         if response_format:
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
@@ -68,10 +71,8 @@ class OpenAIBackend(LLMBackend):
             parsed = response.output_parsed if response.output_parsed else None
             text = parsed.model_dump_json(indent=2) if parsed else None
 
-            tool_calls = [output for output in response.output if output.type == "function_call"]
-            reasoning = [output for output in response.output if output.type == "reasoning"]
-
-            print(reasoning)
+            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
+            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
 
             return Response(
                 text=text,
@@ -90,15 +91,14 @@ class OpenAIBackend(LLMBackend):
                 **kwargs,
             )
 
+            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
+            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
+
             return Response(
                 text=response.output_text,
                 tool_calls=[
-                    ToolCall(
-                        id=tool_call,
-                        name=tool_call.function.name,
-                        arguments=tool_call.function.arguments,
-                    )
-                    for tool_call in response.tools
+                    ToolCall(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
+                    for tool_call in tool_calls
                 ],
                 raw=response,
             )
