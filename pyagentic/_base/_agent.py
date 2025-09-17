@@ -11,7 +11,9 @@ from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._context import ContextItem
 from pyagentic._base._metaclasses import AgentMeta
+from pyagentic._base._tracing import AgentTracer
 
+from pyagentic.tracing.dict import DictionaryTracer
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 
@@ -93,6 +95,7 @@ class Agent(metaclass=AgentMeta):
     model: str
     api_key: str
     emitter: Callable[[Any], str] = None
+    tracer: AgentTracer = DictionaryTracer()
     max_call_depth: int = 1
 
     def __post_init__(self):
@@ -117,6 +120,7 @@ class Agent(metaclass=AgentMeta):
         self.context._messages.append(tool_call)
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
+        
         try:
             tool_def = self.__tool_defs__[tool_call.name]
             handler = getattr(self, tool_call.name)
@@ -196,84 +200,95 @@ class Agent(metaclass=AgentMeta):
 
         while depth < self.max_call_depth:
             # Ask the LLM what to do next (may return tool calls or final text)
-            try:
-                if self.__response_format__:
-                    response = await self.client.responses.parse(
-                        model=self.model,
-                        input=self.context.messages,
-                        tools=tool_defs,
-                        max_tool_calls=5,
-                        parallel_tool_calls=True,
-                        tool_choice="auto",
-                        text_format=self.__response_format__,
-                    )
-                else:
-                    response = await self.client.responses.create(
-                        model=self.model,
-                        input=self.context.messages,
-                        tools=tool_defs,
-                        max_tool_calls=5,
-                        parallel_tool_calls=True,
-                        tool_choice="auto",
-                    )
-            except Exception as e:
-                # Error handling mirrors your original
-                logger.exception(e)
-                if self.emitter:
-                    await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
-                self.context._messages.append(
-                    {"role": "assistant", "content": "Failed to generate a response"}
-                )
-                return f"OpenAI failed to generate a response: {e}"
-
-            # Persist any reasoning traces (optional)
-            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
-            if reasoning:
-                self.context._messages.extend(reasoning)
-
-            # Collect function/tool calls from this turn
-            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
-
-            # If the model produced a final text (no calls), we can stop
-            if not tool_calls:
-                if self.__response_format__:
-                    final_ai_message = response.output_parsed
+            async with self.tracer.inference(name="openai") as inference_span:
+                try:
+                    if self.__response_format__:
+                        response = await self.client.responses.parse(
+                            model=self.model,
+                            input=self.context.messages,
+                            tools=tool_defs,
+                            max_tool_calls=5,
+                            parallel_tool_calls=True,
+                            tool_choice="auto",
+                            text_format=self.__response_format__,
+                        )
+                    else:
+                        response = await self.client.responses.create(
+                            model=self.model,
+                            input=self.context.messages,
+                            tools=tool_defs,
+                            max_tool_calls=5,
+                            parallel_tool_calls=True,
+                            tool_choice="auto",
+                        )
+                except Exception as e:
+                    # Error handling mirrors your original
+                    logger.exception(e)
+                    if self.emitter:
+                        await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
+                    self.tracer.record_exception(inference_span, e)
                     self.context._messages.append(
-                        {
-                            "role": "assistant",
-                            "content": final_ai_message.model_dump_json(indent=2),
-                        }
+                        {"role": "assistant", "content": "Failed to generate a response"}
                     )
-                else:
-                    final_ai_message = response.output_text
-                    self.context._messages.append(
-                        {"role": "assistant", "content": final_ai_message}
-                    )
-                break
+                    return f"OpenAI failed to generate a response: {e}"
 
-            # Execute tool/agent calls and append their results to context
-            for tool_call in tool_calls:
-                # Avoid double-processing if model re-sends the same id
-                call_id = getattr(tool_call, "id", None)
-                if call_id and call_id in processed_call_ids:
-                    continue
-                if call_id:
-                    processed_call_ids.add(call_id)
+                # Persist any reasoning traces (optional)
+                reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
+                if reasoning:
+                    self.context._messages.extend(reasoning)
 
-                if tool_call.type != "function_call":
-                    continue
+                # Collect function/tool calls from this turn
+                tool_calls = [rx for rx in response.output if rx.type == "function_call"]
 
-                # Route to tools vs linked agents
-                if tool_call.name in self.__tool_defs__:
-                    result = await self._process_tool_call(tool_call, call_depth=depth)
-                    tool_responses.append(result)
+                # If the model produced a final text (no calls), we can stop
+                if not tool_calls:
+                    if self.__response_format__:
+                        final_ai_message = response.output_parsed
+                        self.context._messages.append(
+                            {
+                                "role": "assistant",
+                                "content": final_ai_message.model_dump_json(indent=2),
+                            }
+                        )
+                    else:
+                        final_ai_message = response.output_text
+                        self.context._messages.append(
+                            {"role": "assistant", "content": final_ai_message}
+                        )
+                    break
+                # Execute tool/agent calls and append their results to context
+                for tool_call in tool_calls:
+                    # Avoid double-processing if model re-sends the same id
+                    call_id = getattr(tool_call, "id", None)
+                    if call_id and call_id in processed_call_ids:
+                        continue
+                    if call_id:
+                        processed_call_ids.add(call_id)
 
-                elif tool_call.name in self.__linked_agents__:
-                    result = await self._process_agent_call(tool_call)
-                    agent_responses.append(result)
+                    if tool_call.type != "function_call":
+                        continue
 
-            # After executing tools, advance depth and loop to let the LLM react
-            depth += 1
+                    # Route to tools vs linked agents
+                    if tool_call.name in self.__tool_defs__:
+                        async with self.tracer.tool(name=tool_call.name, parent=inference_span) as tool_span:
+                            result = await self._process_tool_call(tool_call, call_depth=depth)
+                            tool_responses.append(result)
+                            self.tracer.set_attributes(
+                                tool_span,
+                                result.model_dump()
+                            )
+
+                    elif tool_call.name in self.__linked_agents__:
+                        async with self.tracer.agent(name=tool_call.name, parent=inference_span) as agent_span:
+                            result = await self._process_agent_call(tool_call)
+                            agent_responses.append(result)
+                            self.tracer.set_attributes(
+                                agent_span,
+                                result.model_dump()
+                            )
+
+                # After executing tools, advance depth and loop to let the LLM react
+                depth += 1
 
         # If we hit depth limit and still don’t have a final text, ask once naturally
         if final_ai_message is None:
