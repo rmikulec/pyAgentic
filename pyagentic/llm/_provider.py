@@ -8,7 +8,7 @@ from pyagentic.models.llm import Message, LLMResponse, ToolCall
 
 
 class LLMProvider(ABC):
-    __llm_name__ = "backend"
+    __llm_name__ = "base"
     __supports_tool_calls__ = True
     __supports_structured_outputs__ = True
 
@@ -26,7 +26,7 @@ class LLMProvider(ABC):
         self,
         context: _AgentContext,
         *,
-        tool_defs: Optional[List[_ToolDefinition]] = None,
+        tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
     ) -> LLMResponse: ...

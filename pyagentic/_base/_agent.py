@@ -135,29 +135,37 @@ class Agent(metaclass=AgentMeta):
         if (not self.model and not self.api_key) and (not self.provider):
             raise InvalidLLMSetup(reason="no-provider")
 
+        if self.provider:
+            return
+
         try:
             values = self.model.split("::")
             assert len(values) == 2
         except AssertionError:
             raise InvalidLLMSetup(model=self.model, reason="invalid-format")
 
-        backend, model_name = values
+        provider, model_name = values
 
         try:
-            assert backend.upper() in LLMProviders.__members__
+            assert provider.upper() in LLMProviders.__members__
 
-            self.provider = LLMProviders[backend.upper()].value(
+            self.provider = LLMProviders[provider.upper()].value(
                 model=model_name,
                 api_key=self.api_key,
             )
         except AssertionError:
-            raise InvalidLLMSetup(model=self.model, reason="backend-not-found")
+            valid_providers = [
+                key.lower() for key in LLMProviders.__members__.keys() if key != "_MOCK"
+            ]
+            raise InvalidLLMSetup(
+                model=self.model, reason="provider-not-found", valid_providers=valid_providers
+            )
 
         if self.__response_format__ and not self.provider.__supports_structured_outputs__:
-            raise Exception("Response format is not support with this backend")
+            raise Exception("Response format is not support with this provider")
 
         if self.__tool_defs__ and not self.provider.__supports_tool_calls__:
-            raise Exception("Tools are not support with this backend")
+            raise Exception("Tools are not support with this provider")
 
     async def _process_llm_inference(
         self,
