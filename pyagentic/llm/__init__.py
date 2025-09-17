@@ -12,6 +12,11 @@ from pyagentic.llm._anthropic import AnthropicProvider
 from pyagentic.llm._mock import _MockProvider
 
 
+__all__ = [
+    "OpenAIProvider",
+    "AnthropicProvider"
+]
+
 class LLMProviders(Enum):
     """
     Enumeration of available LLM provider implementations.
