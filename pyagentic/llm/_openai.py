@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._backend import LLMBackend
-from pyagentic.models.llm import BackendInfo, Response, ToolCall, Message
+from pyagentic.models.llm import BackendInfo, LLMResponse, ToolCall, Message
 
 
 @dataclass
@@ -30,11 +30,10 @@ class OpenAIBackend(LLMBackend):
     OpenAI Backend
     """
 
-    def __init__(self, model: str, api_key: str, *, base_url: str = None, **kwargs):
+    def __init__(self, model: str, api_key: str, **kwargs):
         self._model = model
-        self.client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
-        self._info = BackendInfo(name="openai", model=model)
-        self._default_extra = kwargs or {}
+        self.client = openai.AsyncOpenAI(api_key=api_key, **kwargs)
+        self._info = BackendInfo(name="openai", model=model, attributes=kwargs)
 
     def to_tool_call_message(self, tool_call: ToolCall):
         return OpenAIMessage(
@@ -54,7 +53,7 @@ class OpenAIBackend(LLMBackend):
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
-    ) -> Response:
+    ) -> LLMResponse:
 
         if tool_defs is None:
             tool_defs = []
@@ -74,7 +73,7 @@ class OpenAIBackend(LLMBackend):
             reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
             tool_calls = [rx for rx in response.output if rx.type == "function_call"]
 
-            return Response(
+            return LLMResponse(
                 text=text,
                 parsed=parsed,
                 tool_calls=[
@@ -94,7 +93,7 @@ class OpenAIBackend(LLMBackend):
             reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
             tool_calls = [rx for rx in response.output if rx.type == "function_call"]
 
-            return Response(
+            return LLMResponse(
                 text=response.output_text,
                 tool_calls=[
                     ToolCall(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)

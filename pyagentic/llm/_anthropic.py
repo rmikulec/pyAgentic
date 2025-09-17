@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._backend import LLMBackend
-from pyagentic.models.llm import BackendInfo, Response, ToolCall, Message
+from pyagentic.models.llm import BackendInfo, LLMResponse, ToolCall, Message
 
 
 @dataclass
@@ -30,11 +30,10 @@ class AnthropicBackend(LLMBackend):
     Anthropic Backend
     """
 
-    def __init__(self, model: str, api_key: str, *, base_url: str = None, **kwargs):
+    def __init__(self, model: str, api_key: str,  **kwargs):
         self._model = model
-        self.client = anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url)
-        self._info = BackendInfo(name="anthropic", model=model)
-        self._default_extra = kwargs or {}
+        self.client = anthropic.AsyncAnthropic(api_key=api_key, **kwargs)
+        self._info = BackendInfo(name="anthropic", model=model, attributes=kwargs)
 
     def to_tool_call_message(self, tool_call: ToolCall):
         return AnthropicMessage(
@@ -54,7 +53,7 @@ class AnthropicBackend(LLMBackend):
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
-    ) -> Response:
+    ) -> LLMResponse:
         # Convert messages to Anthropic format
         messages = []
         system_message = None
@@ -74,9 +73,11 @@ class AnthropicBackend(LLMBackend):
         request_params = {
             "model": self._model,
             "messages": messages,
-            **self._default_extra,
             **kwargs,
         }
+
+        if "max_tokens" not in request_params:
+            request_params["max_tokens"] = 1024
 
         if system_message:
             request_params["system"] = system_message
@@ -115,7 +116,7 @@ class AnthropicBackend(LLMBackend):
                 # Fallback to text content if parsing fails
                 pass
 
-        return Response(
+        return LLMResponse(
             text=text_content if text_content else None,
             parsed=parsed,
             tool_calls=tool_calls,
