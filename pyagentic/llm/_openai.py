@@ -1,3 +1,10 @@
+"""
+OpenAI provider implementation for the pyagentic framework.
+
+This module provides integration with OpenAI's API for text generation and tool calling,
+supporting both standard and structured output generation.
+"""
+
 import openai
 from openai.types.responses import Response as OpenAIResponse
 from openai.types.responses import ParsedResponse as OpenAIParsedResponse
@@ -14,6 +21,12 @@ from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
 
 @dataclass
 class OpenAIMessage(Message):
+    """
+    OpenAI-specific message format extending the base Message class.
+
+    Includes additional fields required for OpenAI's API format including
+    tool call handling and function calling support.
+    """
     # Base
     type: Optional[str] = None
     role: Optional[str] = None
@@ -27,15 +40,36 @@ class OpenAIMessage(Message):
 
 class OpenAIProvider(LLMProvider):
     """
-    OpenAI Backend
+    OpenAI provider implementation for language model inference.
+
+    Provides integration with OpenAI's API supporting both standard text generation
+    and structured output parsing. Handles tool calling and function execution
+    through OpenAI's function calling capabilities.
     """
 
     def __init__(self, model: str, api_key: str, **kwargs):
+        """
+        Initialize the OpenAI provider with the specified model and API key.
+
+        Args:
+            model: OpenAI model identifier (e.g., 'gpt-4', 'gpt-3.5-turbo')
+            api_key: OpenAI API key for authentication
+            **kwargs: Additional arguments passed to the OpenAI client
+        """
         self._model = model
         self.client = openai.AsyncOpenAI(api_key=api_key, **kwargs)
         self._info = ProviderInfo(name="openai", model=model, attributes=kwargs)
 
     def to_tool_call_message(self, tool_call: ToolCall):
+        """
+        Convert a tool call to OpenAI's function call message format.
+
+        Args:
+            tool_call: The tool call to convert
+
+        Returns:
+            OpenAIMessage formatted for OpenAI's function calling API
+        """
         return OpenAIMessage(
             type="function_call",
             call_id=tool_call.id,
@@ -44,6 +78,16 @@ class OpenAIProvider(LLMProvider):
         )
 
     def to_tool_call_result_message(self, result, id_):
+        """
+        Convert a tool execution result to OpenAI's function result message format.
+
+        Args:
+            result: The output from the tool execution
+            id_: The function call ID to associate with this result
+
+        Returns:
+            OpenAIMessage containing the function execution result
+        """
         return OpenAIMessage(type="function_call_output", call_id=id_, output=result)
 
     async def generate(
@@ -54,6 +98,22 @@ class OpenAIProvider(LLMProvider):
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
     ) -> LLMResponse:
+        """
+        Generate a response using OpenAI's API.
+
+        Supports both standard text generation and structured output parsing.
+        When response_format is provided, uses OpenAI's structured output capabilities
+        to ensure the response conforms to the specified Pydantic model.
+
+        Args:
+            context: Agent context containing conversation history and system messages
+            tool_defs: List of available tools the model can call
+            response_format: Optional Pydantic model for structured output
+            **kwargs: Additional parameters for the OpenAI API call
+
+        Returns:
+            LLMResponse containing generated text, parsed data, tool calls, and metadata
+        """
 
         if tool_defs is None:
             tool_defs = []

@@ -1,3 +1,10 @@
+"""
+Anthropic provider implementation for the pyagentic framework.
+
+This module provides integration with Anthropic's Claude API for text generation
+and tool calling capabilities.
+"""
+
 import anthropic
 import json
 
@@ -12,6 +19,12 @@ from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
 
 @dataclass
 class AnthropicMessage(Message):
+    """
+    Anthropic-specific message format extending the base Message class.
+
+    Includes additional fields required for Anthropic's API format including
+    tool use handling and proper message structuring for Claude models.
+    """
     # Base
     type: Optional[str] = None
     role: Optional[str] = None
@@ -24,18 +37,38 @@ class AnthropicMessage(Message):
 
 
 class AnthropicProvider(LLMProvider):
+    """
+    Anthropic provider implementation for Claude language models.
+
+    Provides integration with Anthropic's Claude API supporting text generation
+    and tool calling. Note that this provider does not support structured outputs
+    natively and implements them through tool calling mechanisms.
+    """
     __supports_structured_outputs__ = False
 
-    """
-    Anthropic Backend
-    """
-
     def __init__(self, model: str, api_key: str, **kwargs):
+        """
+        Initialize the Anthropic provider with the specified model and API key.
+
+        Args:
+            model: Anthropic model identifier (e.g., 'claude-3-sonnet-20240229')
+            api_key: Anthropic API key for authentication
+            **kwargs: Additional arguments passed to the Anthropic client
+        """
         self._model = model
         self.client = anthropic.AsyncAnthropic(api_key=api_key, **kwargs)
         self._info = ProviderInfo(name="anthropic", model=model, attributes=kwargs)
 
     def to_tool_call_message(self, tool_call: ToolCall):
+        """
+        Convert a tool call to Anthropic's tool use message format.
+
+        Args:
+            tool_call: The tool call to convert
+
+        Returns:
+            AnthropicMessage formatted for Anthropic's tool use API
+        """
         return AnthropicMessage(
             type="tool_use",
             id=tool_call.id,
@@ -44,6 +77,16 @@ class AnthropicProvider(LLMProvider):
         )
 
     def to_tool_call_result_message(self, result, id_):
+        """
+        Convert a tool execution result to Anthropic's tool result message format.
+
+        Args:
+            result: The output from the tool execution
+            id_: The tool use ID to associate with this result
+
+        Returns:
+            AnthropicMessage containing the tool execution result
+        """
         return AnthropicMessage(type="tool_result", tool_use_id=id_, content=result)
 
     async def generate(
@@ -54,6 +97,22 @@ class AnthropicProvider(LLMProvider):
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
     ) -> LLMResponse:
+        """
+        Generate a response using Anthropic's Claude API.
+
+        Handles message formatting, system message extraction, and tool calling.
+        For structured outputs, attempts to parse tool call results into the
+        specified Pydantic model format.
+
+        Args:
+            context: Agent context containing conversation history and system messages
+            tool_defs: List of available tools the model can call
+            response_format: Optional Pydantic model for structured output (limited support)
+            **kwargs: Additional parameters for the Anthropic API call
+
+        Returns:
+            LLMResponse containing generated text, parsed data, tool calls, and metadata
+        """
         # Convert messages to Anthropic format
         messages = []
         system_message = None
