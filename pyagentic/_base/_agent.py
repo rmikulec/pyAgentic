@@ -1,20 +1,19 @@
 import inspect
 import json
-import openai
 from functools import wraps
-from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform
+from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform, Optional
 
 from pydantic import BaseModel
 
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
-from pyagentic._base._context import ContextItem
+from pyagentic._base._context import ContextItem, _AgentContext
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup
 
 from pyagentic.models.response import ToolResponse, AgentResponse
-from pyagentic.models.llm import Message, ToolCall
+from pyagentic.models.llm import Message, ToolCall, LLMResponse
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 from pyagentic.llm._backend import LLMBackend
 from pyagentic.llm import LLMBackends
@@ -99,7 +98,6 @@ class Agent(metaclass=AgentMeta):
     backend: LLMBackend = None
     emitter: Callable[[Any], str] = None
     max_call_depth: int = 1
-    default_args: dict = None
 
     def __post_init__(self):
         try:
@@ -113,10 +111,8 @@ class Agent(metaclass=AgentMeta):
         try:
             assert backend.upper() in LLMBackends.__members__
 
-            default_args = self.default_args if self.default_args else {}
-
             self.backend = LLMBackends[backend.upper()].value(
-                model=model_name, api_key=self.api_key, **default_args
+                model=model_name, api_key=self.api_key,
             )
         except AssertionError:
             raise InvalidLLMSetup(model=self.model, reason="backend-not-found")
@@ -126,6 +122,30 @@ class Agent(metaclass=AgentMeta):
 
         if self.__tool_defs__ and not self.backend.__supports_tool_calls__:
             raise Exception("Tools are not support with this backend")
+
+    async def _process_llm_inference(
+        self,
+        *,
+        tool_defs: Optional[list[_ToolDefinition]] = None,
+        **kwargs,
+    ) -> LLMResponse:
+            try:
+                response = await self.backend.generate(
+                    context=self.context,
+                    tool_defs=tool_defs,
+                    response_format=self.__response_format__,
+
+                )
+                return response
+            except Exception as e:
+                # Error handling mirrors your original
+                logger.exception(e)
+                if self.emitter:
+                    await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
+                self.context._messages.append(
+                    Message(role="assistant", content="Failed to generate a response")
+                )
+                return f"The LLM failed to generate a response: {e}"
 
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
@@ -225,27 +245,14 @@ class Agent(metaclass=AgentMeta):
 
         while depth < self.max_call_depth:
             # Ask the LLM what to do next (may return tool calls or final text)
-            try:
-                response = await self.backend.generate(
-                    context=self.context,
-                    tool_defs=tool_defs,
-                    response_format=self.__response_format__,
-                )
-            except Exception as e:
-                # Error handling mirrors your original
-                logger.exception(e)
-                if self.emitter:
-                    await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
-                self.context._messages.append(
-                    Message(role="assistant", content="Failed to generate a response")
-                )
-                return f"OpenAI failed to generate a response: {e}"
+            response = await self._process_llm_inference(
+                tool_defs=tool_defs
+            )
 
             # If the model produced a final text (no calls), we can stop
             if not response.tool_calls:
-                if self.__response_format__:
-                    final_ai_output = response.parsed if response.parsed else response.text
-                    self.context._messages.append(Message(role="assistant", content=response.text))
+                final_ai_output = response.parsed if response.parsed else response.text
+                self.context._messages.append(Message(role="assistant", content=response.text))
                 break
 
             # Execute tool/agent calls and append their results to context
@@ -270,22 +277,8 @@ class Agent(metaclass=AgentMeta):
 
         # If we hit depth limit and still don’t have a final text, ask once naturally
         if final_ai_output is None:
-            try:
-                response = await self.backend.generate(
-                    context=self.context,
-                    response_format=self.__response_format__,
-                )
-                final_ai_output = response.parsed if response.parsed else response.text
-            except Exception as e:
-                logger.exception(e)
-                if self.emitter:
-                    await _safe_run(
-                        self.emitter, EmitUpdate(status=Status.ERROR, message="Generation failed")
-                    )
-                self.context._messages.append(
-                    Message(role="assistant", content="Failed to generate a response")
-                )
-                return f"OpenAI failed to generate a response: {e}"
+            response = await self._process_llm_inference()
+            final_ai_output = response.parsed if response.parsed else response.text
 
         if self.emitter:
             await _safe_run(
