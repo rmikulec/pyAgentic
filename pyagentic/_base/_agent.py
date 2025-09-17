@@ -15,7 +15,7 @@ from pyagentic._base._exceptions import InvalidLLMSetup
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
-from pyagentic.llm._backend import LLMBackend
+from pyagentic.llm._provider import LLMProvider
 from pyagentic.llm import LLMBackends
 
 logger = get_logger(__name__)
@@ -95,7 +95,7 @@ class Agent(metaclass=AgentMeta):
     # Base Attributes
     model: str
     api_key: str
-    backend: LLMBackend = None
+    provider: LLMProvider = None
     emitter: Callable[[Any], str] = None
     max_call_depth: int = 1
 
@@ -111,16 +111,16 @@ class Agent(metaclass=AgentMeta):
         try:
             assert backend.upper() in LLMBackends.__members__
 
-            self.backend = LLMBackends[backend.upper()].value(
+            self.provider = LLMBackends[backend.upper()].value(
                 model=model_name, api_key=self.api_key,
             )
         except AssertionError:
             raise InvalidLLMSetup(model=self.model, reason="backend-not-found")
 
-        if self.__response_format__ and not self.backend.__supports_structured_outputs__:
+        if self.__response_format__ and not self.provider.__supports_structured_outputs__:
             raise Exception("Response format is not support with this backend")
 
-        if self.__tool_defs__ and not self.backend.__supports_tool_calls__:
+        if self.__tool_defs__ and not self.provider.__supports_tool_calls__:
             raise Exception("Tools are not support with this backend")
 
     async def _process_llm_inference(
@@ -130,7 +130,7 @@ class Agent(metaclass=AgentMeta):
         **kwargs,
     ) -> LLMResponse:
             try:
-                response = await self.backend.generate(
+                response = await self.provider.generate(
                     context=self.context,
                     tool_defs=tool_defs,
                     response_format=self.__response_format__,
@@ -149,7 +149,7 @@ class Agent(metaclass=AgentMeta):
 
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
-        self.context._messages.append(self.backend.to_tool_call_message(tool_call))
+        self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         try:
             agent = getattr(self, tool_call.name)
             kwargs = json.loads(tool_call.arguments)
@@ -158,12 +158,12 @@ class Agent(metaclass=AgentMeta):
         except Exception as e:
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
         self.context._messages.append(
-            self.backend.to_tool_call_result_message(result=result, id_=tool_call.id)
+            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         return response
 
     async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
-        self.context._messages.append(self.backend.to_tool_call_message(tool_call))
+        self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
@@ -196,7 +196,7 @@ class Agent(metaclass=AgentMeta):
 
         # Record output for LLM
         self.context._messages.append(
-            self.backend.to_tool_call_result_message(result=result, id_=tool_call.id)
+            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(
@@ -285,7 +285,7 @@ class Agent(metaclass=AgentMeta):
                 self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
             )
 
-        response_fields = {"final_output": final_ai_output, "backend_info": self.backend._info}
+        response_fields = {"final_output": final_ai_output, "backend_info": self.provider._info}
         if self.__tool_defs__:
             response_fields["tool_responses"] = tool_responses
         if self.__linked_agents__:

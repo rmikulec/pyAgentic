@@ -4,10 +4,10 @@ from pydantic import BaseModel
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import _AgentContext
-from pyagentic.models.llm import Message, Response, ToolCall
+from pyagentic.models.llm import Message, LLMResponse, ToolCall
 
 
-class LLMBackend(ABC):
+class LLMProvider(ABC):
     __llm_name__ = "backend"
     __supports_tool_calls__ = True
     __supports_structured_outputs__ = True
@@ -29,4 +29,4 @@ class LLMBackend(ABC):
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
-    ) -> Response: ...
+    ) -> LLMResponse: ...

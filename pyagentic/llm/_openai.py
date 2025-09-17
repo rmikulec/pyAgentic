@@ -8,8 +8,8 @@ from pydantic import BaseModel
 
 from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic.llm._backend import LLMBackend
-from pyagentic.models.llm import BackendInfo, LLMResponse, ToolCall, Message
+from pyagentic.llm._provider import LLMProvider
+from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
 
 
 @dataclass
@@ -25,7 +25,7 @@ class OpenAIMessage(Message):
     output: Optional[str] = None
 
 
-class OpenAIBackend(LLMBackend):
+class OpenAIBackend(LLMProvider):
     """
     OpenAI Backend
     """
@@ -33,7 +33,7 @@ class OpenAIBackend(LLMBackend):
     def __init__(self, model: str, api_key: str, **kwargs):
         self._model = model
         self.client = openai.AsyncOpenAI(api_key=api_key, **kwargs)
-        self._info = BackendInfo(name="openai", model=model, attributes=kwargs)
+        self._info = ProviderInfo(name="openai", model=model, attributes=kwargs)
 
     def to_tool_call_message(self, tool_call: ToolCall):
         return OpenAIMessage(

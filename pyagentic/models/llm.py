@@ -27,7 +27,7 @@ class ToolCall:
 
 
 @dataclass
-class Response:
+class LLMResponse:
     text: str
     tool_calls: List[ToolCall]
     parsed: BaseModel = None
@@ -38,6 +38,7 @@ class Response:
 
 
 @dataclass(frozen=True)
-class BackendInfo:
+class ProviderInfo:
     name: str
     model: str
+    attributes: dict = None

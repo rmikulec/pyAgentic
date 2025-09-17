@@ -6,8 +6,8 @@ from typing import List, Optional, Type
 from pydantic import BaseModel
 from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic.llm._backend import LLMBackend
-from pyagentic.models.llm import BackendInfo, LLMResponse, ToolCall, Message
+from pyagentic.llm._provider import LLMProvider
+from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
 
 
 @dataclass
@@ -23,7 +23,7 @@ class AnthropicMessage(Message):
     tool_use_id: Optional[str] = None
 
 
-class AnthropicBackend(LLMBackend):
+class AnthropicBackend(LLMProvider):
     __supports_structured_outputs__ = False
 
     """
@@ -33,7 +33,7 @@ class AnthropicBackend(LLMBackend):
     def __init__(self, model: str, api_key: str,  **kwargs):
         self._model = model
         self.client = anthropic.AsyncAnthropic(api_key=api_key, **kwargs)
-        self._info = BackendInfo(name="anthropic", model=model, attributes=kwargs)
+        self._info = ProviderInfo(name="anthropic", model=model, attributes=kwargs)
 
     def to_tool_call_message(self, tool_call: ToolCall):
         return AnthropicMessage(
