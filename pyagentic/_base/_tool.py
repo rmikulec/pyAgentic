@@ -40,7 +40,7 @@ class _ToolDefinition:
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
 
-    def to_openai(self, context: _AgentContext) -> dict:
+    def to_openai_spec(self, context: _AgentContext) -> dict:
         """
         Converts the definition to an "openai-ready" dictionary
 
@@ -86,14 +86,14 @@ class _ToolDefinition:
             "required": required,
         }
 
-    def to_anthropic(self, context: _AgentContext) -> dict:
+    def to_anthropic_spec(self, context: _AgentContext) -> dict:
         """
         Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
           - name, description copied over
           - input_schema derived from OpenAI `parameters`
           - required moved from top-level to inside input_schema
         """
-        openai_spec = self.to_openai(context)
+        openai_spec = self.to_openai_spec(context)
 
         # Copy to avoid mutating original
         input_schema = dict(openai_spec.get("parameters", {"type": "object", "properties": {}}))
@@ -109,7 +109,7 @@ class _ToolDefinition:
         }
 
     def to_openai_v1(self, context: _AgentContext):
-        openai_spec = self.to_openai(context)
+        openai_spec = self.to_openai_spec(context)
         return {"type": "function", "function": {**openai_spec}}
 
     def compile_args(self, **kwargs) -> dict[str, Any]:

@@ -142,7 +142,7 @@ class AnthropicProvider(LLMProvider):
             request_params["system"] = system_message
 
         if tool_defs:
-            request_params["tools"] = [tool.to_anthropic(context) for tool in tool_defs]
+            request_params["tools"] = [tool.to_anthropic_spec(context) for tool in tool_defs]
 
         # Make the API call
         async with self.client.messages.stream(**request_params) as stream:

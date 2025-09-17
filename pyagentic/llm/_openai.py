@@ -122,7 +122,7 @@ class OpenAIProvider(LLMProvider):
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
                 model=self._model,
                 input=[message.to_dict() for message in context.messages],
-                tools=[tool.to_openai(context) for tool in tool_defs],
+                tools=[tool.to_openai_spec(context) for tool in tool_defs],
                 text_format=response_format,
                 **kwargs,
             )
@@ -147,7 +147,7 @@ class OpenAIProvider(LLMProvider):
             response: OpenAIResponse = await self.client.responses.create(
                 model=self._model,
                 input=[message.to_dict() for message in context.messages],
-                tools=[tool.to_openai(context) for tool in tool_defs],
+                tools=[tool.to_openai_spec(context) for tool in tool_defs],
                 **kwargs,
             )
 
