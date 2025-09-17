@@ -78,8 +78,8 @@ class TestAgentLinkingBasics:
             helper: HelperAgent
 
         # Create instances
-        helper_instance = HelperAgent(model="test-model", api_key="test-key")
-        main_instance = MainAgent(model="test-model", api_key="test-key", helper=helper_instance)
+        helper_instance = HelperAgent(model="_mock::test-model", api_key="test-key")
+        main_instance = MainAgent(model="_mock::test-model", api_key="test-key", helper=helper_instance)
 
         # Verify the linked agent is properly set
         assert hasattr(main_instance, "helper")
@@ -99,7 +99,7 @@ class TestAgentLinkingBasics:
             helper: HelperAgent
 
         # Should be able to create without the linked agent
-        main_instance = MainAgent(model="test-model", api_key="test-key")
+        main_instance = MainAgent(model="_mock::test-model", api_key="test-key")
 
         # helper should be None when not provided
         assert main_instance.helper is None
@@ -200,11 +200,11 @@ class TestAgentLinkingToolGeneration:
             helper: HelperAgent
 
         # Create instances
-        helper = HelperAgent(model="test-model", api_key="test-key")
-        main = MainAgent(model="test-model", api_key="test-key", helper=helper)
+        helper = HelperAgent(model="_mock::test-model", api_key="test-key")
+        main = MainAgent(model="_mock::test-model", api_key="test-key", helper=helper)
 
         # Build tool definitions
-        tool_defs = await main._build_tool_defs()
+        tool_defs = await main._get_tool_defs()
 
         # Should include the linked agent as a tool
         tool_names = [tool["name"] for tool in tool_defs]
@@ -233,12 +233,12 @@ class TestAgentLinkingToolGeneration:
             cache: CacheAgent
 
         # Create instances
-        db = DatabaseAgent(model="test-model", api_key="test-key")
-        cache = CacheAgent(model="test-model", api_key="test-key")
-        main = MainAgent(model="test-model", api_key="test-key", database=db, cache=cache)
+        db = DatabaseAgent(model="_mock::test-model", api_key="test-key")
+        cache = CacheAgent(model="_mock::test-model", api_key="test-key")
+        main = MainAgent(model="_mock::test-model", api_key="test-key", database=db, cache=cache)
 
         # Build tool definitions
-        tool_defs = await main._build_tool_defs()
+        tool_defs = await main._get_tool_defs()
         tool_names = [tool["name"] for tool in tool_defs]
 
         # Both agents should be available as tools
@@ -263,11 +263,11 @@ class TestAgentLinkingToolGeneration:
                 return str(a + b)
 
         # Create instances
-        helper = HelperAgent(model="test-model", api_key="test-key")
-        main = MainAgent(model="test-model", api_key="test-key", helper=helper)
+        helper = HelperAgent(model="_mock::test-model", api_key="test-key")
+        main = MainAgent(model="_mock::test-model", api_key="test-key", helper=helper)
 
         # Build tool definitions
-        tool_defs = await main._build_tool_defs()
+        tool_defs = await main._get_tool_defs()
         tool_names = [tool["name"] for tool in tool_defs]
 
         # Should have both regular tools and linked agents
@@ -299,8 +299,8 @@ class TestAgentLinkingExecution:
         with patch.object(
             HelperAgent, "__call__", new=AsyncMock(return_value=mock_response)
         ) as mocked_call:
-            helper = HelperAgent(model="test-model", api_key="test-key")
-            main = MainAgent(model="test-model", api_key="test-key", helper=helper)
+            helper = HelperAgent(model="_mock::test-model", api_key="test-key")
+            main = MainAgent(model="_mock::test-model", api_key="test-key", helper=helper)
 
             tool_call = MagicMock()
             tool_call.name = "helper"
@@ -336,8 +336,8 @@ class TestAgentLinkingExecution:
             helper: HelperAgent
 
         # Create instances
-        helper = HelperAgent(model="test-model", api_key="test-key")
-        main = MainAgent(model="test-model", api_key="test-key", helper=helper)
+        helper = HelperAgent(model="_mock::test-model", api_key="test-key")
+        main = MainAgent(model="_mock::test-model", api_key="test-key", helper=helper)
 
         # Mock tool call
         tool_call = MagicMock()
@@ -445,9 +445,9 @@ class TestAgentLinkingContextIntegration:
             coordination_level: int = ContextItem(default=1)
 
         # Create instances with different context values
-        helper = HelperAgent(model="test-model", api_key="test-key", helper_mode="advanced")
+        helper = HelperAgent(model="_mock::test-model", api_key="test-key", helper_mode="advanced")
         main = MainAgent(
-            model="test-model", api_key="test-key", helper=helper, coordination_level=5
+            model="_mock::test-model", api_key="test-key", helper=helper, coordination_level=5
         )
 
         # Verify context is properly set
@@ -473,7 +473,7 @@ class TestAgentLinkingContextIntegration:
                 return f"Without helper: {data}"
 
         # Create without helper
-        main = MainAgent(model="test-model", api_key="test-key")
+        main = MainAgent(model="_mock::test-model", api_key="test-key")
 
         # Should handle None gracefully
         assert main.helper is None
@@ -583,8 +583,8 @@ class TestAgentLinkingEdgeCases:
         assert "helper" in MainAgent.__linked_agents__
 
         # Create instance to verify no conflicts
-        helper_instance = HelperAgent(model="test-model", api_key="test-key")
-        main = MainAgent(model="test-model", api_key="test-key", helper=helper_instance)
+        helper_instance = HelperAgent(model="_mock::test-model", api_key="test-key")
+        main = MainAgent(model="_mock::test-model", api_key="test-key", helper=helper_instance)
 
         # Both should be accessible
         assert main.helper == helper_instance

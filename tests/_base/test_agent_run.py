@@ -84,7 +84,7 @@ def test_agent():
                 raise ValueError("This is a test error")
             return "No error occurred"
 
-    return TestAgent(model="gpt-4", api_key="test_key")
+    return TestAgent(model="_mock::test-model", api_key="test_key")
 
 
 @pytest.fixture
@@ -113,7 +113,7 @@ class TestAgentBasicRun:
 
             # Verify the call parameters
             call_args = mock_client.responses.create.call_args
-            assert call_args.kwargs["model"] == "gpt-4"
+            assert call_args.kwargs["model"] == "_mock::test-model"
             assert "tools" in call_args.kwargs
             assert call_args.kwargs["max_tool_calls"] == 5
 
