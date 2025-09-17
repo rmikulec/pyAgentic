@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
-from pyagentic._base._context import ContextItem, _AgentContext
+from pyagentic._base._context import ContextItem
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup
 
@@ -83,7 +83,7 @@ class Agent(metaclass=AgentMeta):
             Defaults to 1.
 
     Examples:
-    
+
         With a model string
 
         ```
@@ -147,7 +147,8 @@ class Agent(metaclass=AgentMeta):
             assert backend.upper() in LLMProviders.__members__
 
             self.provider = LLMProviders[backend.upper()].value(
-                model=model_name, api_key=self.api_key,
+                model=model_name,
+                api_key=self.api_key,
             )
         except AssertionError:
             raise InvalidLLMSetup(model=self.model, reason="backend-not-found")
@@ -164,27 +165,27 @@ class Agent(metaclass=AgentMeta):
         tool_defs: Optional[list[_ToolDefinition]] = None,
         **kwargs,
     ) -> LLMResponse:
-            """
-            Processes LLM inferences by adding appropriate messages to the context, generating a
-                response using the provider and handling errors.
-            """
-            try:
-                response = await self.provider.generate(
-                    context=self.context,
-                    tool_defs=tool_defs,
-                    response_format=self.__response_format__,
-                    **kwargs
-                )
-                return response
-            except Exception as e:
-                # Error handling mirrors your original
-                logger.exception(e)
-                if self.emitter:
-                    await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
-                self.context._messages.append(
-                    Message(role="assistant", content="Failed to generate a response")
-                )
-                return f"The LLM failed to generate a response: {e}"
+        """
+        Processes LLM inferences by adding appropriate messages to the context, generating a
+            response using the provider and handling errors.
+        """
+        try:
+            response = await self.provider.generate(
+                context=self.context,
+                tool_defs=tool_defs,
+                response_format=self.__response_format__,
+                **kwargs,
+            )
+            return response
+        except Exception as e:
+            # Error handling mirrors your original
+            logger.exception(e)
+            if self.emitter:
+                await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
+            self.context._messages.append(
+                Message(role="assistant", content="Failed to generate a response")
+            )
+            return f"The LLM failed to generate a response: {e}"
 
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         """
@@ -207,7 +208,7 @@ class Agent(metaclass=AgentMeta):
 
     async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
         """
-        Processes a tool call by adding appropriate messages to the context, calling the tool, 
+        Processes a tool call by adding appropriate messages to the context, calling the tool,
             handling errors, and creating the tool response
         """
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
@@ -296,9 +297,7 @@ class Agent(metaclass=AgentMeta):
 
         while depth < self.max_call_depth:
             # Ask the LLM what to do next (may return tool calls or final text)
-            response = await self._process_llm_inference(
-                tool_defs=tool_defs
-            )
+            response = await self._process_llm_inference(tool_defs=tool_defs)
 
             # If the model produced a final text (no calls), we can stop
             if not response.tool_calls:
@@ -351,13 +350,13 @@ class Agent(metaclass=AgentMeta):
     def get_tool_definition(cls, name: str) -> _ToolDefinition:
         """
         Creates and returns a tool definition for the agent.
-        
+
         This is used for linked agents, allowing each agent to be linked to another by using it
             as a tools
 
         Args:
             name (str): The name of the linked agent
-        
+
         Returns:
             _ToolDefinition: A pyagentic tool defintion to be injected into a generate call
         """

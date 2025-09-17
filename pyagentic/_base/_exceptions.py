@@ -43,7 +43,11 @@ class InvalidContextRefMismatchTyping(Exception):
 
 
 class InvalidLLMSetup(Exception):
-    def __init__(self, reason: Literal["backend-not-found", "invalid-format", "no-provider"], model: str = None):
+    def __init__(
+        self,
+        reason: Literal["backend-not-found", "invalid-format", "no-provider"],
+        model: str = None,
+    ):
 
         match reason:
             case "backend-not-found":
@@ -53,7 +57,7 @@ class InvalidLLMSetup(Exception):
                     "   or provide a custom backend with `backend`"
                 )
             case "invalid-format":
-                message = f"{model} is in invalid format. Please provide model with <backend>::<model_name>"
+                message = f"{model} is in invalid format. Please provide model with <backend>::<model_name>" # noqa E501
             case "no-provider":
                 message = "Please provider either `model` + `api_key` or a valid `provider`"
             case _:

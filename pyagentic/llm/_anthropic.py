@@ -30,7 +30,7 @@ class AnthropicProvider(LLMProvider):
     Anthropic Backend
     """
 
-    def __init__(self, model: str, api_key: str,  **kwargs):
+    def __init__(self, model: str, api_key: str, **kwargs):
         self._model = model
         self.client = anthropic.AsyncAnthropic(api_key=api_key, **kwargs)
         self._info = ProviderInfo(name="anthropic", model=model, attributes=kwargs)
