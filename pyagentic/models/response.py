@@ -114,7 +114,7 @@ class AgentResponse(BaseModel):
     """
 
     final_output: Union[str, Type[BaseModel]]
-    backend_info: ProviderInfo
+    provider_info: ProviderInfo
 
     @classmethod
     def from_tool_defs(
