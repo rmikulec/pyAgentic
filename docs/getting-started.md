@@ -1,6 +1,6 @@
 # Getting Started with PyAgentic
 
-PyAgentic is a declarative framework for building AI agents with OpenAI integration. This guide will walk you through building a research assistant agent step by step, introducing each core concept along the way.
+PyAgentic is a declarative framework for building AI agents with support for multiple LLM providers including OpenAI, Anthropic, and others. This guide will walk you through building a research assistant agent step by step, introducing each core concept along the way.
 
 ## Installation
 
@@ -10,7 +10,7 @@ First, install PyAgentic:
 pip install pyagentic-core
 ```
 
-You'll also need an OpenAI API key for this tutorial.
+You'll also need an API key from your chosen LLM provider (OpenAI, Anthropic, etc.) for this tutorial.
 
 ## Why PyAgentic?
 
@@ -22,6 +22,64 @@ Imagine you're a researcher who needs to organize papers, extract key insights, 
 - Maintain context across conversations
 
 This is exactly the kind of stateful, tool-equipped agent that PyAgentic makes easy to build.
+
+## Choosing Your LLM Provider
+
+PyAgentic supports multiple LLM providers out of the box. You can configure your agent to use any supported provider:
+
+### Supported Providers
+
+- **OpenAI**: GPT-4, GPT-3.5, and other OpenAI models
+- **Anthropic**: Claude models with full tool calling support
+- **Mock**: For testing and development without API costs
+
+### Provider Configuration Methods
+
+You can configure providers in two ways:
+
+**Model String Format**
+```python
+agent = MyAgent(
+    model="<provider>::<model_name>",
+    api_key="your_api_key"
+)
+
+openai_agent = MyAgent(
+    model="openai::gpt-5",
+    api_key="your_api_key"
+)
+
+anthropic_agent = MyAgent(
+    model="anthropic::claude-opus-4-1-20250805",
+    api_key="your_api_key"
+)
+```
+
+**Provider Instance**
+```python
+from pyagentic.llm import OpenAIProvider, AnthropicProvider
+
+# OpenAI
+agent = MyAgent(
+    provider=OpenAIProvider(
+        model="gpt-5",
+        api_key="your_openai_key",
+        max_retries=10,
+        timeout=5
+    )
+)
+
+# Anthropic
+agent = MyAgent(
+    provider=AnthropicProvider(
+        model="claude-opus-4-1-20250805",
+        api_key="your_anthropic_key",
+        base_url="https://my-deployment.com/models"
+    )
+)
+```
+
+The provider instance method gives you more control over client configuration, allowing you to pass additional parameters like `base_url`, `timeout`, `max_retries`, etc.
 
 ## Step 1: Your First Agent
 
@@ -284,9 +342,20 @@ Now our tools are much smarter! The `ContextRef` creates dynamic constraints:
 First, we have to create our agent.
 
 ``` py linenums="1"
+# Option 1: Using model string format
 agent = ResearchAgent(
-    model="gpt-4o",
+    model="openai::gpt-4o",
     api_key=API_KEY
+)
+
+# Option 2: Using a provider instance
+from pyagentic.llm import OpenAIProvider
+
+agent = ResearchAgent(
+    provider=OpenAIProvider(
+        model="gpt-4o",
+        api_key=API_KEY
+    )
 )
 ```
 
@@ -440,7 +509,7 @@ By default, PyAgentic agents can only call tools once per conversation turn, the
 ```python
 # Allow multiple rounds of tool calling
 agent = ResearchAgent(
-    model="gpt-4o",
+    model="openai::gpt-4o",
     api_key=API_KEY,
     max_call_depth=3  # Allow up to 3 rounds of tool calls
 )
@@ -486,7 +555,7 @@ This allows your agent to perform sophisticated multi-step workflows while preve
 
 ## Key Concepts Summary
 
-- **`Agent`**: Base class that handles OpenAI integration and orchestration
+- **`Agent`**: Base class that handles LLM provider integration and orchestration
 - **`ContextItem`**: Persistent state that survives between conversations
 - **`@tool`**: Decorator that exposes methods as callable functions to the AI
 - **`ParamInfo`**: Metadata for tool parameters (descriptions, requirements, defaults)  
