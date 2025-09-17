@@ -43,19 +43,20 @@ class InvalidContextRefMismatchTyping(Exception):
 
 
 class InvalidLLMSetup(Exception):
-    def __init__(self, model: str, reason: Literal["backend-not-found", "invalid-format"]):
-        message = f"'{model}' is an invalid model"
+    def __init__(self, reason: Literal["backend-not-found", "invalid-format", "no-provider"], model: str = None):
 
         match reason:
             case "backend-not-found":
-                message += (
+                message = (
                     f"{model.split('::')[0]} is an unsupported backend."
                     "   Please use one of []"
                     "   or provide a custom backend with `backend`"
                 )
             case "invalid-format":
-                message += f"{model} is in invalid format. Please provide model with <backend>::<model_name>"
+                message = f"{model} is in invalid format. Please provide model with <backend>::<model_name>"
+            case "no-provider":
+                message = "Please provider either `model` + `api_key` or a valid `provider`"
             case _:
-                message += reason
+                message = reason
 
         super().__init__(message)
