@@ -68,13 +68,45 @@ class Agent(metaclass=AgentMeta):
     Agents also have default arguements that can be declared on initiation
 
     Args:
-        - model (str): The OpenAI model that will be used for inference. Defaults to value
-            found in `geo_assistant.config`
+        - model (str): Model used for inference. Please provide in the following format:
+            `<provider>::<model>`. For example, to use GPT-5, set the model to `openai::gpt-5`
+            When using model, the `api_key` must also be supplied. If model or api key not given,
+            then the user must specify a `provider`
+        - api_key (str): The matching api key to the model string provided.
+        - provider (LLMProvider): A provider instance allowing the user to configure provider's
+            client deeper. Providers must have a `model` and `api_key`, then any subsequent args
+            will be sent to the provider's base client. This will override `model` and `api_key`.
         - emitter (Callable): A function that will be called to recieve intermittant information
             about the agent's process. A common use case is that of a websocket, to be able
             to recieve information about the process as it is happening
-        - max_call_depth(int): How many loops of tool calling the agent does on one run.
+        - max_call_depth (int): How many loops of tool calling the agent does on one run.
             Defaults to 1.
+
+    Examples:
+    
+        With a model string
+
+        ```
+        agent = MyAgent(
+            model="openai::gpt-4o,
+            api_key=MY_API_KEY
+        )
+        ```
+
+        With a provider
+
+        ```
+        from pyagentic.llm import OpenAIProvider
+
+        agent = MyAgent(
+            provider=OpenAIProvier(
+                model="gpt-4o",
+                api_key=MY_API_KEY,
+                base_url="http://localhost:8000",
+                max_retries=5
+            )
+        )
+        ```
     """
     # Immutable Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
@@ -93,13 +125,16 @@ class Agent(metaclass=AgentMeta):
     __call_params__: ClassVar[dict[str, tuple[TypeVar, ParamInfo]]]
 
     # Base Attributes
-    model: str
-    api_key: str
+    model: str = None
+    api_key: str = None
     provider: LLMProvider = None
     emitter: Callable[[Any], str] = None
     max_call_depth: int = 1
 
     def __post_init__(self):
+        if (not self.model and not self.api_key) and (not self.provider):
+            raise InvalidLLMSetup(reason="no-provider")
+
         try:
             values = self.model.split("::")
             assert len(values) == 2
@@ -129,12 +164,16 @@ class Agent(metaclass=AgentMeta):
         tool_defs: Optional[list[_ToolDefinition]] = None,
         **kwargs,
     ) -> LLMResponse:
+            """
+            Processes LLM inferences by adding appropriate messages to the context, generating a
+                response using the provider and handling errors.
+            """
             try:
                 response = await self.provider.generate(
                     context=self.context,
                     tool_defs=tool_defs,
                     response_format=self.__response_format__,
-
+                    **kwargs
                 )
                 return response
             except Exception as e:
@@ -148,6 +187,10 @@ class Agent(metaclass=AgentMeta):
                 return f"The LLM failed to generate a response: {e}"
 
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
+        """
+        Processes linked agents by adding appropriate messages to the context, calling the agent,
+            handling errors, and creating an agent response.
+        """
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         try:
@@ -163,6 +206,10 @@ class Agent(metaclass=AgentMeta):
         return response
 
     async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
+        """
+        Processes a tool call by adding appropriate messages to the context, calling the tool, 
+            handling errors, and creating the tool response
+        """
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
@@ -204,6 +251,10 @@ class Agent(metaclass=AgentMeta):
         )
 
     async def _get_tool_defs(self) -> list[_ToolDefinition]:
+        """
+        Creates a list of tool definitions from any methods decorated with "@tool" and any agents
+            linked to the parent agent
+        """
         tool_defs = []
         # iterate through registered tools
         for tool_def in self.__tool_defs__.values():
@@ -298,6 +349,18 @@ class Agent(metaclass=AgentMeta):
 
     @classmethod
     def get_tool_definition(cls, name: str) -> _ToolDefinition:
+        """
+        Creates and returns a tool definition for the agent.
+        
+        This is used for linked agents, allowing each agent to be linked to another by using it
+            as a tools
+
+        Args:
+            name (str): The name of the linked agent
+        
+        Returns:
+            _ToolDefinition: A pyagentic tool defintion to be injected into a generate call
+        """
         desc = getattr(cls, "__description__", "") or ""
 
         # fresh async wrapper so each class gets its own function object
