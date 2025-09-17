@@ -1,9 +1,9 @@
 from enum import Enum
 
-from pyagentic.llm._openai import OpenAIBackend
-from pyagentic.llm._anthropic import AnthropicBackend
+from pyagentic.llm._openai import OpenAIProvider
+from pyagentic.llm._anthropic import AnthropicProvider
 
 
-class LLMBackends(Enum):
-    OPENAI = OpenAIBackend
-    ANTHROPIC = AnthropicBackend
+class LLMProviders(Enum):
+    OPENAI = OpenAIProvider
+    ANTHROPIC = AnthropicProvider

@@ -25,7 +25,7 @@ class OpenAIMessage(Message):
     output: Optional[str] = None
 
 
-class OpenAIBackend(LLMProvider):
+class OpenAIProvider(LLMProvider):
     """
     OpenAI Backend
     """

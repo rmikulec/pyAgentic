@@ -23,7 +23,7 @@ class AnthropicMessage(Message):
     tool_use_id: Optional[str] = None
 
 
-class AnthropicBackend(LLMProvider):
+class AnthropicProvider(LLMProvider):
     __supports_structured_outputs__ = False
 
     """
