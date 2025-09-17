@@ -285,7 +285,7 @@ class Agent(metaclass=AgentMeta):
                 self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
             )
 
-        response_fields = {"final_output": final_ai_output, "backend_info": self.provider._info}
+        response_fields = {"final_output": final_ai_output, "provider_info": self.provider._info}
         if self.__tool_defs__:
             response_fields["tool_responses"] = tool_responses
         if self.__linked_agents__:
