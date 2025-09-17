@@ -16,7 +16,7 @@ from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 from pyagentic.llm._provider import LLMProvider
-from pyagentic.llm import LLMBackends
+from pyagentic.llm import LLMProviders
 
 logger = get_logger(__name__)
 
@@ -109,9 +109,9 @@ class Agent(metaclass=AgentMeta):
         backend, model_name = values
 
         try:
-            assert backend.upper() in LLMBackends.__members__
+            assert backend.upper() in LLMProviders.__members__
 
-            self.provider = LLMBackends[backend.upper()].value(
+            self.provider = LLMProviders[backend.upper()].value(
                 model=model_name, api_key=self.api_key,
             )
         except AssertionError:

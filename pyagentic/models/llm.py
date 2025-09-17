@@ -31,7 +31,7 @@ class LLMResponse:
     text: str
     tool_calls: List[ToolCall]
     parsed: BaseModel = None
-    reasoning: list[str] = None
+    reasoning: list[dict] = None
     finish_reason: Optional[str] = None
     usage: Optional[Dict[str, int]] = None
     raw: Optional[Any] = None

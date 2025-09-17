@@ -80,6 +80,7 @@ class OpenAIProvider(LLMProvider):
                     ToolCall(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
                     for tool_call in tool_calls
                 ],
+                reasoning=reasoning,
                 raw=response,
             )
         else:
@@ -99,5 +100,6 @@ class OpenAIProvider(LLMProvider):
                     ToolCall(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
                     for tool_call in tool_calls
                 ],
+                reasoning=reasoning,
                 raw=response,
             )
