@@ -15,11 +15,10 @@ from pydantic import BaseModel
 
 from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic.llm._provider import LLMProvider
+from pyagentic.llm._provider import LLMProvider, UsageInfo
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
 
 
-@dataclass
 class OpenAIMessage(Message):
     """
     OpenAI-specific message format extending the base Message class.
@@ -158,4 +157,5 @@ class OpenAIProvider(LLMProvider):
                 ],
                 reasoning=reasoning,
                 raw=response,
+                usage=UsageInfo(**response.usage.model_dump())
             )

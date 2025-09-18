@@ -5,13 +5,13 @@ This module defines the interface that all LLM providers must implement to be
 compatible with the pyagentic framework.
 """
 
-from typing import List, Optional, Type
+from typing import Optional, Type
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import _AgentContext
-from pyagentic.models.llm import Message, LLMResponse, ToolCall
+from pyagentic.models.llm import Message, LLMResponse, ToolCall, UsageInfo
 
 
 class LLMProvider(ABC):

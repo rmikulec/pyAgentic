@@ -17,7 +17,6 @@ from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
 
 
-@dataclass
 class AnthropicMessage(Message):
     """
     Anthropic-specific message format extending the base Message class.
@@ -178,3 +177,6 @@ class AnthropicProvider(LLMProvider):
             tool_calls=tool_calls,
             raw=response,
         )
+
+    def extract_usage_info(self, response):
+        return super().extract_usage_info(response)
