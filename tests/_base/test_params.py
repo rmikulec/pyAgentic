@@ -106,7 +106,7 @@ def test_param_openai_export(mock_context):
         required_field: str = ParamInfo(required=True)
         field_with_default: str = ParamInfo(default="default")
 
-    openai_param = ExportTest.to_openai(mock_context)
+    openai_param = ExportTest.to_json_schema(mock_context)
     expected = {
         "type": "object",
         "properties": {
@@ -139,7 +139,7 @@ def test_param_openai_export_with_context_resolve(mock_context):
     class ResolveTest(Param):
         field: str = ParamInfo(description=ContextRef("str_default"), values=["a"])
 
-    openai_param = ResolveTest.to_openai(mock_context)
+    openai_param = ResolveTest.to_json_schema(mock_context)
     export_description = openai_param["properties"]["field"]["description"]
     export_values = openai_param["properties"]["field"]["enum"]
 

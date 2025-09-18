@@ -40,7 +40,7 @@ class _ToolDefinition:
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
 
-    def to_openai(self, context: _AgentContext) -> dict:
+    def to_openai_spec(self, context: _AgentContext) -> dict:
         """
         Converts the definition to an "openai-ready" dictionary
 
@@ -62,11 +62,11 @@ class _ToolDefinition:
                         "items": {"type": _TYPE_MAP.get(type_info.inner_type, "string")},
                     }
                 case TypeCategory.SUBCLASS:
-                    params[name] = type_.to_openai(context)
+                    params[name] = type_.to_json_schema(context)
                 case TypeCategory.LIST_SUBCLASS:
                     params[name] = {
                         "type": "array",
-                        "items": type_info.inner_type.to_openai(context),
+                        "items": type_info.inner_type.to_json_schema(context),
                     }
 
             if isinstance(default, ParamInfo):
@@ -85,6 +85,32 @@ class _ToolDefinition:
             "parameters": {"type": "object", "properties": dict(params)},
             "required": required,
         }
+
+    def to_anthropic_spec(self, context: _AgentContext) -> dict:
+        """
+        Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
+          - name, description copied over
+          - input_schema derived from OpenAI `parameters`
+          - required moved from top-level to inside input_schema
+        """
+        openai_spec = self.to_openai_spec(context)
+
+        # Copy to avoid mutating original
+        input_schema = dict(openai_spec.get("parameters", {"type": "object", "properties": {}}))
+        required = openai_spec.get("required") or []
+        if required:
+            # Anthropic expects `required` inside the JSON Schema object
+            input_schema = {**input_schema, "required": list(required)}
+
+        return {
+            "name": openai_spec.get("name", self.name),
+            "description": openai_spec.get("description", self.description),
+            "input_schema": input_schema,
+        }
+
+    def to_openai_v1(self, context: _AgentContext):
+        openai_spec = self.to_openai_spec(context)
+        return {"type": "function", "function": {**openai_spec}}
 
     def compile_args(self, **kwargs) -> dict[str, Any]:
         """

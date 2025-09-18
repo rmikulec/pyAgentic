@@ -72,7 +72,7 @@ def mock_agent():
             pass
 
     yield MockAgent(
-        model="mock",
+        model="_mock::test-model",
         api_key="MyKey",
         default_override="overriden",
         test_enum_values=["a", "b", "c"],

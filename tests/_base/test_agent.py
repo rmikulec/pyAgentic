@@ -84,16 +84,18 @@ def test_agent_computed_context_attributes(mock_agent):
 
 
 def test_agent_static_tool_ref(mock_agent):
-    openai_tools = asyncio.run(mock_agent._build_tool_defs())
+    openai_tools = asyncio.run(mock_agent._get_tool_defs())
     for cur_tool in openai_tools:
-        if cur_tool["name"] == "test_ref":
-            assert cur_tool["parameters"]["properties"]["letter"]["enum"] == ["a", "b", "c"]
+        if cur_tool.name == "test_ref":
+            tool_def = cur_tool.to_openai_spec(mock_agent.context)
+            assert tool_def["parameters"]["properties"]["letter"]["enum"] == ["a", "b", "c"]
             break
 
 
 def test_agent_dynamic_tool_ref(mock_agent):
-    openai_tools = asyncio.run(mock_agent._build_tool_defs())
+    openai_tools = asyncio.run(mock_agent._get_tool_defs())
     for cur_tool in openai_tools:
-        if cur_tool["name"] == "test_computed_ref":
-            assert cur_tool["parameters"]["properties"]["letter"]["enum"] == ["a", "b", "c"]
+        if cur_tool.name == "test_computed_ref":
+            tool_def = cur_tool.to_openai_spec(mock_agent.context)
+            assert tool_def["parameters"]["properties"]["letter"]["enum"] == ["a", "b", "c"]
             break

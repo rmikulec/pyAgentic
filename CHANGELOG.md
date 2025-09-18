@@ -2,6 +2,39 @@
 
 <!-- version list -->
 
+## v1.6.1 (2025-09-18)
+
+
+## v1.6.1-a.1 (2025-09-18)
+
+### Bug Fixes
+
+- Added anthropic package
+  ([`0e65315`](https://github.com/rmikulec/pyAgentic/commit/0e653154ea58a5fed482db5b053abe3ee19b732d))
+
+
+## v1.6.0 (2025-09-18)
+
+
+## v1.6.0-a.1 (2025-09-18)
+
+### Bug Fixes
+
+- Accidently overwrote the pyproject toml
+  ([`a12ba71`](https://github.com/rmikulec/pyAgentic/commit/a12ba710c8a61ac7db335a7236402a3998c0749e))
+
+- Manually bumping version
+  ([`4f82045`](https://github.com/rmikulec/pyAgentic/commit/4f82045311768ad1aa13834496c3795ce3753bed))
+
+- Updated readme for new providers
+  ([`ec1d840`](https://github.com/rmikulec/pyAgentic/commit/ec1d84053236f90df3b66f877ec7420d3692b165))
+
+### Features
+
+- Added suppport for more providers, such as anthropic
+  ([`851a2b9`](https://github.com/rmikulec/pyAgentic/commit/851a2b9923b963a45e2b05670233d03bbf341e35))
+
+
 ## v1.4.1 (2025-08-12)
 
 

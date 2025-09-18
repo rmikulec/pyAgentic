@@ -149,14 +149,14 @@ def test_agent_context_as_dict(mock_context):
 def test_agent_context_add_user_message(mock_context):
     user_message = "Hello"
     mock_context.add_user_message(user_message)
-    assert mock_context.messages[-1]["content"] == user_message
+    assert mock_context.messages[-1].content == user_message
 
 
 def test_agent_context_add_user_message_with_template(mock_context):
     mock_context.input_template = "Template: {user_message}"
     user_message = "Hello"
     mock_context.add_user_message(user_message)
-    assert mock_context.messages[-1]["content"] == f"Template: {user_message}"
+    assert mock_context.messages[-1].content == f"Template: {user_message}"
 
 
 def test_agent_context_get_item(mock_context):
@@ -181,8 +181,8 @@ def test_agent_context_system_message_dynamic(mock_context):
 
 def test_agent_context_messages_dynamic(mock_context):
     mock_context.instructions = "System: {random_computed}"
-    first = mock_context.messages[0]["content"]
-    second = mock_context.messages[0]["content"]
+    first = mock_context.messages[0].content
+    second = mock_context.messages[0].content
     assert first != second
 
 
