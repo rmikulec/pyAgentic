@@ -203,6 +203,7 @@ class Agent(metaclass=AgentMeta):
                 response_format=self.__response_format__,
                 **kwargs,
             )
+            self.tracer.set_attributes(**response.usage.model_dump())
             return response
         except Exception as e:
             # Error handling mirrors your original
