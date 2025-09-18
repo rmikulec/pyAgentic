@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.7.0-a.1 (2025-09-18)
+
+### Bug Fixes
+
+- Added recent_message helper to context
+  ([`ed79b4e`](https://github.com/rmikulec/pyAgentic/commit/ed79b4e8db0fe8f273568ff03706f6fae2572a86))
+
+- Added tracer to post init and cleaned up code a bit
+  ([`7ae8c68`](https://github.com/rmikulec/pyAgentic/commit/7ae8c68550711468d41d79c938f89cbc75386b52))
+
+### Features
+
+- Added new models for tracing
+  ([`231cd87`](https://github.com/rmikulec/pyAgentic/commit/231cd8733d0c3147dab0efc0ffaa3bbc62afe740))
+
+
 ## v1.6.2-a.1 (2025-09-18)
 
 ### Bug Fixes
