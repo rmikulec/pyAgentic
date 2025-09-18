@@ -62,11 +62,11 @@ class _ToolDefinition:
                         "items": {"type": _TYPE_MAP.get(type_info.inner_type, "string")},
                     }
                 case TypeCategory.SUBCLASS:
-                    params[name] = type_.to_openai(context)
+                    params[name] = type_.to_json_schema(context)
                 case TypeCategory.LIST_SUBCLASS:
                     params[name] = {
                         "type": "array",
-                        "items": type_info.inner_type.to_openai(context),
+                        "items": type_info.inner_type.to_json_schema(context),
                     }
 
             if isinstance(default, ParamInfo):

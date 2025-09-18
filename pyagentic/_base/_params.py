@@ -123,7 +123,7 @@ class Param:
         return f"{type(self).__name__}({vals})"
 
     @classmethod
-    def to_openai(cls, context: _AgentContext) -> List[Dict[str, Any]]:
+    def to_json_schema(cls, context: _AgentContext) -> List[Dict[str, Any]]:
         """
         Generate a JSON-schema-style dictionary suitable for OpenAI function
         parameter definitions.

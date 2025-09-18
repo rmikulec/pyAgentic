@@ -193,7 +193,7 @@ class Agent(metaclass=AgentMeta):
             self.context._messages.append(
                 Message(role="assistant", content="Failed to generate a response")
             )
-            return f"The LLM failed to generate a response: {e}"
+            return LLMResponse(text=f"The LLM failed to generate a response: {e}", tool_calls=[])
 
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         """
