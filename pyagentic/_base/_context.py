@@ -114,6 +114,10 @@ class _AgentContext:
         return self.instructions.format(**self.as_dict())
 
     @property
+    def recent_message(self) -> str:
+        return self._messages[-1].content
+
+    @property
     def messages(self) -> list[Message]:
         """
         List of openai-ready messages with the most up-to-date system message

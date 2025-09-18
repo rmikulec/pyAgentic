@@ -8,7 +8,6 @@ and tool calling capabilities.
 import anthropic
 import json
 
-from dataclasses import dataclass
 from typing import List, Optional, Type
 from pydantic import BaseModel
 from pyagentic._base._context import _AgentContext
@@ -17,7 +16,6 @@ from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
 
 
-@dataclass
 class AnthropicMessage(Message):
     """
     Anthropic-specific message format extending the base Message class.
@@ -25,6 +23,7 @@ class AnthropicMessage(Message):
     Includes additional fields required for Anthropic's API format including
     tool use handling and proper message structuring for Claude models.
     """
+
     # Tool Usage
     id: Optional[str] = None
     name: Optional[str] = None
@@ -178,3 +177,6 @@ class AnthropicProvider(LLMProvider):
             tool_calls=tool_calls,
             raw=response,
         )
+
+    def extract_usage_info(self, response):
+        return super().extract_usage_info(response)

@@ -1,10 +1,8 @@
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel
 
 
-@dataclass
-class Message:
+class Message(BaseModel):
     type: Optional[str] = None
     role: Optional[str] = None
     content: Optional[str] = None
@@ -20,26 +18,31 @@ class Message:
         return d
 
 
-@dataclass
-class ToolCall:
+class ToolCall(BaseModel):
     id: str
     name: str
     arguments: str  # JSON string from the mode
 
 
-@dataclass
-class LLMResponse:
+class UsageInfo(BaseModel):
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    output_tokens_metadata: Optional[dict] = None
+    input_tokens_metadata: Optional[dict] = None
+
+
+class LLMResponse(BaseModel):
     text: str
     tool_calls: List[ToolCall]
     parsed: BaseModel = None
     reasoning: list[dict] = None
     finish_reason: Optional[str] = None
-    usage: Optional[Dict[str, int]] = None
+    usage: UsageInfo = None
     raw: Optional[Any] = None
 
 
-@dataclass(frozen=True)
-class ProviderInfo:
+class ProviderInfo(BaseModel):
     name: str
     model: str
     attributes: dict = None

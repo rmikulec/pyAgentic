@@ -9,17 +9,15 @@ import openai
 from openai.types.responses import Response as OpenAIResponse
 from openai.types.responses import ParsedResponse as OpenAIParsedResponse
 
-from dataclasses import dataclass
 from typing import List, Optional, Type
 from pydantic import BaseModel
 
 from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
-from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
+from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
 
 
-@dataclass
 class OpenAIMessage(Message):
     """
     OpenAI-specific message format extending the base Message class.
@@ -27,6 +25,7 @@ class OpenAIMessage(Message):
     Includes additional fields required for OpenAI's API format including
     tool call handling and function calling support.
     """
+
     # Tool Usage
     name: Optional[str] = None
     arguments: Optional[str] = None
@@ -158,4 +157,5 @@ class OpenAIProvider(LLMProvider):
                 ],
                 reasoning=reasoning,
                 raw=response,
+                usage=UsageInfo(**response.usage.model_dump()),
             )

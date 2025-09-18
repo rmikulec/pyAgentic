@@ -5,7 +5,7 @@ This module defines the interface that all LLM providers must implement to be
 compatible with the pyagentic framework.
 """
 
-from typing import List, Optional, Type
+from typing import Optional, Type
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
 
@@ -32,6 +32,8 @@ class LLMProvider(ABC):
     __llm_name__ = "base"
     __supports_tool_calls__ = True
     __supports_structured_outputs__ = True
+
+    _model: str = None
 
     @abstractmethod
     def __init__(self, model: str, api_key: str, *, base_url: str = False, **kwargs):

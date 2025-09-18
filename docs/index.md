@@ -56,6 +56,14 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Build hierarchies](Inheritance.md)
 
+- :material-search: **[Observability](observability.md)**
+
+    ---
+
+    Observe and trace all steps and interactions of an agent.
+
+    [:octicons-arrow-right-24: Trace behavior](observability.md)
+
 </div>
 
 
