@@ -202,13 +202,14 @@ class Agent(metaclass=AgentMeta):
         """
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
+        agent = getattr(self, tool_call.name)
         try:
-            agent = getattr(self, tool_call.name)
             kwargs = json.loads(tool_call.arguments)
             response = await agent(**kwargs)
             result = f"Agent {tool_call.name}: {response.final_output}"
         except Exception as e:
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
+            response = AgentResponse(final_output=result, provider_info=agent.provider._info)
         self.context._messages.append(
             self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
