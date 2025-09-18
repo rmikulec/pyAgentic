@@ -65,7 +65,7 @@ class BasicTracer(AgentTracer):
         with self._lock:
             span.end_ns = time.monotonic_ns()
 
-    def add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def _add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
         evt = {
             "name": name,
             "ts_ns": time.monotonic_ns(),
@@ -74,16 +74,16 @@ class BasicTracer(AgentTracer):
         with self._lock:
             self._events[span.context.span_id].append(evt)
 
-    def set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
+    def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
         with self._lock:
             span.attributes.update(attributes)
 
-    def record_exception(self, span: Span, exc: BaseException) -> None:
+    def _record_exception(self, span: Span, exc: BaseException) -> None:
         with self._lock:
             span.status = SpanStatus.ERROR
             span.error = f"{type(exc).__name__}: {exc}"
         # also record as an event
-        self.add_event(
+        self._add_event(
             span,
             "exception",
             {"type": type(exc).__name__, "message": str(exc)},

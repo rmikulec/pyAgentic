@@ -5,7 +5,8 @@ from typing import Optional, Dict, Any
 import time
 import uuid
 
-from .base import AgentTracer, Span, SpanKind, SpanStatus, SpanContext
+from pyagentic.models.tracing import Span, SpanKind, SpanStatus, SpanContext
+from pyagentic.tracing._tracer import AgentTracer
 
 try:
     from langfuse import Langfuse
@@ -86,17 +87,17 @@ class LangfuseTracer(AgentTracer):
                 level="ERROR" if span.status == SpanStatus.ERROR else "DEFAULT",
             )
 
-    def add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def _add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
         handle, _ = self._handles.get(span.context.span_id, (None, False))
         if handle is not None:
             handle.event(name=name, metadata=attributes or {})
 
-    def set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
+    def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
         span.attributes.update(attributes)
         handle, is_trace = self._handles.get(span.context.span_id, (None, False))
         if handle is not None:
             handle.update(metadata=span.attributes)
 
-    def record_exception(self, span: Span, exc: BaseException) -> None:
+    def _record_exception(self, span: Span, exc: BaseException) -> None:
         span.error = f"{type(exc).__name__}: {exc}"
-        self.add_event(span, "exception", {"type": type(exc).__name__, "message": str(exc)})
+        self._add_event(span, "exception", {"type": type(exc).__name__, "message": str(exc)})
