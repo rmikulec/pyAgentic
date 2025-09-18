@@ -7,7 +7,8 @@ import threading
 from collections import defaultdict
 from typing import Optional, Dict, Any, List
 
-from pyagentic.tracing._tracer import AgentTracer, Span, SpanKind, SpanStatus, SpanContext
+from pyagentic.tracing._tracer import AgentTracer
+from pyagentic.models.tracing import Span, SpanContext, SpanKind, SpanStatus
 
 
 class BasicTracer(AgentTracer):

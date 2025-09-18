@@ -1,12 +1,10 @@
-import inspect
-
 from functools import wraps
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, AsyncIterator, Callable
 import contextvars
 
-from pyagentic.models.tracing import Span, SpanStatus, SpanKind, SpanContext
+from pyagentic.models.tracing import Span, SpanStatus, SpanKind
 
 
 _current_span: contextvars.ContextVar[Optional[Span]] = contextvars.ContextVar(
@@ -138,14 +136,19 @@ def traced(kind: SpanKind, name: Optional[str] = None, attrs: Optional[dict] = N
     Uses Agent.tracer and current_span ContextVar for nesting.
     """
     def outer(fn: Callable):
-        is_async = inspect.iscoroutinefunction(fn)
 
         @wraps(fn)
         async def async_wrapper(self, *args, **kwargs):
-            tracer: AgentTracer = self.tracer
             span_name = name or f"{self.__class__.__name__}.{fn.__name__}"
-            async with tracer.span(span_name, kind, attributes=attrs):
-                return await fn(self, *args, **kwargs)
+            async with self.tracer.span(span_name, kind, attributes=attrs):
+                self.tracer.set_attributes(input=kwargs)
+                try:
+                    output = await fn(self, *args, **kwargs)
+                except Exception as e:
+                    self.tracer.record_exception(str(e))
+                    raise e
+                self.tracer.set_attributes(output=output)
+                return output
 
 
         return async_wrapper

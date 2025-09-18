@@ -159,22 +159,56 @@ class LangfuseTracer(AgentTracer):
         except Exception:
             pass
 
+
     def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
-        """
-        Merge attributes onto the observation's metadata.
-        """
         with self._lock:
             wrapped_tuple = self._wrapped.get(span.context.span_id)
         if wrapped_tuple is None:
             return
-        wrapped, _ = wrapped_tuple
+
+        wrapped, wrapped_kind = wrapped_tuple
+
+        # Copy so we can pop safely without KeyErrors
+        attrs = dict(attributes)
+
+        # Pull these if present; leave others in attrs -> metadata
+        usage_details = attrs.pop("usage_details", None)
+        model          = attrs.pop("model", None)
+        input_         = attrs.pop("input", None)
+        output         = attrs.pop("output", None)
+        model_params   = attrs.pop("model_parameters", None)  # optional, useful to pass through
+
+        # Build kwargs for .update() selectively
+        update_kwargs: Dict[str, Any] = {}
+        if input_ is not None:
+            update_kwargs["input"] = input_
+        if output is not None:
+            update_kwargs["output"] = output
+
+        # Only generations accept model/usage/model_parameters in Langfuse v3
+        if wrapped_kind == SpanKind.INFERENCE:
+            if model is not None:
+                update_kwargs["model"] = model
+            if usage_details is not None:
+                update_kwargs["usage_details"] = usage_details
+            if model_params is not None:
+                update_kwargs["model_parameters"] = model_params
+
+        if attrs:  # remaining keys -> metadata
+            update_kwargs["metadata"] = attrs
+
         try:
-            wrapped.update(metadata=dict(attributes))  # merges JSON metadata. :contentReference[oaicite:11]{index=11}
+            if update_kwargs:
+                wrapped.update(**update_kwargs)
         except Exception:
+            # best-effort; don't break tracing
             pass
-        # keep the local mirror in sync (useful for export/debug)
+
+        # Keep local mirror in sync
         with self._lock:
-            span.attributes.update(attributes)
+            # Merge everything (including input/output/etc.) into span.attributes for export/debug
+            span.attributes.update(dict(attributes))
+
 
     def _record_exception(self, span: Span, exc: BaseException) -> None:
         """
