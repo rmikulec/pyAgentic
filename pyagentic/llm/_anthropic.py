@@ -8,7 +8,6 @@ and tool calling capabilities.
 import anthropic
 import json
 
-from dataclasses import dataclass
 from typing import List, Optional, Type
 from pydantic import BaseModel
 from pyagentic._base._context import _AgentContext
@@ -24,6 +23,7 @@ class AnthropicMessage(Message):
     Includes additional fields required for Anthropic's API format including
     tool use handling and proper message structuring for Claude models.
     """
+
     # Tool Usage
     id: Optional[str] = None
     name: Optional[str] = None

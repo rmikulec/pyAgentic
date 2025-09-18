@@ -12,6 +12,7 @@ from pyagentic.models.tracing import Span, SpanContext, SpanKind, SpanStatus
 try:
     # Langfuse Python SDK v3 (OTel-based)
     from langfuse import get_client  # type: ignore
+
     _LANGFUSE_AVAILABLE = True
 except Exception:  # pragma: no cover
     _LANGFUSE_AVAILABLE = False
@@ -30,9 +31,9 @@ class LangfuseTracer(AgentTracer):
 
     Notes:
     - Configure Langfuse via environment variables (recommended) and the SDK's
-      `get_client()` will pick them up. :contentReference[oaicite:2]{index=2}
+      `get_client()` will pick them up.
     - Observation API surface used here: `start_span/start_generation`, `.update(...)`,
-      `.end()`, and `.event(...)`. :contentReference[oaicite:3]{index=3}
+      `.end()`, and `.event(...)`.
     """
 
     def __init__(self) -> None:
@@ -43,7 +44,7 @@ class LangfuseTracer(AgentTracer):
             )
 
         # langfuse client (lazy init to avoid import side effects during tests)
-        self._client = get_client()  # uses env config; see docs. :contentReference[oaicite:4]{index=4}
+        self._client = get_client()  # uses env config; see docs.
 
         # span_id -> (wrapped_observation, kind)
         self._wrapped: Dict[str, Tuple[object, SpanKind]] = {}
@@ -70,7 +71,7 @@ class LangfuseTracer(AgentTracer):
         - If `kind` is LLM, start a Generation (so model/usage can be attached).
         - Otherwise start a generic Span.
         - Parent/child: if a parent Span is provided, we create the child via the
-          parent's wrapped observation, preserving nesting. :contentReference[oaicite:5]{index=5}
+          parent's wrapped observation, preserving nesting.
         """
         attrs = dict(attributes or {})
 
@@ -96,10 +97,13 @@ class LangfuseTracer(AgentTracer):
                 wrapped = self._start_root_observation(name, kind)
             else:
                 p_obs, _ = parent_wrapped
-                # Child spans must be created from the parent object (manual API). :contentReference[oaicite:6]{index=6}
+                # Child spans must be created from the parent object (manual API).
                 if kind == SpanKind.INFERENCE:
-                    # Prefer "generation" for LLM work; model can be passed later via ._set_attributes
-                    wrapped = getattr(p_obs, "start_generation", getattr(p_obs, "start_span"))(name=name)
+                    # Prefer "generation" for LLM work; model can be passed
+                    #   later via ._set_attributes
+                    wrapped = getattr(p_obs, "start_generation", getattr(p_obs, "start_span"))(
+                        name=name
+                    )
                 else:
                     wrapped = getattr(p_obs, "start_span")(name=name)
         else:
@@ -108,7 +112,7 @@ class LangfuseTracer(AgentTracer):
         # Initial attribute merge -> Langfuse metadata
         if attrs:
             try:
-                wrapped.update(metadata=attrs)  # Arbitrary JSON metadata. :contentReference[oaicite:7]{index=7}
+                wrapped.update(metadata=attrs)  # Arbitrary JSON metadata.
             except Exception:
                 pass  # don't break tracing for metadata issues
 
@@ -127,18 +131,20 @@ class LangfuseTracer(AgentTracer):
         if wrapped_tuple is not None:
             wrapped, _ = wrapped_tuple
             try:
-                wrapped.end()  # Important for manual observations. :contentReference[oaicite:8]{index=8}
+                wrapped.end()  # Important for manual observations.
             except Exception:
                 pass
         with self._lock:
             span.end_ns = time.monotonic_ns()
             # We intentionally do NOT delete from _wrapped/_spans immediately;
             # callers may still update attributes/events right after end. The
-            # Langfuse SDK will merge updates within its allowed window. :contentReference[oaicite:9]{index=9}
+            # Langfuse SDK will merge updates within its allowed window.
 
     # ---------- Internal helpers used by AgentTracer base ----------
 
-    def _add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def _add_event(
+        self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None
+    ) -> None:
         """
         Attach a point-in-time event to the observation.
         """
@@ -151,14 +157,13 @@ class LangfuseTracer(AgentTracer):
         try:
             # Langfuse events are created from the observation; we immediately end them.
             evt = wrapped.event(name=name, metadata=meta)  # create event
-            # Best-effort close; SDKs commonly end events via .end(...). :contentReference[oaicite:10]{index=10}
+            # Best-effort close; SDKs commonly end events via .end(...).
             end_kwargs = {}
             if "output" in meta:
                 end_kwargs["output"] = meta["output"]
             evt.end(**end_kwargs)
         except Exception:
             pass
-
 
     def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
         with self._lock:
@@ -173,10 +178,10 @@ class LangfuseTracer(AgentTracer):
 
         # Pull these if present; leave others in attrs -> metadata
         usage_details = attrs.pop("usage_details", None)
-        model          = attrs.pop("model", None)
-        input_         = attrs.pop("input", None)
-        output         = attrs.pop("output", None)
-        model_params   = attrs.pop("model_parameters", None)  # optional, useful to pass through
+        model = attrs.pop("model", None)
+        input_ = attrs.pop("input", None)
+        output = attrs.pop("output", None)
+        model_params = attrs.pop("model_parameters", None)  # optional, useful to pass through
 
         # Build kwargs for .update() selectively
         update_kwargs: Dict[str, Any] = {}
@@ -209,7 +214,6 @@ class LangfuseTracer(AgentTracer):
             # Merge everything (including input/output/etc.) into span.attributes for export/debug
             span.attributes.update(dict(attributes))
 
-
     def _record_exception(self, span: Span, exc: BaseException) -> None:
         """
         Mark error, attach exception event, and pass it to the underlying span.
@@ -229,7 +233,7 @@ class LangfuseTracer(AgentTracer):
             self._add_event(span, "exception", {"type": type(exc).__name__, "message": str(exc)})
             # Also forward to underlying OTel span if exposed
             if hasattr(wrapped, "record_exception"):
-                wrapped.record_exception(exc)  # OTel compatibility. :contentReference[oaicite:12]{index=12}
+                wrapped.record_exception(exc)  # OTel compatibility.
         except Exception:
             pass
 
@@ -264,7 +268,11 @@ class LangfuseTracer(AgentTracer):
                         "parent_span_id": sp.context.parent_span_id,
                         "name": sp.name,
                         "kind": sp.kind.value,
-                        "status": sp.status.value if isinstance(sp.status, SpanStatus) else str(sp.status),
+                        "status": (
+                            sp.status.value
+                            if isinstance(sp.status, SpanStatus)
+                            else str(sp.status)
+                        ),
                         "start_ns": sp.start_ns,
                         "end_ns": sp.end_ns,
                         "duration_ms": duration_ms,
@@ -304,11 +312,12 @@ class LangfuseTracer(AgentTracer):
     def _start_root_observation(self, name: str, kind: SpanKind):
         """
         Start a root observation on the Langfuse client.
-        We use the manual API to align with explicit start/end in AgentTracer. :contentReference[oaicite:13]{index=13}
+        We use the manual API to align with explicit start/end in AgentTracer.
         """
-        # LLM spans become Generations so model/usage/cost can be attached later. :contentReference[oaicite:14]{index=14}
+        # LLM spans become Generations so model/usage/cost can be attached later.
         if kind == SpanKind.INFERENCE:
-            # Manual start; caller may later .update(model="...") on the wrapper via _set_attributes
+            # Manual start; caller may later .update(model="...")
+            #   on the wrapper via _set_attributes
             return self._client.start_generation(name=name)
         else:
             return self._client.start_span(name=name)

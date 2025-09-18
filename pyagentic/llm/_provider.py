@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import _AgentContext
-from pyagentic.models.llm import Message, LLMResponse, ToolCall, UsageInfo
+from pyagentic.models.llm import Message, LLMResponse, ToolCall
 
 
 class LLMProvider(ABC):

@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 
 class SpanKind(str, Enum):
-    
+
     AGENT = "agent"
     TOOL = "tool"
     INFERENCE = "inference"
@@ -26,6 +26,7 @@ class SpanContext:
 @dataclass
 class Span:
     """A light, tracer-agnostic span handle used by PyAgentic."""
+
     name: str
     kind: SpanKind
     context: SpanContext

@@ -1,7 +1,6 @@
 import inspect
 import json
 from functools import wraps
-from dataclasses import field
 from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform, Optional
 
 from pydantic import BaseModel
@@ -138,7 +137,6 @@ class Agent(metaclass=AgentMeta):
     tracer: AgentTracer = None
     max_call_depth: int = 1
 
-
     def _check_llm_provider(self):
         if (not self.model and not self.api_key) and (not self.provider):
             raise InvalidLLMSetup(reason="no-provider")
@@ -189,8 +187,7 @@ class Agent(metaclass=AgentMeta):
         **kwargs,
     ) -> LLMResponse:
         self.tracer.set_attributes(
-            system_message=self.context.system_message,
-            user_message=self.context.recent_message
+            system_message=self.context.system_message, user_message=self.context.recent_message
         )
         """
         Processes LLM inferences by adding appropriate messages to the context, generating a
@@ -204,8 +201,7 @@ class Agent(metaclass=AgentMeta):
                 **kwargs,
             )
             self.tracer.set_attributes(
-                usage_details=response.usage.model_dump(),
-                model=self.provider._model
+                usage_details=response.usage.model_dump(), model=self.provider._model
             )
             return response
         except Exception as e:
@@ -252,9 +248,7 @@ class Agent(metaclass=AgentMeta):
         Processes a tool call by adding appropriate messages to the context, calling the tool,
             handling errors, and creating the tool response
         """
-        self.tracer.set_attributes(
-            **tool_call.__dict__
-        )
+        self.tracer.set_attributes(**tool_call.__dict__)
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
@@ -277,7 +271,7 @@ class Agent(metaclass=AgentMeta):
 
             compiled_args = tool_def.compile_args(**kwargs)
             result = await _safe_run(handler, **compiled_args)
-            self.tracer.set_attributes(result=result) 
+            self.tracer.set_attributes(result=result)
         except Exception as e:
             self.tracer.record_exception(str(e))
             logger.exception(e)
@@ -388,7 +382,10 @@ class Agent(metaclass=AgentMeta):
                     self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
                 )
 
-            response_fields = {"final_output": final_ai_output, "provider_info": self.provider._info}
+            response_fields = {
+                "final_output": final_ai_output,
+                "provider_info": self.provider._info,
+            }
             if self.__tool_defs__:
                 response_fields["tool_responses"] = tool_responses
             if self.__linked_agents__:

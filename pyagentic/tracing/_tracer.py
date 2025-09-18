@@ -4,7 +4,6 @@ from functools import wraps
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, AsyncIterator, Callable
-from pydantic import BaseModel
 
 from pyagentic.models.tracing import Span, SpanStatus, SpanKind
 
@@ -18,7 +17,8 @@ class AgentTracer(ABC):
     """
     Tracer interface for PyAgentic.
 
-    Implementations should override start_span/end_span/add_event/set_attributes/record_exception/record_tokens.
+    Implementations should override start_span/end_span/add_event/
+        set_attributes/record_exception/record_tokens.
     """
 
     @property
@@ -26,23 +26,13 @@ class AgentTracer(ABC):
         return _current_span.get()
 
     def set_attributes(self, **kwargs):
-        self._set_attributes(
-            self.current_span,
-            kwargs
-        )
+        self._set_attributes(self.current_span, kwargs)
 
-    def _add_event(self, name, **kwargs):
-        self._add_event(
-            self.current_span,
-            name,
-            kwargs
-        )
-    
+    def add_event(self, name, **kwargs):
+        self._add_event(self.current_span, name, kwargs)
+
     def record_exception(self, exception: str):
-        self._record_exception(
-            self.current_span,
-            exc=exception
-        )
+        self._record_exception(self.current_span, exc=exception)
 
     # ---------- low-level lifecycle ----------
     @abstractmethod
@@ -52,25 +42,22 @@ class AgentTracer(ABC):
         kind: SpanKind,
         parent: Optional[Span] = None,
         attributes: Optional[Dict[str, Any]] = None,
-    ) -> Span:
-        ...
+    ) -> Span: ...
 
     @abstractmethod
-    def end_span(self, span: Span) -> None:
-        ...
+    def end_span(self, span: Span) -> None: ...
 
     # ---------- enrichment ----------
     @abstractmethod
-    def _add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
-        ...
+    def _add_event(
+        self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None
+    ) -> None: ...
 
     @abstractmethod
-    def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
-        ...
+    def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None: ...
 
     @abstractmethod
-    def _record_exception(self, span: Span, exc: BaseException) -> None:
-        ...
+    def _record_exception(self, span: Span, exc: BaseException) -> None: ...
 
     def record_tokens(
         self,
@@ -87,7 +74,7 @@ class AgentTracer(ABC):
             "model": model,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens
+            "total_tokens": total_tokens,
         }
         if attributes:
             payload.update(attributes)
@@ -117,12 +104,16 @@ class AgentTracer(ABC):
             self.end_span(span)
 
     @asynccontextmanager
-    async def agent(self, name: str, parent: Optional[Span] = None, **attrs: Any) -> AsyncIterator[Span]:
+    async def agent(
+        self, name: str, parent: Optional[Span] = None, **attrs: Any
+    ) -> AsyncIterator[Span]:
         async with self.span(name, SpanKind.AGENT, parent=parent, attributes=attrs) as s:
             yield s
 
     @asynccontextmanager
-    async def tool(self, name: str, parent: Optional[Span] = None, **attrs: Any) -> AsyncIterator[Span]:
+    async def tool(
+        self, name: str, parent: Optional[Span] = None, **attrs: Any
+    ) -> AsyncIterator[Span]:
         async with self.span(name, SpanKind.TOOL, parent=parent, attributes=attrs) as s:
             yield s
 
@@ -137,6 +128,7 @@ def traced(kind: SpanKind, name: Optional[str] = None, attrs: Optional[dict] = N
     Decorate async or sync callables to run inside a span.
     Uses Agent.tracer and current_span ContextVar for nesting.
     """
+
     def outer(fn: Callable):
 
         @wraps(fn)
@@ -152,6 +144,6 @@ def traced(kind: SpanKind, name: Optional[str] = None, attrs: Optional[dict] = N
                 self.tracer.set_attributes(output=output)
                 return output
 
-
         return async_wrapper
+
     return outer

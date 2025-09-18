@@ -6,10 +6,9 @@ without making actual API calls to external language model services.
 """
 
 from typing import Optional, Type, Any
-from dataclasses import dataclass
 from pydantic import BaseModel
 
-from pyagentic.llm._provider import LLMProvider, LLMResponse
+from pyagentic.llm._provider import LLMProvider
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import _AgentContext
@@ -50,11 +49,7 @@ class _MockProvider(LLMProvider):
         """
         self.model = model
 
-        self._info = ProviderInfo(
-            name="_mock",
-            model=self.model,
-            attributes=kwargs
-        )
+        self._info = ProviderInfo(name="_mock", model=self.model, attributes=kwargs)
 
     def to_tool_call_message(self, tool_call: ToolCall) -> Message:
         """
@@ -118,7 +113,7 @@ class _MockProvider(LLMProvider):
         latest_message = context._messages[-1].content
 
         return LLMResponse(
-            text=f'user said {latest_message}',
+            text=f"user said {latest_message}",
             tool_calls=[],
             finish_reason="stop",
         )

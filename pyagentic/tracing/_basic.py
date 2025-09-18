@@ -66,7 +66,9 @@ class BasicTracer(AgentTracer):
         with self._lock:
             span.end_ns = time.monotonic_ns()
 
-    def _add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def _add_event(
+        self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None
+    ) -> None:
         evt = {
             "name": name,
             "ts_ns": time.monotonic_ns(),
@@ -134,16 +136,18 @@ class BasicTracer(AgentTracer):
                 sp = self._spans.get(sid)
                 if sp is None:
                     continue
-                duration_ms = (
-                    (sp.end_ns - sp.start_ns) / 1e6 if sp.end_ns is not None else None
-                )
+                duration_ms = (sp.end_ns - sp.start_ns) / 1e6 if sp.end_ns is not None else None
                 spans_out.append(
                     {
                         "span_id": sp.context.span_id,
                         "parent_span_id": sp.context.parent_span_id,
                         "name": sp.name,
                         "kind": sp.kind.value,
-                        "status": sp.status.value if isinstance(sp.status, SpanStatus) else str(sp.status),
+                        "status": (
+                            sp.status.value
+                            if isinstance(sp.status, SpanStatus)
+                            else str(sp.status)
+                        ),
                         "start_ns": sp.start_ns,
                         "end_ns": sp.end_ns,
                         "duration_ms": duration_ms,
