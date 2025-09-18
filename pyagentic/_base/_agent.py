@@ -1,6 +1,7 @@
 import inspect
 import json
 from functools import wraps
+from dataclasses import field
 from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform, Optional
 
 from pydantic import BaseModel
@@ -17,6 +18,9 @@ from pyagentic.models.llm import Message, ToolCall, LLMResponse
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.llm import LLMProviders
+from pyagentic.tracing._tracer import AgentTracer
+from pyagentic.tracing import BasicTracer
+
 
 logger = get_logger(__name__)
 
@@ -129,9 +133,10 @@ class Agent(metaclass=AgentMeta):
     api_key: str = None
     provider: LLMProvider = None
     emitter: Callable[[Any], str] = None
+    tracer: AgentTracer = None
     max_call_depth: int = 1
 
-    def __post_init__(self):
+    def _check_llm_provider(self):
         if (not self.model and not self.api_key) and (not self.provider):
             raise InvalidLLMSetup(reason="no-provider")
 
@@ -166,6 +171,12 @@ class Agent(metaclass=AgentMeta):
 
         if self.__tool_defs__ and not self.provider.__supports_tool_calls__:
             raise Exception("Tools are not supported with this provider")
+
+    def __post_init__(self):
+        self._check_llm_provider()
+
+        if not self.tracer:
+            self.tracer = BasicTracer()
 
     async def _process_llm_inference(
         self,
