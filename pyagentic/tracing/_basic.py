@@ -7,10 +7,10 @@ import threading
 from collections import defaultdict
 from typing import Optional, Dict, Any, List
 
-from pyagentic._base._tracing import AgentTracer, Span, SpanKind, SpanStatus, SpanContext
+from pyagentic.tracing._tracer import AgentTracer, Span, SpanKind, SpanStatus, SpanContext
 
 
-class DictionaryTracer(AgentTracer):
+class BasicTracer(AgentTracer):
     """
     In-memory tracer that stores spans and events in Python dictionaries.
 
