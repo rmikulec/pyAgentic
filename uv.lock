@@ -1522,9 +1522,10 @@ wheels = [
 
 [[package]]
 name = "pyagentic-core"
-version = "1.6.0"
+version = "1.6.1a1"
 source = { virtual = "." }
 dependencies = [
+    { name = "anthropic" },
     { name = "c3linearize" },
     { name = "colorlog" },
     { name = "dotenv" },
@@ -1563,6 +1564,7 @@ eval = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.62.0" },
     { name = "c3linearize", specifier = ">=0.1.0" },
     { name = "colorlog", specifier = ">=6.9.0" },
     { name = "dotenv", specifier = ">=0.9.9" },

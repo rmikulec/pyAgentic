@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.1-a.1 (2025-09-18)
+
+### Bug Fixes
+
+- Added anthropic package
+  ([`0e65315`](https://github.com/rmikulec/pyAgentic/commit/0e653154ea58a5fed482db5b053abe3ee19b732d))
+
+
 ## v1.6.0 (2025-09-18)
 
 
