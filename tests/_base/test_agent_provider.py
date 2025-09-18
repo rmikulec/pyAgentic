@@ -18,20 +18,20 @@ def test_agent_raises_invalid_llm_none_given():
 
 def test_agent_raises_invalid_llm_invalid_format():
     with pytest.raises(InvalidLLMSetup) as e:
-        MockAgent(model="openai/_mock::test-modelo")
+        MockAgent(model="openai/test-modelo")
 
     assert e.value.reason == "invalid-format"
 
 
 def test_agent_successful_creation_with_valid_model():
-    agent = MockAgent(model="_mock::_mock::test-modelo", api_key="test-key")
+    agent = MockAgent(model="_mock::test-modelo", api_key="test-key")
     assert agent.provider is not None
     assert isinstance(agent.provider, _MockProvider)
 
 
 def test_agent_raises_provider_not_found():
     with pytest.raises(InvalidLLMSetup) as e:
-        MockAgent(model="invalid_provider::_mock::test-modelo", api_key="test-key")
+        MockAgent(model="invalid_provider::test-modelo", api_key="test-key")
 
     assert e.value.reason == "provider-not-found"
 
