@@ -6,13 +6,21 @@ without making actual API calls to external language model services.
 """
 
 from typing import Optional, Type
+from dataclasses import dataclass
 from pydantic import BaseModel
 
 from pyagentic.llm._provider import LLMProvider, LLMResponse
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._context import _AgentContext
-from pyagentic.models.llm import Message, LLMResponse, ToolCall
+from pyagentic.models.llm import Message, LLMResponse, ToolCall, ProviderInfo
+
+
+@dataclass
+class _MockMessage(Message):
+    tool_call: ToolCall = None
+    tool_result: str = None
+    tool_call_id: str = None
 
 
 class _MockProvider(LLMProvider):
@@ -25,6 +33,7 @@ class _MockProvider(LLMProvider):
 
     Note: This is intended for internal testing purposes only.
     """
+
     # TODO: Can implement logic here to load in test cases and return depending on
     #   the latest message, or something more sophisticated
     __supports_tool_calls__ = True
@@ -42,6 +51,12 @@ class _MockProvider(LLMProvider):
         """
         self.model = model
 
+        self._info = ProviderInfo(
+            name="_mock",
+            model=self.model,
+            attributes=kwargs
+        )
+
     def to_tool_call_message(self, tool_call: ToolCall) -> Message:
         """
         Convert a tool call to a mock message format.
@@ -52,7 +67,12 @@ class _MockProvider(LLMProvider):
         Returns:
             Simple Message with fixed content
         """
-        return Message(role="assistant", content="Tool call message")
+        return _MockMessage(
+            type="tool_call",
+            content="Tool call message",
+            tool_call=tool_call,
+            tool_call_id=tool_call.id,
+        )
 
     def to_tool_call_result_message(self, result, id_) -> Message:
         """
@@ -65,7 +85,12 @@ class _MockProvider(LLMProvider):
         Returns:
             Simple Message with fixed content
         """
-        return Message(role="assistant", content="Tool call result message")
+        return _MockMessage(
+            type="tool_result",
+            content="Tool call result message",
+            tool_result=result,
+            tool_call_id=id_,
+        )
 
     async def generate(
         self,
@@ -91,9 +116,10 @@ class _MockProvider(LLMProvider):
         Returns:
             LLMResponse with fixed test content
         """
+        latest_message = context._messages[-1].content
 
         return LLMResponse(
-            text="test",
+            text=f'user said {latest_message}',
             tool_calls=[],
             finish_reason="stop",
         )

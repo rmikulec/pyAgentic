@@ -25,10 +25,6 @@ class AnthropicMessage(Message):
     Includes additional fields required for Anthropic's API format including
     tool use handling and proper message structuring for Claude models.
     """
-    # Base
-    type: Optional[str] = None
-    role: Optional[str] = None
-    content: Optional[str] = None
     # Tool Usage
     id: Optional[str] = None
     name: Optional[str] = None
@@ -44,6 +40,7 @@ class AnthropicProvider(LLMProvider):
     and tool calling. Note that this provider does not support structured outputs
     natively and implements them through tool calling mechanisms.
     """
+
     __supports_structured_outputs__ = False
 
     def __init__(self, model: str, api_key: str, **kwargs):

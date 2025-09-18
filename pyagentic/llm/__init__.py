@@ -12,10 +12,8 @@ from pyagentic.llm._anthropic import AnthropicProvider
 from pyagentic.llm._mock import _MockProvider
 
 
-__all__ = [
-    "OpenAIProvider",
-    "AnthropicProvider"
-]
+__all__ = ["OpenAIProvider", "AnthropicProvider"]
+
 
 class LLMProviders(Enum):
     """
@@ -24,6 +22,7 @@ class LLMProviders(Enum):
     Provides easy access to different language model providers that can be used
     with agents for text generation and tool calling.
     """
+
     OPENAI = OpenAIProvider
     ANTHROPIC = AnthropicProvider
     _MOCK = _MockProvider

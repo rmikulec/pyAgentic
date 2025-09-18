@@ -27,10 +27,6 @@ class OpenAIMessage(Message):
     Includes additional fields required for OpenAI's API format including
     tool call handling and function calling support.
     """
-    # Base
-    type: Optional[str] = None
-    role: Optional[str] = None
-    content: Optional[str] = None
     # Tool Usage
     name: Optional[str] = None
     arguments: Optional[str] = None

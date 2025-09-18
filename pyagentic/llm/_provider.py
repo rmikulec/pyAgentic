@@ -28,6 +28,7 @@ class LLMProvider(ABC):
         __supports_tool_calls__: Whether the provider supports function/tool calling
         __supports_structured_outputs__: Whether the provider supports structured response formats
     """
+
     __llm_name__ = "base"
     __supports_tool_calls__ = True
     __supports_structured_outputs__ = True
