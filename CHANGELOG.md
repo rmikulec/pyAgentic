@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.2-a.1 (2025-09-18)
+
+### Bug Fixes
+
+- Moved base tracer to tracing submodule
+  ([`33a2a8e`](https://github.com/rmikulec/pyAgentic/commit/33a2a8e79fdbd02aa902e205026d20a3c22e844b))
+
+
 ## v1.6.1 (2025-09-18)
 
 
