@@ -205,7 +205,7 @@ def test_tool_openai_export(mock_context):
     ) -> str:
         pass
 
-    openai_tool = test.__tool_def__.to_openai(mock_context)
+    openai_tool = test.__tool_def__.to_openai_spec(mock_context)
     expected = {
         "type": "function",
         "name": "test",
@@ -259,7 +259,7 @@ def test_tool_openai_export_multiple_params(mock_context):
     ) -> str:
         pass
 
-    openai_tool = test.__tool_def__.to_openai(mock_context)
+    openai_tool = test.__tool_def__.to_openai_spec(mock_context)
     expected = {
         "type": "function",
         "name": "test",
@@ -292,7 +292,7 @@ def test_tool_openai_export_listed_primitive(mock_context):
     def test(list_: list[str]) -> str:
         pass
 
-    openai_tool = test.__tool_def__.to_openai(mock_context)
+    openai_tool = test.__tool_def__.to_openai_spec(mock_context)
     expected = {
         "type": "function",
         "name": "test",
@@ -324,7 +324,7 @@ def test_tool_openai_export_listed_param(mock_context):
     def test(list_: list[TestParam]) -> str:
         pass
 
-    openai_tool = test.__tool_def__.to_openai(mock_context)
+    openai_tool = test.__tool_def__.to_openai_spec(mock_context)
     expected = {
         "type": "function",
         "name": "test",
@@ -358,7 +358,7 @@ def test_tool_openai_export_context_resolve(mock_context):
     def test(param: ResolveParam) -> str:
         pass
 
-    openai_tool = test.__tool_def__.to_openai(mock_context)
+    openai_tool = test.__tool_def__.to_openai_spec(mock_context)
     export_description = openai_tool["parameters"]["properties"]["param"]["properties"]["field"][
         "description"
     ]

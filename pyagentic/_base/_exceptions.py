@@ -1,3 +1,6 @@
+from typing import Literal
+
+
 class ToolDeclarationFailed(Exception):
 
     def __init__(self, tool_name, message):
@@ -36,4 +39,31 @@ class InvalidContextRefMismatchTyping(Exception):
             f"ContextRef('{ref_path}') for {self.__class__.__name__}.{field_name}  "
             f"is of type {recieved_type}, expected {expected_type}"
         )
+        super().__init__(message)
+
+
+class InvalidLLMSetup(Exception):
+    def __init__(
+        self,
+        reason: Literal["provider-not-found", "invalid-format", "no-provider"],
+        model: str = None,
+        valid_providers: list[str] = None,
+    ):
+        self.invalid_model = model
+        self.reason = reason
+
+        match reason:
+            case "provider-not-found":
+                message = (
+                    f"{model.split('::')[0]} is an unsupported provider."
+                    f"   Please use one of {valid_providers}"
+                    "   or provide a custom provider with `provider`"
+                )
+            case "invalid-format":
+                message = f"{model} is in invalid format. Please provide model with <provider>::<model_name>"  # noqa E501
+            case "no-provider":
+                message = "Please provider either `model` + `api_key` or a valid `provider`"
+            case _:
+                message = reason
+
         super().__init__(message)

@@ -1,6 +1,6 @@
 # PyAgentic Documentation
 
-Build sophisticated AI agents with declarative Python syntax. PyAgentic provides a type-safe, extensible framework for creating LLM agents with persistent context, powerful tools, and seamless OpenAI integration.
+Build sophisticated AI agents with declarative Python syntax. PyAgentic provides a type-safe, extensible framework for creating LLM agents with persistent context, powerful tools, and seamless integration with multiple LLM providers including OpenAI, Anthropic, and others.
 
 ## Quick Start
 

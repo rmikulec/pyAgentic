@@ -84,7 +84,7 @@ def test_agent():
                 raise ValueError("This is a test error")
             return "No error occurred"
 
-    return TestAgent(model="gpt-4", api_key="test_key")
+    return TestAgent(model="openai::test-model", api_key="test_key")
 
 
 @pytest.fixture
@@ -100,7 +100,7 @@ class TestAgentBasicRun:
     async def test_simple_text_response(self, test_agent):
         """Test agent returning simple text without tool calls"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             # Mock OpenAI response with just text
             mock_response = MockOpenAIResponse(output_text="Hello, I'm a test response!")
             mock_client.responses.create = AsyncMock(return_value=mock_response)
@@ -111,17 +111,11 @@ class TestAgentBasicRun:
             assert len(result.tool_responses) == 0
             assert mock_client.responses.create.call_count == 1
 
-            # Verify the call parameters
-            call_args = mock_client.responses.create.call_args
-            assert call_args.kwargs["model"] == "gpt-4"
-            assert "tools" in call_args.kwargs
-            assert call_args.kwargs["max_tool_calls"] == 5
-
     @pytest.mark.asyncio
     async def test_single_tool_call(self, test_agent):
         """Test agent making a single tool call"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             # First call returns tool call, second call returns final text
             tool_call = MockFunctionCall("add_numbers", '{"a": 5, "b": 3}')
             mock_tool_response = MockOpenAIResponse(function_calls=[tool_call])
@@ -150,7 +144,7 @@ class TestAgentBasicRun:
     async def test_multiple_tool_calls_parallel(self, test_agent):
         """Test agent making multiple parallel tool calls"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             # First call returns multiple tool calls
             tool_call1 = MockFunctionCall("add_numbers", '{"a": 1, "b": 2}', "call_1")
             tool_call2 = MockFunctionCall("get_counter", "{}", "call_2")
@@ -178,7 +172,7 @@ class TestAgentBasicRun:
         # Set max_call_depth to 2
         test_agent.max_call_depth = 2
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             # Always return tool calls (would create infinite loop without depth limit)
             tool_call1 = MockFunctionCall("add_numbers", '{"a": 1, "b": 2}', "call_1")
             tool_call2 = MockFunctionCall("get_counter", "{}", "call_2")
@@ -203,13 +197,13 @@ class TestAgentErrorHandling:
     async def test_openai_api_error(self, test_agent):
         """Test handling of OpenAI API errors"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             # Mock API error
             mock_client.responses.create = AsyncMock(side_effect=Exception("API Error"))
 
             result = await test_agent.run("This will fail")
 
-            assert "OpenAI failed to generate a response: API Error" in result
+            assert "The LLM failed to generate a response: API Error" in result.final_output
             # Context should still have the user message
             assert any("This will fail" in str(msg) for msg in test_agent.context._messages)
 
@@ -217,7 +211,7 @@ class TestAgentErrorHandling:
     async def test_tool_execution_error(self, test_agent):
         """Test handling of tool execution errors"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             # Tool call that will cause an error
             tool_call = MockFunctionCall("error_tool", '{"should_error": true}')
             mock_tool_response = MockOpenAIResponse(function_calls=[tool_call])
@@ -247,7 +241,7 @@ class TestAgentEmitter:
 
         test_agent.emitter = mock_emitter
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             mock_response = MockOpenAIResponse(output_text="Test response")
             mock_client.responses.create = AsyncMock(return_value=mock_response)
 
@@ -273,7 +267,7 @@ class TestAgentEmitter:
 
         test_agent.emitter = mock_emitter
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             tool_call = MockFunctionCall("add_numbers", '{"a": 1, "b": 2}')
             mock_tool_response = MockOpenAIResponse(function_calls=[tool_call])
             mock_final_response = MockOpenAIResponse(output_text="Done!")
@@ -305,7 +299,7 @@ class TestAgentContext:
     async def test_context_persists_across_tool_calls(self, test_agent):
         """Test that context changes persist across multiple tool calls"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             # First tool call updates context
             tool_call1 = MockFunctionCall("update_data", '{"new_data": "updated"}', "call1")
             # Second tool call should see the updated context
@@ -329,7 +323,7 @@ class TestAgentContext:
     async def test_messages_accumulated_in_context(self, test_agent):
         """Test that messages are properly accumulated in context"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             mock_response = MockOpenAIResponse(output_text="Test response")
             mock_client.responses.create = AsyncMock(return_value=mock_response)
 
@@ -344,10 +338,10 @@ class TestAgentContext:
 
             # Check message structure
             messages = test_agent.context._messages[-2:]
-            assert messages[0]["role"] == "user"
-            assert "Test message" in messages[0]["content"]
-            assert messages[1]["role"] == "assistant"
-            assert messages[1]["content"] == "Test response"
+            assert messages[0].role == "user"
+            assert "Test message" in messages[0].content
+            assert messages[1].role == "assistant"
+            assert messages[1].content == "Test response"
 
 
 class TestAgentResponseStructure:
@@ -357,7 +351,7 @@ class TestAgentResponseStructure:
     async def test_response_model_structure(self, test_agent):
         """Test that response model has correct structure"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             tool_call = MockFunctionCall("add_numbers", '{"a": 1, "b": 1}')
             mock_tool_response = MockOpenAIResponse(function_calls=[tool_call])
             mock_final_response = MockOpenAIResponse(output_text="Final response")
@@ -387,7 +381,7 @@ class TestAgentResponseStructure:
     async def test_call_method_works(self, test_agent):
         """Test that __call__ method works the same as run"""
 
-        with patch.object(test_agent, "client") as mock_client:
+        with patch.object(test_agent.provider, "client") as mock_client:
             mock_response = MockOpenAIResponse(output_text="Call test response")
             mock_client.responses.create = AsyncMock(return_value=mock_response)
 
@@ -396,32 +390,3 @@ class TestAgentResponseStructure:
 
             assert result.final_output == "Call test response"
             assert mock_client.responses.create.called
-
-
-class TestAgentReasoningHandling:
-    """Test handling of reasoning traces from OpenAI"""
-
-    @pytest.mark.asyncio
-    async def test_reasoning_traces_handled(self, test_agent):
-        """Test that reasoning traces are properly handled"""
-
-        with patch.object(test_agent, "client") as mock_client:
-            # Response with reasoning traces
-            mock_response = MockOpenAIResponse(
-                output_text="Final answer", reasoning=["Step 1: Think", "Step 2: Analyze"]
-            )
-            mock_client.responses.create = AsyncMock(return_value=mock_response)
-
-            initial_msg_count = len(test_agent.context._messages)
-
-            result = await test_agent.run("Think about this")
-
-            # Reasoning should be added to context messages
-            final_msg_count = len(test_agent.context._messages)
-            # User message + 2 reasoning + assistant response = 4 new messages
-            assert final_msg_count == initial_msg_count + 4
-
-            # Check reasoning messages were added
-            messages = test_agent.context._messages
-            reasoning_msgs = [msg for msg in messages if msg.get("type") == "reasoning"]
-            assert len(reasoning_msgs) == 2

@@ -5,6 +5,7 @@ from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._params import Param
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
+from pyagentic.models.llm import ProviderInfo
 
 
 def param_to_pydantic(ParamClass: Type[Param]) -> Type[BaseModel]:
@@ -113,6 +114,7 @@ class AgentResponse(BaseModel):
     """
 
     final_output: Union[str, Type[BaseModel]]
+    provider_info: ProviderInfo
 
     @classmethod
     def from_tool_defs(

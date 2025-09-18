@@ -152,7 +152,7 @@ class TestBasicInheritance:
             child_item: int = ContextItem(default=42)
 
         # Create instance
-        child = ChildAgent(model="test", api_key="test")
+        child = ChildAgent(model="_mock::test-model", api_key="test")
 
         # Check context has both items
         assert hasattr(child.context, "parent_item")
@@ -340,7 +340,7 @@ class TestAgentExtensions:
         assert "metric_prefix" in AnalyticsAgent.__context_attrs__
 
         # Test instance creation
-        agent = AnalyticsAgent(model="test", api_key="test")
+        agent = AnalyticsAgent(model="_mock::test-model", api_key="test")
         assert agent.context.metric_prefix == "AnalyticsAgentContext_metrics"
 
     def test_extension_inheritance_chain(self):
