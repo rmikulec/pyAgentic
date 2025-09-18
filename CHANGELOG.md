@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.7.0-a.5 (2025-09-18)
+
+### Bug Fixes
+
+- Moved agent tracing tests to better spot
+  ([`a227a01`](https://github.com/rmikulec/pyAgentic/commit/a227a015a046e62d2da5c44cc09c058654e22451))
+
+### Features
+
+- Added tests for tracing
+  ([`0f007f5`](https://github.com/rmikulec/pyAgentic/commit/0f007f5c5357997787fb628191c3e819e317942a))
+
+
 ## v1.7.0-a.4 (2025-09-18)
 
 ### Bug Fixes
