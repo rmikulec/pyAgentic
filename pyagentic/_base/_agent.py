@@ -226,6 +226,7 @@ class Agent(metaclass=AgentMeta):
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         agent = getattr(self, tool_call.name)
+        agent.tracer = self.tracer
         try:
             kwargs = json.loads(tool_call.arguments)
             self.tracer.set_attributes(**kwargs)
