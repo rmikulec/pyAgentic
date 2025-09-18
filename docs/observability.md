@@ -30,11 +30,6 @@ PyAgentic includes two built-in tracers:
 ### BasicTracer
 An in-memory tracer that stores traces locally in Python dictionaries. Perfect for development, testing, and simple use cases.
 
-### LangfuseTracer
-Integrates with [Langfuse](https://langfuse.com) for production-grade observability with advanced analytics, dashboards, and collaboration features.
-
-## Using BasicTracer
-
 The BasicTracer is the simplest way to get started with tracing. It stores all trace data in memory and provides export functionality.
 
 ```python
@@ -52,7 +47,7 @@ agent = YourAgent(
 result = await agent("Your task here")
 ```
 
-### BasicTracer Features
+#### BasicTracer Features
 
 - **In-memory storage**: All data stored locally, no external dependencies
 - **Export functionality**: Get trace data as JSON for analysis or debugging
@@ -67,11 +62,13 @@ trace_data = tracer.export_trace(trace_id, reset=True)
 tracer.clear()
 ```
 
-## Using LangfuseTracer
+
+### LangfuseTracer
+Integrates with [Langfuse](https://langfuse.com) for production-grade observability with advanced analytics, dashboards, and collaboration features.
 
 The LangfuseTracer provides enterprise-grade observability by forwarding traces to Langfuse.
 
-### Setup
+#### Setup
 
 First, install the Langfuse SDK:
 
@@ -87,7 +84,7 @@ export LANGFUSE_PUBLIC_KEY="your-public-key"
 export LANGFUSE_HOST="https://cloud.langfuse.com"  # or your self-hosted instance
 ```
 
-### Usage
+#### Usage
 
 ```python
 from pyagentic.tracing import LangfuseTracer
@@ -104,7 +101,7 @@ agent = YourAgent(
 result = await agent("Your task here")
 ```
 
-### LangfuseTracer Features
+#### LangfuseTracer Features
 
 - **Real-time streaming**: Traces sent to Langfuse as they happen
 - **Rich UI**: View traces in the Langfuse dashboard with advanced filtering and analytics
