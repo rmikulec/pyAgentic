@@ -56,7 +56,7 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Build hierarchies](Inheritance.md)
 
-- :material-family-tree: **[Observability](observability.md)**
+- :material-search: **[Observability](observability.md)**
 
     ---
 
