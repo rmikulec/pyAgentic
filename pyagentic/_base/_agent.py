@@ -15,10 +15,12 @@ from pyagentic._base._exceptions import InvalidLLMSetup
 
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
+from pyagentic.models.tracing import SpanKind
+
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.llm import LLMProviders
-from pyagentic.tracing._tracer import AgentTracer
+from pyagentic.tracing._tracer import AgentTracer, traced
 from pyagentic.tracing import BasicTracer
 
 
@@ -136,6 +138,7 @@ class Agent(metaclass=AgentMeta):
     tracer: AgentTracer = None
     max_call_depth: int = 1
 
+
     def _check_llm_provider(self):
         if (not self.model and not self.api_key) and (not self.provider):
             raise InvalidLLMSetup(reason="no-provider")
@@ -178,12 +181,17 @@ class Agent(metaclass=AgentMeta):
         if not self.tracer:
             self.tracer = BasicTracer()
 
+    @traced(SpanKind.INFERENCE)
     async def _process_llm_inference(
         self,
         *,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         **kwargs,
     ) -> LLMResponse:
+        self.tracer.set_attributes(
+            system_message=self.context.system_message,
+            user_message=self.context.recent_message
+        )
         """
         Processes LLM inferences by adding appropriate messages to the context, generating a
             response using the provider and handling errors.
@@ -206,19 +214,26 @@ class Agent(metaclass=AgentMeta):
             )
             return LLMResponse(text=f"The LLM failed to generate a response: {e}", tool_calls=[])
 
+    @traced(SpanKind.AGENT)
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         """
         Processes linked agents by adding appropriate messages to the context, calling the agent,
             handling errors, and creating an agent response.
         """
+        self.tracer.set_attributes(
+            agent=tool_call.name,
+        )
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         agent = getattr(self, tool_call.name)
         try:
             kwargs = json.loads(tool_call.arguments)
+            self.tracer.set_attributes(**kwargs)
             response = await agent(**kwargs)
             result = f"Agent {tool_call.name}: {response.final_output}"
+            self.tracer.set_attributes(result=response.model_dump())
         except Exception as e:
+            self.tracer.record_exception(str(e))
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
             response = AgentResponse(final_output=result, provider_info=agent.provider._info)
         self.context._messages.append(
@@ -226,11 +241,15 @@ class Agent(metaclass=AgentMeta):
         )
         return response
 
+    @traced(SpanKind.TOOL)
     async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
         """
         Processes a tool call by adding appropriate messages to the context, calling the tool,
             handling errors, and creating the tool response
         """
+        self.tracer.set_attributes(
+            **tool_call.__dict__
+        )
         self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
@@ -253,7 +272,9 @@ class Agent(metaclass=AgentMeta):
 
             compiled_args = tool_def.compile_args(**kwargs)
             result = await _safe_run(handler, **compiled_args)
+            self.tracer.set_attributes(result=result) 
         except Exception as e:
+            self.tracer.record_exception(str(e))
             logger.exception(e)
             result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
             if self.emitter:
@@ -288,80 +309,86 @@ class Agent(metaclass=AgentMeta):
         return tool_defs
 
     async def run(self, input_: str) -> str:
-        """
-        Run the agent with any given input
+        async with self.tracer.agent(
+            name=f"{self.__class__.__name__}.run",
+            model=getattr(self.provider, "model", None),
+            input_len=len(input_) if input_ else 0,
+            max_call_depth=self.max_call_depth,
+        ):
+            """
+            Run the agent with any given input
 
-        Parameters:
-            input_(str): The user input for the agent to process
+            Parameters:
+                input_(str): The user input for the agent to process
 
-        Returns:
-            str: The output of the agent
-        """
-        # Prime context with the user message
-        self.context.add_user_message(input_)
+            Returns:
+                str: The output of the agent
+            """
+            # Prime context with the user message
+            self.context.add_user_message(input_)
 
-        # Build tools once (if yours can change each turn, move inside the loop)
-        tool_defs = await self._get_tool_defs()
+            # Build tools once (if yours can change each turn, move inside the loop)
+            tool_defs = await self._get_tool_defs()
 
-        # Tracking
-        tool_responses: list = []
-        agent_responses: list = []
-        processed_call_ids: set[str] = set()
+            # Tracking
+            tool_responses: list = []
+            agent_responses: list = []
+            processed_call_ids: set[str] = set()
 
-        # Optional status emit
-        if self.emitter:
-            await _safe_run(self.emitter, EmitUpdate(status=Status.GENERATING))
+            # Optional status emit
+            if self.emitter:
+                await _safe_run(self.emitter, EmitUpdate(status=Status.GENERATING))
 
-        depth = 0
-        final_ai_output: str | None = None
+            depth = 0
+            final_ai_output: str | None = None
 
-        while depth < self.max_call_depth:
-            # Ask the LLM what to do next (may return tool calls or final text)
-            response = await self._process_llm_inference(tool_defs=tool_defs)
+            while depth < self.max_call_depth:
+                # Ask the LLM what to do next (may return tool calls or final text)
+                response = await self._process_llm_inference(tool_defs=tool_defs)
 
-            # If the model produced a final text (no calls), we can stop
-            if not response.tool_calls:
+                # If the model produced a final text (no calls), we can stop
+                if not response.tool_calls:
+                    final_ai_output = response.parsed if response.parsed else response.text
+                    self.context._messages.append(Message(role="assistant", content=response.text))
+                    break
+
+                # Execute tool/agent calls and append their results to context
+                for tool_call in response.tool_calls:
+                    # Avoid double-processing if model re-sends the same id
+                    if tool_call.id and tool_call.id in processed_call_ids:
+                        continue
+
+                    processed_call_ids.add(tool_call.id)
+
+                    # Route to tools vs linked agents
+                    if tool_call.name in self.__tool_defs__:
+                        result = await self._process_tool_call(tool_call, call_depth=depth)
+                        tool_responses.append(result)
+
+                    elif tool_call.name in self.__linked_agents__:
+                        result = await self._process_agent_call(tool_call)
+                        agent_responses.append(result)
+
+                # After executing tools, advance depth and loop to let the LLM react
+                depth += 1
+
+            # If we hit depth limit and still don’t have a final text, ask once naturally
+            if final_ai_output is None:
+                response = await self._process_llm_inference()
                 final_ai_output = response.parsed if response.parsed else response.text
-                self.context._messages.append(Message(role="assistant", content=response.text))
-                break
 
-            # Execute tool/agent calls and append their results to context
-            for tool_call in response.tool_calls:
-                # Avoid double-processing if model re-sends the same id
-                if tool_call.id and tool_call.id in processed_call_ids:
-                    continue
+            if self.emitter:
+                await _safe_run(
+                    self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
+                )
 
-                processed_call_ids.add(tool_call.id)
+            response_fields = {"final_output": final_ai_output, "provider_info": self.provider._info}
+            if self.__tool_defs__:
+                response_fields["tool_responses"] = tool_responses
+            if self.__linked_agents__:
+                response_fields["agent_responses"] = agent_responses
 
-                # Route to tools vs linked agents
-                if tool_call.name in self.__tool_defs__:
-                    result = await self._process_tool_call(tool_call, call_depth=depth)
-                    tool_responses.append(result)
-
-                elif tool_call.name in self.__linked_agents__:
-                    result = await self._process_agent_call(tool_call)
-                    agent_responses.append(result)
-
-            # After executing tools, advance depth and loop to let the LLM react
-            depth += 1
-
-        # If we hit depth limit and still don’t have a final text, ask once naturally
-        if final_ai_output is None:
-            response = await self._process_llm_inference()
-            final_ai_output = response.parsed if response.parsed else response.text
-
-        if self.emitter:
-            await _safe_run(
-                self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
-            )
-
-        response_fields = {"final_output": final_ai_output, "provider_info": self.provider._info}
-        if self.__tool_defs__:
-            response_fields["tool_responses"] = tool_responses
-        if self.__linked_agents__:
-            response_fields["agent_responses"] = agent_responses
-
-        return self.__response_model__(**response_fields)
+            return self.__response_model__(**response_fields)
 
     async def __call__(self, user_input: str):
         return await self.run(input_=user_input)

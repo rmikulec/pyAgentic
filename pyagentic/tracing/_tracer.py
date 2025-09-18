@@ -1,6 +1,9 @@
+import inspect
+
+from functools import wraps
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import Any, Dict, Optional, AsyncIterator
+from typing import Any, Dict, Optional, AsyncIterator, Callable
 import contextvars
 
 from pyagentic.models.tracing import Span, SpanStatus, SpanKind, SpanContext
@@ -17,6 +20,29 @@ class AgentTracer(ABC):
 
     Implementations should override start_span/end_span/add_event/set_attributes/record_exception/record_tokens.
     """
+
+    @property
+    def current_span(self) -> Optional[Span]:
+        return _current_span.get()
+
+    def set_attributes(self, **kwargs):
+        self._set_attributes(
+            self.current_span,
+            kwargs
+        )
+
+    def _add_event(self, name, **kwargs):
+        self._add_event(
+            self.current_span,
+            name,
+            kwargs
+        )
+    
+    def record_exception(self, exception: str):
+        self._record_exception(
+            self.current_span,
+            exc=exception
+        )
 
     # ---------- low-level lifecycle ----------
     @abstractmethod
@@ -35,15 +61,15 @@ class AgentTracer(ABC):
 
     # ---------- enrichment ----------
     @abstractmethod
-    def add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+    def _add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
         ...
 
     @abstractmethod
-    def set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
+    def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
         ...
 
     @abstractmethod
-    def record_exception(self, span: Span, exc: BaseException) -> None:
+    def _record_exception(self, span: Span, exc: BaseException) -> None:
         ...
 
     def record_tokens(
@@ -65,7 +91,7 @@ class AgentTracer(ABC):
         }
         if attributes:
             payload.update(attributes)
-        self.add_event(span, "llm.tokens", payload)
+        self._add_event(span, "llm.tokens", payload)
 
     # ---------- ergonomics: async contexts ----------
     @asynccontextmanager
@@ -84,7 +110,7 @@ class AgentTracer(ABC):
             yield span
         except BaseException as e:
             span.status = SpanStatus.ERROR
-            self.record_exception(span, e)
+            self._record_exception(span, e)
             raise
         finally:
             _current_span.reset(token)
@@ -104,3 +130,23 @@ class AgentTracer(ABC):
     async def inference(self, name: str = "completion", **attrs: Any) -> AsyncIterator[Span]:
         async with self.span(name, SpanKind.INFERENCE, attributes=attrs) as s:
             yield s
+
+
+def traced(kind: SpanKind, name: Optional[str] = None, attrs: Optional[dict] = None):
+    """
+    Decorate async or sync callables to run inside a span.
+    Uses Agent.tracer and current_span ContextVar for nesting.
+    """
+    def outer(fn: Callable):
+        is_async = inspect.iscoroutinefunction(fn)
+
+        @wraps(fn)
+        async def async_wrapper(self, *args, **kwargs):
+            tracer: AgentTracer = self.tracer
+            span_name = name or f"{self.__class__.__name__}.{fn.__name__}"
+            async with tracer.span(span_name, kind, attributes=attrs):
+                return await fn(self, *args, **kwargs)
+
+
+        return async_wrapper
+    return outer
