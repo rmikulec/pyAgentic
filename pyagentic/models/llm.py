@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 @dataclass
 class Message:
+    type: Optional[str] = None
     role: Optional[str] = None
     content: Optional[str] = None
 
