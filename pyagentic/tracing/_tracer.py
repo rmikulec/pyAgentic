@@ -1,8 +1,10 @@
+import contextvars
+
 from functools import wraps
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, AsyncIterator, Callable
-import contextvars
+from pydantic import BaseModel
 
 from pyagentic.models.tracing import Span, SpanStatus, SpanKind
 
