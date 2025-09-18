@@ -1,9 +1,9 @@
 [project]
-name = "directorai"
-version = "1.0.0"
-description = "Narrative-driven LLM NPC Engine"
+name = "pyagentic-core"
+version = "1.6.0-a.1"
+description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 authors = [ { name="Ryan Mikulec", email="rmikulec.dev@gmail.com" } ]
 license = { text = "MIT" }
 classifiers = [
@@ -21,7 +21,6 @@ dependencies = [
     "pydantic>=2.11.7",
     "typeguard>=4.4.4",
     "c3linearize>=0.1.0",
-    "anthropic>=0.62.0",
 ]
 
 [dependency-groups]
@@ -34,7 +33,11 @@ dev = [
     "pytest>=8.4.1",
     "python-semantic-release>=10.3.1",
 ]
-
+demo = [
+    "arxiv>=2.2.0",
+    "pypdf2>=3.0.1",
+    "python-chess>=1.999",
+]
 docs = [
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.6.16",
@@ -42,6 +45,10 @@ docs = [
     "pygments>=2.19.2",
     "pymdown-extensions>=10.16.1",
 ]
+eval = [
+    "deepeval>=3.3.6",
+]
+
 
 [tool.semantic_release]
 tag_format = "{version}"

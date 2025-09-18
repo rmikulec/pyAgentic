@@ -39,6 +39,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup | Force release branch to be at workflow sha
         run: |

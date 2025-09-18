@@ -57,7 +57,7 @@ class ResearchAgent(Agent):
         return f"Research focus set to: {topic}"
 
 # Create and use the agent
-agent = ResearchAgent(model="gpt-4", api_key="your-key")
+agent = ResearchAgent(model="openai::gpt-4", api_key="your-key")
 response = await agent("Help me research machine learning papers")
 
 # Access structured response data

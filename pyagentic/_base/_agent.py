@@ -162,10 +162,10 @@ class Agent(metaclass=AgentMeta):
             )
 
         if self.__response_format__ and not self.provider.__supports_structured_outputs__:
-            raise Exception("Response format is not support with this provider")
+            raise Exception("Response format is not supported with this provider")
 
         if self.__tool_defs__ and not self.provider.__supports_tool_calls__:
-            raise Exception("Tools are not support with this provider")
+            raise Exception("Tools are not supported with this provider")
 
     async def _process_llm_inference(
         self,
