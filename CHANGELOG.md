@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.7.0-a.4 (2025-09-18)
+
+### Bug Fixes
+
+- Link llm response usage to tracer
+  ([`4358595`](https://github.com/rmikulec/pyAgentic/commit/435859551cfe9dafd27b1feb1a4c5c79538e208b))
+
+- Updated agent run test to incorporate usage
+  ([`b8ead5b`](https://github.com/rmikulec/pyAgentic/commit/b8ead5ba135cb849b9e84ef469269922ef4b1f75))
+
+
 ## v1.7.0-a.3 (2025-09-18)
 
 
