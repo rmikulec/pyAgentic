@@ -320,6 +320,7 @@ class Agent(metaclass=AgentMeta):
             input_len=len(input_) if input_ else 0,
             max_call_depth=self.max_call_depth,
         ):
+            self.tracer.set_attributes(input=input_)
             """
             Run the agent with any given input
 
@@ -393,7 +394,9 @@ class Agent(metaclass=AgentMeta):
             if self.__linked_agents__:
                 response_fields["agent_responses"] = agent_responses
 
-            return self.__response_model__(**response_fields)
+            response = self.__response_model__(**response_fields)
+            self.tracer.set_attributes(output=response)
+            return response
 
     async def __call__(self, user_input: str):
         return await self.run(input_=user_input)
