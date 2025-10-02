@@ -1,7 +1,7 @@
 import inspect
 import threading
 import warnings
-from typing import dataclass_transform, TypeVar, Mapping
+from typing import dataclass_transform, TypeVar, Mapping, Type
 from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
@@ -11,6 +11,7 @@ from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
 from pyagentic._base._context import _AgentContext, ContextItem, computed_context
 from pyagentic._base._tool import _ToolDefinition
+from pyagentic._base._state import BaseState
 
 from pyagentic.models.response import AgentResponse, ToolResponse
 
@@ -98,24 +99,14 @@ class AgentMeta(type):
         return annotations
 
     @staticmethod
-    def _extract_context_attrs(
-        annotations, namespace
-    ) -> Mapping[str, tuple[TypeVar, ContextItem]]:
-        """
-        Extracts any class field from annotations and namespace where the value is that of
-            `ContextItem`, these will later be appeneded to the agents context. This will return
-            both the type and the user defined context item.
-        """
-        context_attrs: dict[str, tuple[TypeVar, ContextItem]] = {}
-        for attr_name, attr_type in annotations.items():
-            default = namespace.get(attr_name, None)
-            if isinstance(default, ContextItem):
-                context_attrs[attr_name] = (attr_type, default)
+    def _extract_state_models(namespace) -> Mapping[str, Type[BaseState]]:
+        state_models = {}
 
-        for name, value in namespace.items():
-            if getattr(value, "_is_context", False):
-                context_attrs[name] = (computed_context, value)
-        return MappingProxyType(context_attrs)
+        for attr_name, attr_type in namespace.items():
+            if issubclass(attr_type, BaseState):
+                state_models[attr_name] = attr_type
+
+        return MappingProxyType(state_models)
 
     @staticmethod
     def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
@@ -311,12 +302,12 @@ class AgentMeta(type):
         """
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
-        context_attrs = mcs._extract_context_attrs(annotations, inherited_namespace | namespace)
+        state_models = mcs._extract_state_models(inherited_namespace | namespace)
         linked_agents = mcs._extract_linked_agents(annotations, mcs.__BaseAgent__)
         with mcs._lock:
             cls.__tool_defs__ = tool_defs
             cls.__annotations__ = annotations
-            cls.__context_attrs__ = context_attrs
+            cls.__state_models__ = state_models
             cls.__linked_agents__ = linked_agents
 
         """

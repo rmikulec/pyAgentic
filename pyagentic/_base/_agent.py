@@ -9,6 +9,7 @@ from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._context import ContextItem
+from pyagentic._base._state import BaseState
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup
 
@@ -111,6 +112,7 @@ class Agent(metaclass=AgentMeta):
     # Immutable Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
     __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
+    __state_models__: ClassVar[dict[str, Type[BaseState]]]
     __linked_agents__: ClassVar[dict[str, Type[Self]]]
 
     # User-set Class Attributes
