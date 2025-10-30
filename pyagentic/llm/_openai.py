@@ -12,7 +12,7 @@ from openai.types.responses import ParsedResponse as OpenAIParsedResponse
 from typing import List, Optional, Type
 from pydantic import BaseModel
 
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
@@ -87,7 +87,7 @@ class OpenAIProvider(LLMProvider):
 
     async def generate(
         self,
-        state: _AgentState,
+        context: _AgentContext,
         *,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -101,7 +101,7 @@ class OpenAIProvider(LLMProvider):
         to ensure the response conforms to the specified Pydantic model.
 
         Args:
-            state: Agent state containing conversation history and system messages
+            context: Agent context containing conversation history and system messages
             tool_defs: List of available tools the model can call
             response_format: Optional Pydantic model for structured output
             **kwargs: Additional parameters for the OpenAI API call
@@ -116,8 +116,8 @@ class OpenAIProvider(LLMProvider):
         if response_format:
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
                 model=self._model,
-                input=[message.to_dict() for message in state.messages],
-                tools=[tool.to_openai_spec(state) for tool in tool_defs],
+                input=[message.to_dict() for message in context.messages],
+                tools=[tool.to_openai_spec(context) for tool in tool_defs],
                 text_format=response_format,
                 **kwargs,
             )
@@ -141,8 +141,8 @@ class OpenAIProvider(LLMProvider):
         else:
             response: OpenAIResponse = await self.client.responses.create(
                 model=self._model,
-                input=[message.to_dict() for message in state.messages],
-                tools=[tool.to_openai_spec(state) for tool in tool_defs],
+                input=[message.to_dict() for message in context.messages],
+                tools=[tool.to_openai_spec(context) for tool in tool_defs],
                 **kwargs,
             )
 

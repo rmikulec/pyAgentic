@@ -8,10 +8,9 @@ from pydantic import BaseModel
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
-from pyagentic._base._state import _StateDefinition
+from pyagentic._base._context import ContextItem
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup
-from pyagentic._base._info import _SpecInfo
 
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
@@ -38,7 +37,7 @@ async def _safe_run(fn, *args, **kwargs):
     return result
 
 
-@dataclass_transform(field_specifiers=(_SpecInfo,))
+@dataclass_transform(field_specifiers=(ContextItem,))
 class AgentExtension:
     """Inherit this in any mixin that contributes fields to the Agent __init__."""
 
@@ -61,7 +60,7 @@ class AgentExtension:
         cls.__annotations__ = dict(merged)
 
 
-class BaseAgent(metaclass=AgentMeta):
+class Agent(metaclass=AgentMeta):
     __abstract_base__ = ClassVar[True]
     """
     Base agent class to be extended in order to define a new Agent
@@ -116,7 +115,7 @@ class BaseAgent(metaclass=AgentMeta):
     """
     # Immutable Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
-    __state_defs__: ClassVar[dict[str, _StateDefinition]]
+    __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
     __linked_agents__: ClassVar[dict[str, Type[Self]]]
 
     # User-set Class Attributes
@@ -188,15 +187,15 @@ class BaseAgent(metaclass=AgentMeta):
         **kwargs,
     ) -> LLMResponse:
         self.tracer.set_attributes(
-            system_message=self.state.system_message, user_message=self.state.recent_message
+            system_message=self.context.system_message, user_message=self.context.recent_message
         )
         """
-        Processes LLM inferences by adding appropriate messages to the state, generating a
+        Processes LLM inferences by adding appropriate messages to the context, generating a
             response using the provider and handling errors.
         """
         try:
             response = await self.provider.generate(
-                state=self.state,
+                context=self.context,
                 tool_defs=tool_defs,
                 response_format=self.__response_format__,
                 **kwargs,
@@ -210,7 +209,7 @@ class BaseAgent(metaclass=AgentMeta):
             logger.exception(e)
             if self.emitter:
                 await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
-            self.state._messages.append(
+            self.context._messages.append(
                 Message(role="assistant", content="Failed to generate a response")
             )
             return LLMResponse(text=f"The LLM failed to generate a response: {e}", tool_calls=[])
@@ -218,14 +217,14 @@ class BaseAgent(metaclass=AgentMeta):
     @traced(SpanKind.AGENT)
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         """
-        Processes linked agents by adding appropriate messages to the state, calling the agent,
+        Processes linked agents by adding appropriate messages to the context, calling the agent,
             handling errors, and creating an agent response.
         """
         self.tracer.set_attributes(
             agent=tool_call.name,
         )
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
-        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
+        self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         agent = getattr(self, tool_call.name)
         agent.tracer = self.tracer
         try:
@@ -236,9 +235,9 @@ class BaseAgent(metaclass=AgentMeta):
             self.tracer.set_attributes(result=response.model_dump())
         except Exception as e:
             self.tracer.record_exception(str(e))
-            result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
+            result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
             response = AgentResponse(final_output=result, provider_info=agent.provider._info)
-        self.state._messages.append(
+        self.context._messages.append(
             self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         return response
@@ -246,11 +245,11 @@ class BaseAgent(metaclass=AgentMeta):
     @traced(SpanKind.TOOL)
     async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
         """
-        Processes a tool call by adding appropriate messages to the state, calling the tool,
+        Processes a tool call by adding appropriate messages to the context, calling the tool,
             handling errors, and creating the tool response
         """
-        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
         self.tracer.set_attributes(**tool_call.__dict__)
+        self.context._messages.append(self.provider.to_tool_call_message(tool_call))
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
@@ -276,7 +275,7 @@ class BaseAgent(metaclass=AgentMeta):
         except Exception as e:
             self.tracer.record_exception(str(e))
             logger.exception(e)
-            result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
+            result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
             if self.emitter:
                 await _safe_run(
                     self.emitter,
@@ -284,7 +283,7 @@ class BaseAgent(metaclass=AgentMeta):
                 )
 
         # Record output for LLM
-        self.state._messages.append(
+        self.context._messages.append(
             self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
@@ -300,7 +299,7 @@ class BaseAgent(metaclass=AgentMeta):
         tool_defs = []
         # iterate through registered tools
         for tool_def in self.__tool_defs__.values():
-            # Check if any of the tool params use a StateRef
+            # Check if any of the tool params use a ContextRef
             # convert to openai schema
             tool_defs.append(tool_def)
         for name, agent in self.__linked_agents__.items():
@@ -325,8 +324,8 @@ class BaseAgent(metaclass=AgentMeta):
             Returns:
                 str: The output of the agent
             """
-            # Prime state with the user message
-            self.state.add_user_message(input_)
+            # Prime context with the user message
+            self.context.add_user_message(input_)
 
             # Build tools once (if yours can change each turn, move inside the loop)
             tool_defs = await self._get_tool_defs()
@@ -350,10 +349,10 @@ class BaseAgent(metaclass=AgentMeta):
                 # If the model produced a final text (no calls), we can stop
                 if not response.tool_calls:
                     final_ai_output = response.parsed if response.parsed else response.text
-                    self.state._messages.append(Message(role="assistant", content=response.text))
+                    self.context._messages.append(Message(role="assistant", content=response.text))
                     break
 
-                # Execute tool/agent calls and append their results to state
+                # Execute tool/agent calls and append their results to context
                 for tool_call in response.tool_calls:
                     # Avoid double-processing if model re-sends the same id
                     if tool_call.id and tool_call.id in processed_call_ids:

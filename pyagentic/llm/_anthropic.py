@@ -10,7 +10,7 @@ import json
 
 from typing import List, Optional, Type
 from pydantic import BaseModel
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
@@ -87,7 +87,7 @@ class AnthropicProvider(LLMProvider):
 
     async def generate(
         self,
-        state: _AgentState,
+        context: _AgentContext,
         *,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -101,7 +101,7 @@ class AnthropicProvider(LLMProvider):
         specified Pydantic model format.
 
         Args:
-            state: Agent state containing conversation history and system messages
+            context: Agent context containing conversation history and system messages
             tool_defs: List of available tools the model can call
             response_format: Optional Pydantic model for structured output (limited support)
             **kwargs: Additional parameters for the Anthropic API call
@@ -113,7 +113,7 @@ class AnthropicProvider(LLMProvider):
         messages = []
         system_message = None
 
-        for message in state.messages:
+        for message in context.messages:
             msg_dict = message.to_dict()
             if msg_dict.get("role") == "system":
                 system_message = msg_dict.get("content")
@@ -138,7 +138,7 @@ class AnthropicProvider(LLMProvider):
             request_params["system"] = system_message
 
         if tool_defs:
-            request_params["tools"] = [tool.to_anthropic_spec(state) for tool in tool_defs]
+            request_params["tools"] = [tool.to_anthropic_spec(context) for tool in tool_defs]
 
         # Make the API call
         async with self.client.messages.stream(**request_params) as stream:

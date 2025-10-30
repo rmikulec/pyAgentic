@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from pyagentic.llm._provider import LLMProvider
 
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._context import _AgentContext
 from pyagentic.models.llm import Message, LLMResponse, ToolCall, ProviderInfo
 
 
@@ -88,7 +88,7 @@ class _MockProvider(LLMProvider):
 
     async def generate(
         self,
-        state: _AgentState,
+        context: _AgentContext,
         *,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -98,11 +98,11 @@ class _MockProvider(LLMProvider):
         Generate a mock response without calling any external APIs.
 
         Returns a fixed response suitable for testing. In the future, this could
-        be enhanced to return different responses based on input state or
+        be enhanced to return different responses based on input context or
         load test cases from configuration.
 
         Args:
-            state: Agent state (currently ignored)
+            context: Agent context (currently ignored)
             tool_defs: Available tools (currently ignored)
             response_format: Structured output format (currently ignored)
             **kwargs: Additional parameters (currently ignored)
@@ -110,7 +110,7 @@ class _MockProvider(LLMProvider):
         Returns:
             LLMResponse with fixed test content
         """
-        latest_message = state._messages[-1].content
+        latest_message = context._messages[-1].content
 
         return LLMResponse(
             text=f"user said {latest_message}",
