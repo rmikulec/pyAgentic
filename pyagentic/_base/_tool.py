@@ -70,7 +70,7 @@ class _ToolDefinition:
                     }
 
             if isinstance(default, ParamInfo):
-                resolved_default = default.resolve(state)
+                resolved_default = default
                 if resolved_default.description:
                     params[name]["description"] = resolved_default.description
                 if resolved_default.required:
@@ -190,7 +190,7 @@ def tool(
             elif default is not None:
                 params[name] = (type_, ParamInfo(default=default))
             else:
-                params[name] = (type_, ParamInfo())
+                params[name] = (type_, ParamInfo(required=True))
 
         fn.__tool_def__ = _ToolDefinition(
             name=fn.__name__,

@@ -22,6 +22,10 @@ class _AgentState(BaseModel):
         return super().model_post_init(state)
 
     @property
+    def recent_message(self) -> Message:
+        return self._messages[-1]
+
+    @property
     def system_message(self) -> str:
         """
         The current formatted system_message

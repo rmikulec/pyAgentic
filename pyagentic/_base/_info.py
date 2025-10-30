@@ -12,10 +12,7 @@ class _SpecInfo(BaseModel):
         elif self.default:
             return self.default
         else:
-            raise ValueError(
-                f"Invalid Info Supplied: `default` or `default_factory`should be given"
-            )
-
+            return None
 
 class AgentInfo(_SpecInfo):
     """Descriptor for State field configuration"""
