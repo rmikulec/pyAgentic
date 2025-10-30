@@ -5,6 +5,8 @@ from typing import List
 from pyagentic._base._agent import Agent
 from pyagentic._base._context import ContextItem, computed_context
 from pyagentic._base._tool import tool
+
+from pyagentic.models.llm import UsageInfo
 from pyagentic.updates import Status, EmitUpdate, AiUpdate, ToolUpdate
 
 
@@ -38,6 +40,12 @@ class MockOpenAIResponse:
     ):
         self.output_text = output_text or ""
         self.output = []
+
+        self.usage = UsageInfo(
+            input_tokens=100,
+            output_tokens=100,
+            total_tokens=200
+        )
 
         # Add reasoning if provided
         if reasoning:

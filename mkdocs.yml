@@ -11,6 +11,7 @@ nav:
     - Agent Linking: agent-linking.md
     - Responses: responses.md
     - Structured Outputs: structured-output.md
+    - Observability: observability.md
   - API Reference:
       - Modules: reference/modules.md
 

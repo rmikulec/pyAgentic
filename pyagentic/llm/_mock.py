@@ -5,22 +5,20 @@ This module provides a mock LLM provider that can be used for testing agents
 without making actual API calls to external language model services.
 """
 
-from typing import Optional, Type
-from dataclasses import dataclass
+from typing import Optional, Type, Any
 from pydantic import BaseModel
 
-from pyagentic.llm._provider import LLMProvider, LLMResponse
+from pyagentic.llm._provider import LLMProvider
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._agent_state import _AgentState
 from pyagentic.models.llm import Message, LLMResponse, ToolCall, ProviderInfo
 
 
-@dataclass
 class _MockMessage(Message):
-    tool_call: ToolCall = None
-    tool_result: str = None
-    tool_call_id: str = None
+    tool_call: Any = None
+    tool_result: Any = None
+    tool_call_id: Any = None
 
 
 class _MockProvider(LLMProvider):

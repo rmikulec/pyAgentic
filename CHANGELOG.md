@@ -2,6 +2,63 @@
 
 <!-- version list -->
 
+## v1.7.0 (2025-09-18)
+
+
+## v1.7.0-a.5 (2025-09-18)
+
+### Bug Fixes
+
+- Moved agent tracing tests to better spot
+  ([`a227a01`](https://github.com/rmikulec/pyAgentic/commit/a227a015a046e62d2da5c44cc09c058654e22451))
+
+### Features
+
+- Added tests for tracing
+  ([`0f007f5`](https://github.com/rmikulec/pyAgentic/commit/0f007f5c5357997787fb628191c3e819e317942a))
+
+
+## v1.7.0-a.4 (2025-09-18)
+
+### Bug Fixes
+
+- Link llm response usage to tracer
+  ([`4358595`](https://github.com/rmikulec/pyAgentic/commit/435859551cfe9dafd27b1feb1a4c5c79538e208b))
+
+- Updated agent run test to incorporate usage
+  ([`b8ead5b`](https://github.com/rmikulec/pyAgentic/commit/b8ead5ba135cb849b9e84ef469269922ef4b1f75))
+
+
+## v1.7.0-a.3 (2025-09-18)
+
+
+## v1.7.0-a.2 (2025-09-18)
+
+
+## v1.7.0-a.1 (2025-09-18)
+
+### Bug Fixes
+
+- Added recent_message helper to context
+  ([`ed79b4e`](https://github.com/rmikulec/pyAgentic/commit/ed79b4e8db0fe8f273568ff03706f6fae2572a86))
+
+- Added tracer to post init and cleaned up code a bit
+  ([`7ae8c68`](https://github.com/rmikulec/pyAgentic/commit/7ae8c68550711468d41d79c938f89cbc75386b52))
+
+### Features
+
+- Added new models for tracing
+  ([`231cd87`](https://github.com/rmikulec/pyAgentic/commit/231cd8733d0c3147dab0efc0ffaa3bbc62afe740))
+
+
+## v1.6.2-a.1 (2025-09-18)
+
+### Bug Fixes
+
+- Moved base tracer to tracing submodule
+  ([`33a2a8e`](https://github.com/rmikulec/pyAgentic/commit/33a2a8e79fdbd02aa902e205026d20a3c22e844b))
+
+
 ## v1.6.1 (2025-09-18)
 
 
