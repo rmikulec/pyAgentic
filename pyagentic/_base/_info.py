@@ -14,6 +14,7 @@ class _SpecInfo(BaseModel):
         else:
             return None
 
+
 class AgentInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
