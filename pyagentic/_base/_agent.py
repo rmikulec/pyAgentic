@@ -175,12 +175,12 @@ class BaseAgent(metaclass=AgentMeta):
         **kwargs,
     ) -> LLMResponse:
         """
-        Processes LLM inferences by adding appropriate messages to the context, generating a
+        Processes LLM inferences by adding appropriate messages to the state, generating a
             response using the provider and handling errors.
         """
         try:
             response = await self.provider.generate(
-                context=self.context,
+                state=self.state,
                 tool_defs=tool_defs,
                 response_format=self.__response_format__,
                 **kwargs,
@@ -191,37 +191,37 @@ class BaseAgent(metaclass=AgentMeta):
             logger.exception(e)
             if self.emitter:
                 await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
-            self.context._messages.append(
+            self.state._messages.append(
                 Message(role="assistant", content="Failed to generate a response")
             )
             return LLMResponse(text=f"The LLM failed to generate a response: {e}", tool_calls=[])
 
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
         """
-        Processes linked agents by adding appropriate messages to the context, calling the agent,
+        Processes linked agents by adding appropriate messages to the state, calling the agent,
             handling errors, and creating an agent response.
         """
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
-        self.context._messages.append(self.provider.to_tool_call_message(tool_call))
+        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
         agent = getattr(self, tool_call.name)
         try:
             kwargs = json.loads(tool_call.arguments)
             response = await agent(**kwargs)
             result = f"Agent {tool_call.name}: {response.final_output}"
         except Exception as e:
-            result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
+            result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
             response = AgentResponse(final_output=result, provider_info=agent.provider._info)
-        self.context._messages.append(
+        self.state._messages.append(
             self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         return response
 
     async def _process_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
         """
-        Processes a tool call by adding appropriate messages to the context, calling the tool,
+        Processes a tool call by adding appropriate messages to the state, calling the tool,
             handling errors, and creating the tool response
         """
-        self.context._messages.append(self.provider.to_tool_call_message(tool_call))
+        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
         # Lookup the bound method
         try:
@@ -245,7 +245,7 @@ class BaseAgent(metaclass=AgentMeta):
             result = await _safe_run(handler, **compiled_args)
         except Exception as e:
             logger.exception(e)
-            result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide context, and ask if they want to try again."  # noqa E501
+            result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
             if self.emitter:
                 await _safe_run(
                     self.emitter,
@@ -253,7 +253,7 @@ class BaseAgent(metaclass=AgentMeta):
                 )
 
         # Record output for LLM
-        self.context._messages.append(
+        self.state._messages.append(
             self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
         )
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
@@ -269,7 +269,7 @@ class BaseAgent(metaclass=AgentMeta):
         tool_defs = []
         # iterate through registered tools
         for tool_def in self.__tool_defs__.values():
-            # Check if any of the tool params use a ContextRef
+            # Check if any of the tool params use a StateRef
             # convert to openai schema
             tool_defs.append(tool_def)
         for name, agent in self.__linked_agents__.items():
@@ -287,8 +287,8 @@ class BaseAgent(metaclass=AgentMeta):
         Returns:
             str: The output of the agent
         """
-        # Prime context with the user message
-        self.context.add_user_message(input_)
+        # Prime state with the user message
+        self.state.add_user_message(input_)
 
         # Build tools once (if yours can change each turn, move inside the loop)
         tool_defs = await self._get_tool_defs()
@@ -312,10 +312,10 @@ class BaseAgent(metaclass=AgentMeta):
             # If the model produced a final text (no calls), we can stop
             if not response.tool_calls:
                 final_ai_output = response.parsed if response.parsed else response.text
-                self.context._messages.append(Message(role="assistant", content=response.text))
+                self.state._messages.append(Message(role="assistant", content=response.text))
                 break
 
-            # Execute tool/agent calls and append their results to context
+            # Execute tool/agent calls and append their results to state
             for tool_call in response.tool_calls:
                 # Avoid double-processing if model re-sends the same id
                 if tool_call.id and tool_call.id in processed_call_ids:

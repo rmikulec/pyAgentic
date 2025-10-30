@@ -15,7 +15,7 @@ class SystemMessageNotDeclared(Exception):
         )
 
 
-class UnexpectedContextItemType(Exception):
+class UnexpectedStateItemType(Exception):
     def __init__(self, name, expected, recieved):
         message = (
             f"Unexpected value provided for `{name}`. "
@@ -24,19 +24,19 @@ class UnexpectedContextItemType(Exception):
         super().__init__(message)
 
 
-class InvalidContextRefNotFoundInContext(Exception):
+class InvalidStateRefNotFoundInState(Exception):
     def __init__(self, name):
         message = (
-            f"'{name}' not found in context. "
-            "Make sure it is either declared as a `ContextItem` or using `computed_context`"
+            f"'{name}' not found in state. "
+            "Make sure it is either declared as a `StateItem` or using `computed_state`"
         )
         super().__init__(message)
 
 
-class InvalidContextRefMismatchTyping(Exception):
+class InvalidStateRefMismatchTyping(Exception):
     def __init__(self, ref_path, field_name, recieved_type, expected_type):
         message = (
-            f"ContextRef('{ref_path}') for {self.__class__.__name__}.{field_name}  "
+            f"StateRef('{ref_path}') for {self.__class__.__name__}.{field_name}  "
             f"is of type {recieved_type}, expected {expected_type}"
         )
         super().__init__(message)

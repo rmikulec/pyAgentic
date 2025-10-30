@@ -76,7 +76,7 @@ class LLMProvider(ABC):
     @abstractmethod
     async def generate(
         self,
-        context: _AgentState,
+        state: _AgentState,
         *,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -86,7 +86,7 @@ class LLMProvider(ABC):
         Generate a response from the language model.
 
         Args:
-            context: The agent context containing conversation history and system messages
+            state: The agent state containing conversation history and system messages
             tool_defs: Optional list of tool definitions the model can use
             response_format: Optional Pydantic model for structured output
             **kwargs: Additional provider-specific generation parameters

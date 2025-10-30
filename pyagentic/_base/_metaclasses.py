@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from pyagentic._base._info import _SpecInfo
 from pyagentic._base._validation import _AgentConstructionValidator
-from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
+from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
 from pyagentic._base._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._state import State, StateInfo, _StateDefinition
@@ -31,8 +31,8 @@ class AgentMeta(type):
     """
     Metaclass that applies only to Agent subclasses:
       - Ensures @system_message was declared
-      - Collects @tool definitions and ContextItem attributes
-      - Initializes class __tool_defs__ and __context_items__
+      - Collects @tool definitions and StateItem attributes
+      - Initializes class __tool_defs__ and __state_items__
       - Dynamically injects an __init__ signature based on class __annotations__
     """
 
@@ -124,8 +124,8 @@ class AgentMeta(type):
     def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
         """
         Extracts any class field from annotations and namespace where the value is that of
-            `ContextItem`, these will later be appeneded to the agents context. This will return
-            both the type and the user defined context item.
+            `StateItem`, these will later be appeneded to the agents state. This will return
+            both the type and the user defined state item.
         """
         linked_agents: dict[str, "Agent"] = {}
         for attr_name, attr_type in annotations.items():
@@ -191,7 +191,7 @@ class AgentMeta(type):
     def _build_init(sig):
         """
         Builds the init function for the class. This init will automatically have user-defined
-            context items as arguements, allow for easy initialization of agents for a variety
+            state items as arguements, allow for easy initialization of agents for a variety
             of different tasks.
         """
 
@@ -202,15 +202,15 @@ class AgentMeta(type):
 
             compiled = {}
             for name, definition in self.__state_defs__.items():
-                # Skip compted contexts, this validaiton will happen with the validator
+                # Skip compted states, this validaiton will happen with the validator
                 #   using a dry run with supplied default values
-                # Add all ContextItems to the kwargs, checking type as it goes
+                # Add all StateItems to the kwargs, checking type as it goes
                 if name in kwargs:
                     val = kwargs[name]
                     try:
                         check_type(val, definition.model)
                     except TypeCheckError:
-                        raise UnexpectedContextItemType(
+                        raise UnexpectedStateItemType(
                             name=name, expected=definition.model, recieved=type(val)
                         )
                     compiled[name] = val
@@ -249,12 +249,12 @@ class AgentMeta(type):
             the functionality of the agent.
 
             - __tool_defs__: dictionary holding all tool defintions registered by @tool
-            - __context_attrs__: dictionary holding tuple of type and item for all attributes
-                that are either have a default of ContextItem or use @computed_context
+            - __state_attrs__: dictionary holding tuple of type and item for all attributes
+                that are either have a default of StateItem or use @computed_state
             - __tool_response_models__: dictionary holding pydantic response models for each tool
             - __response_model__: The response model of the current agent that is being built
 
-        Inhertance is repected in MRO order. Tools, context attributes, computed contexts and
+        Inhertance is repected in MRO order. Tools, state attributes, computed states and
             linked agents can all be inherited, from other agents or mixins.
             __system_message__ and __input_template__ are *not* inherited
         """
@@ -264,14 +264,14 @@ class AgentMeta(type):
         This uses c3linearize to determine the order, allowing uses to extend other Agents
             and / or any mixins.
         Mixins are classes that do not extend Agent, but can offer Agent attributes, like
-            tools, context items, and/or linked agents
+            tools, state items, and/or linked agents
         """
         inherited_namespace = mcs._inherited_namespace_from_bases(bases)
 
         """
         Declare the new Agent subclass.
         If this is the base agent being declared (usually on import), then the initializtion of
-            tools, context items, etc.. will be skipped, and this class will be stored in the meta
+            tools, state items, etc.. will be skipped, and this class will be stored in the meta
             for future use.
         All other Agent subclasses will have __abstract_base__ marked as False, so that future
             implementions "know" it is not the base.
@@ -298,10 +298,10 @@ class AgentMeta(type):
         __annotations__: Python annotations are extracted using the namespace and the inherited
             namespace
 
-        __context_attrs__: Context attributes (from any class attribute with a ContextItem in
-            the namespace, or any method marked with a @computed_context decorator) are extracted
+        __state_attrs__: State attributes (from any class attribute with a StateItem in
+            the namespace, or any method marked with a @computed_state decorator) are extracted
             from both the current namespace and the inherited namespace. This also needs the
-            classes annotations, in order to attach the annotation to the context attribute for
+            classes annotations, in order to attach the annotation to the state attribute for
             later validation
 
         __linked_agents__: Linked agents work a bit differently, since they cannot have default
@@ -352,17 +352,17 @@ class AgentMeta(type):
         Build the new init
 
         The base init just accepts *args and **kwargs, this is changed by building a new init
-            signature. The new signature combines any context attributes, agents, and any other
+            signature. The new signature combines any state attributes, agents, and any other
             dataclass field in the following order:
                 1. required: any dataclass field with no value in the namespace
-                2. optional: mostly context attributes, can include dataclass fields with values in
+                2. optional: mostly state attributes, can include dataclass fields with values in
                     the namespace
                 3. linked agents: These come last in order to keep a clear order in the init. They
                     all default to None. So if the user does not supply a linked agent, then the
                     parent agent will ignore it.
 
-        The new init function then creates a new AgentContext class, using the context attributes
-            as its attributes. It loads in all the context items in it using the specified defaults
+        The new init function then creates a new AgentState class, using the state attributes
+            as its attributes. It loads in all the state items in it using the specified defaults
             and attaches it to the agent.
             After that it attaches any linked agents to the parent agent.
         """

@@ -89,7 +89,7 @@ class OpenAIProvider(LLMProvider):
 
     async def generate(
         self,
-        context: _AgentState,
+        state: _AgentState,
         *,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -103,7 +103,7 @@ class OpenAIProvider(LLMProvider):
         to ensure the response conforms to the specified Pydantic model.
 
         Args:
-            context: Agent context containing conversation history and system messages
+            state: Agent state containing conversation history and system messages
             tool_defs: List of available tools the model can call
             response_format: Optional Pydantic model for structured output
             **kwargs: Additional parameters for the OpenAI API call
@@ -118,8 +118,8 @@ class OpenAIProvider(LLMProvider):
         if response_format:
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
                 model=self._model,
-                input=[message.to_dict() for message in context.messages],
-                tools=[tool.to_openai_spec(context) for tool in tool_defs],
+                input=[message.to_dict() for message in state.messages],
+                tools=[tool.to_openai_spec(state) for tool in tool_defs],
                 text_format=response_format,
                 **kwargs,
             )
@@ -143,8 +143,8 @@ class OpenAIProvider(LLMProvider):
         else:
             response: OpenAIResponse = await self.client.responses.create(
                 model=self._model,
-                input=[message.to_dict() for message in context.messages],
-                tools=[tool.to_openai_spec(context) for tool in tool_defs],
+                input=[message.to_dict() for message in state.messages],
+                tools=[tool.to_openai_spec(state) for tool in tool_defs],
                 **kwargs,
             )
 
