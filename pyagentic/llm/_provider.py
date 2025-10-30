@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel
 
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic._base._context import _AgentContext
+from pyagentic._base._agent_state import _AgentState
 from pyagentic.models.llm import Message, LLMResponse, ToolCall
 
 
@@ -78,7 +78,7 @@ class LLMProvider(ABC):
     @abstractmethod
     async def generate(
         self,
-        context: _AgentContext,
+        state: _AgentState,
         *,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -88,7 +88,7 @@ class LLMProvider(ABC):
         Generate a response from the language model.
 
         Args:
-            context: The agent context containing conversation history and system messages
+            state: The agent state containing conversation history and system messages
             tool_defs: Optional list of tool definitions the model can use
             response_format: Optional Pydantic model for structured output
             **kwargs: Additional provider-specific generation parameters
