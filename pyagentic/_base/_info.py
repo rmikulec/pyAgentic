@@ -6,6 +6,16 @@ class _SpecInfo(BaseModel):
     default: Any = None
     default_factory: Callable = None
 
+    def get_default(self):
+        if self.default_factory:
+            return self.default_factory()
+        elif self.default:
+            return self.default
+        else:
+            raise ValueError(
+                f"Invalid Info Supplied: `default` or `default_factory`should be given"
+            )
+
 
 class AgentInfo(_SpecInfo):
     """Descriptor for State field configuration"""

@@ -196,29 +196,29 @@ class AgentMeta(type):
         """
 
         def __init__(self, *args, **kwargs):
-
-            ContextClass = _AgentState.make_state_model(
+            print(kwargs)
+            AgentState = _AgentState.make_state_model(
                 name=self.__class__.__name__, state_definitions=self.__state_defs__
             )
 
             compiled = {}
-            for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
+            for name, definition in self.__state_defs__.items():
                 # Skip compted contexts, this validaiton will happen with the validator
                 #   using a dry run with supplied default values
                 # Add all ContextItems to the kwargs, checking type as it goes
-                if attr_name in kwargs:
-                    val = kwargs[attr_name]
+                if name in kwargs:
+                    val = kwargs[name]
                     try:
-                        check_type(val, attr_type)
+                        check_type(val, definition.model)
                     except TypeCheckError:
                         raise UnexpectedContextItemType(
-                            name=attr_name, expected=attr_type, recieved=type(val)
+                            name=name, expected=definition.model, recieved=type(val)
                         )
-                    compiled[attr_name] = val
+                    compiled[name] = val
                 else:
-                    compiled[attr_name] = attr_default.get_default_value()
+                    compiled[name] = definition.info.get_default()
 
-            self.context = ContextClass(
+            self.state = AgentState(
                 instructions=self.__system_message__,
                 input_template=self.__input_template__,
                 **compiled,
@@ -231,7 +231,7 @@ class AgentMeta(type):
             bound = sig.bind(self, *args, **(kwargs | compiled))
             # Add all other arguements to instance
             for name, val in list(bound.arguments.items())[1:]:  # skip 'self'
-                if name in self.__context_attrs__:
+                if name in self.__state_defs__:
                     continue
                 setattr(self, name, val)
 

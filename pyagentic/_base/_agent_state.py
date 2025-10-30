@@ -1,6 +1,6 @@
-import functools
-from typing import Any, Callable, Type, Self
+from typing import Any, Type, Self, Optional
 from pydantic import BaseModel, create_model, Field, computed_field, PrivateAttr
+from jinja2 import Template
 
 from pyagentic._base._exceptions import InvalidContextRefNotFoundInContext
 from pyagentic._base._state import _StateDefinition
@@ -13,10 +13,14 @@ class _AgentState(BaseModel):
     """
 
     instructions: str
-    input_template: str = None
+    input_template: Optional[str] = None
     _messages: list[Message] = PrivateAttr(default_factory=list)
+    _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
 
-    @computed_field
+    def model_post_init(self, context):
+        self._instructions_template = Template(source=self.instructions)
+        return super().model_post_init(context)
+
     @property
     def system_message(self) -> str:
         """
@@ -25,9 +29,8 @@ class _AgentState(BaseModel):
         # start with all the normal dataclass fields
 
         # now format your instruction template
-        return self.instructions.format(**self.as_dict())
+        return self._instructions_template.render(**self.model_dump())
 
-    @computed_field
     @property
     def messages(self) -> list[Message]:
         """
@@ -87,23 +90,23 @@ class _AgentState(BaseModel):
         """
         pydantic_fields = {}  # for actual dataclass fields (ContextItem)
 
-        for name, definition in state_definitions.items():
+        for _name, definition in state_definitions.items():
             if isinstance(definition, _StateDefinition):
                 # ---- your existing logic for setting defaults ----
                 if definition.info.default_factory is not None:
-                    pydantic_fields[name] = (
+                    pydantic_fields[_name] = (
                         definition.model,
                         Field(default_factory=definition.info.default_factory),
                     )
                 elif definition.info.default is not None:
-                    pydantic_fields[name] = (
+                    pydantic_fields[_name] = (
                         definition.model,
                         Field(default=definition.info.default),
                     )
                 else:
-                    pydantic_fields[name] = (definition.model, ...)
+                    pydantic_fields[_name] = (definition.model, ...)
             else:
-                raise RuntimeError(f"Unexpected ctx_map entry for {name!r}: {definition!r}")
+                raise RuntimeError(f"Unexpected ctx_map entry for {_name!r}: {definition!r}")
 
         # now build the dataclass
         return create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
