@@ -196,7 +196,6 @@ class AgentMeta(type):
         """
 
         def __init__(self, *args, **kwargs):
-            print(kwargs)
             AgentState = _AgentState.make_state_model(
                 name=self.__class__.__name__, state_definitions=self.__state_defs__
             )
