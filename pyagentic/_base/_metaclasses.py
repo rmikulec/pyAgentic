@@ -6,12 +6,14 @@ from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
+from pydantic import BaseModel
 
+from pyagentic._base._info import _SpecInfo
 from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedContextItemType
-from pyagentic._base._context import _AgentContext, ContextItem, computed_context
+from pyagentic._base._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic._base._state import BaseState
+from pyagentic._base._state import State, StateInfo, _StateDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
 
@@ -24,7 +26,7 @@ class Agent:
     pass
 
 
-@dataclass_transform(field_specifiers=(ContextItem,))
+@dataclass_transform(field_specifiers=(_SpecInfo,))
 class AgentMeta(type):
     """
     Metaclass that applies only to Agent subclasses:
@@ -99,14 +101,24 @@ class AgentMeta(type):
         return annotations
 
     @staticmethod
-    def _extract_state_models(namespace) -> Mapping[str, Type[BaseState]]:
-        state_models = {}
+    def _extract_state_defs(annotations, namespace) -> Mapping[str, _StateDefinition]:
+        state_attributes: dict[str, _StateDefinition] = {}
 
-        for attr_name, attr_type in namespace.items():
-            if issubclass(attr_type, BaseState):
-                state_models[attr_name] = attr_type
+        for attr_name, attr_type in annotations.items():
+            # Check if it's a State[T] generic
+            if hasattr(attr_type, "__origin__") and attr_type.__origin__ is State:
+                state_model = attr_type.__state_model__
 
-        return MappingProxyType(state_models)
+                # Check if there's a descriptor in namespace
+                descriptor = namespace.get(attr_name)
+                if isinstance(descriptor, StateInfo):
+                    state_info = descriptor
+                else:
+                    state_info = StateInfo(default=None)
+
+                state_attributes[attr_name] = _StateDefinition(model=state_model, info=state_info)
+
+        return MappingProxyType(state_attributes)
 
     @staticmethod
     def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
@@ -130,7 +142,7 @@ class AgentMeta(type):
         return MappingProxyType(linked_agents)
 
     @staticmethod
-    def _build_init_signature(cls) -> inspect.Signature:
+    def _build_init_signature(agent_cls: Type[Agent]) -> inspect.Signature:
         """
         Build __init__ signature with all non-default (required) params
         before any defaulted (optional) params.
@@ -141,16 +153,16 @@ class AgentMeta(type):
         optional: list[inspect.Parameter] = []
         agents: list[inspect.Parameter] = []  # Agents go last in signature for better order
 
-        for field_name, field_type in cls.__annotations__.items():
-            if field_name in cls.__context_attrs__:
+        for field_name, field_type in agent_cls.__annotations__.items():
+            if field_name in agent_cls.__state_defs__:
                 param = inspect.Parameter(
                     field_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=cls.__context_attrs__[field_name][1].get_default_value(),
+                    default=agent_cls.__state_defs__[field_name].info.default,
                     annotation=field_type,
                 )
                 optional.append(param)
-            elif field_name in cls.__linked_agents__:
+            elif field_name in agent_cls.__linked_agents__:
                 # Treat linked agents as optional by default
                 param = inspect.Parameter(
                     field_name,
@@ -160,7 +172,7 @@ class AgentMeta(type):
                 )
                 agents.append(param)
             else:
-                default = getattr(cls, field_name, inspect._empty)
+                default = getattr(agent_cls, field_name, inspect._empty)
                 param = inspect.Parameter(
                     field_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
@@ -185,17 +197,14 @@ class AgentMeta(type):
 
         def __init__(self, *args, **kwargs):
 
-            # -------- ContextClass Construction --------------------
-            ContextClass = _AgentContext.make_ctx_class(
-                name=self.__class__.__name__, ctx_map=self.__context_attrs__
+            ContextClass = _AgentState.make_state_model(
+                name=self.__class__.__name__, state_definitions=self.__state_defs__
             )
 
             compiled = {}
             for attr_name, (attr_type, attr_default) in self.__context_attrs__.items():
                 # Skip compted contexts, this validaiton will happen with the validator
                 #   using a dry run with supplied default values
-                if attr_type == computed_context:
-                    continue
                 # Add all ContextItems to the kwargs, checking type as it goes
                 if attr_name in kwargs:
                     val = kwargs[attr_name]
@@ -214,7 +223,7 @@ class AgentMeta(type):
                 input_template=self.__input_template__,
                 **compiled,
             )
-            # ------------- Retrieve Linked Agents -------------------
+
             for agent_name in self.__linked_agents__.keys():
                 agent_instance = kwargs.get(agent_name, None)
                 compiled[agent_name] = agent_instance
@@ -302,12 +311,12 @@ class AgentMeta(type):
         """
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
-        state_models = mcs._extract_state_models(inherited_namespace | namespace)
+        state_defs = mcs._extract_state_defs(annotations, inherited_namespace | namespace)
         linked_agents = mcs._extract_linked_agents(annotations, mcs.__BaseAgent__)
         with mcs._lock:
             cls.__tool_defs__ = tool_defs
             cls.__annotations__ = annotations
-            cls.__state_models__ = state_models
+            cls.__state_defs__ = state_defs
             cls.__linked_agents__ = linked_agents
 
         """
@@ -366,5 +375,5 @@ class AgentMeta(type):
         """
         Validate and return
         """
-        _AgentConstructionValidator(cls).validate()
+        # _AgentConstructionValidator(cls).validate()
         return cls

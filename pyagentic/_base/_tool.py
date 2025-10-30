@@ -3,7 +3,7 @@ from typing import Callable, Any, TypeVar, get_type_hints
 from collections import defaultdict
 
 from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
-from pyagentic._base._context import _AgentContext
+from pyagentic._base._agent_state import _AgentState
 from pyagentic._base._exceptions import ToolDeclarationFailed
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
@@ -40,7 +40,7 @@ class _ToolDefinition:
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
 
-    def to_openai_spec(self, context: _AgentContext) -> dict:
+    def to_openai_spec(self, context: _AgentState) -> dict:
         """
         Converts the definition to an "openai-ready" dictionary
 
@@ -86,7 +86,7 @@ class _ToolDefinition:
             "required": required,
         }
 
-    def to_anthropic_spec(self, context: _AgentContext) -> dict:
+    def to_anthropic_spec(self, context: _AgentState) -> dict:
         """
         Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
           - name, description copied over
@@ -108,7 +108,7 @@ class _ToolDefinition:
             "input_schema": input_schema,
         }
 
-    def to_openai_v1(self, context: _AgentContext):
+    def to_openai_v1(self, context: _AgentState):
         openai_spec = self.to_openai_spec(context)
         return {"type": "function", "function": {**openai_spec}}
 

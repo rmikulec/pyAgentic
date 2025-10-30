@@ -4,8 +4,8 @@ from typing import get_type_hints, Any, List, Dict, Type
 
 from typeguard import check_type, TypeCheckError
 
-from pyagentic._base._resolver import ContextualMixin, MaybeContext
-from pyagentic._base._context import _AgentContext
+from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._info import ParamInfo
 from pyagentic._utils._typing import analyze_type, TypeCategory
 
 # simple mapping from Python types to JSON Schema/OpenAI types
@@ -15,33 +15,6 @@ _TYPE_MAP: Dict[Type[Any], str] = {
     str: "string",
     bool: "boolean",
 }
-
-
-@dataclass
-class ParamInfo(ContextualMixin):
-    """
-    Declare metadata for parameters in tool declarations and/or Parameter declarations.
-
-    Attributes:
-        description (str | None): A human-readable description of the parameter.
-        required (bool): Whether this parameter must be provided by the user.
-        default (Any): The default value to use if none is provided.
-        values (list[str]): values to limit the input of this parameter. If used, the
-            agent is forced to use on the the values in the list.
-
-    Context-Ready Attributes:
-        These attributes can be given a `ContextRef` to link them to any context items in
-        the agent.
-
-         - description
-         - default
-         - values
-    """
-
-    description: MaybeContext[str] = None
-    required: bool = False
-    default: MaybeContext[Any] = None
-    values: MaybeContext[list[str]] = None
 
 
 class Param:
@@ -123,7 +96,7 @@ class Param:
         return f"{type(self).__name__}({vals})"
 
     @classmethod
-    def to_json_schema(cls, context: _AgentContext) -> List[Dict[str, Any]]:
+    def to_json_schema(cls, context: _AgentState) -> List[Dict[str, Any]]:
         """
         Generate a JSON-schema-style dictionary suitable for OpenAI function
         parameter definitions.

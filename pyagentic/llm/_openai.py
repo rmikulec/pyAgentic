@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Type
 from pydantic import BaseModel
 
-from pyagentic._base._context import _AgentContext
+from pyagentic._base._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
@@ -27,6 +27,7 @@ class OpenAIMessage(Message):
     Includes additional fields required for OpenAI's API format including
     tool call handling and function calling support.
     """
+
     # Tool Usage
     name: Optional[str] = None
     arguments: Optional[str] = None
@@ -88,7 +89,7 @@ class OpenAIProvider(LLMProvider):
 
     async def generate(
         self,
-        context: _AgentContext,
+        context: _AgentState,
         *,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,

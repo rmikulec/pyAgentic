@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel
 
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic._base._context import _AgentContext
+from pyagentic._base._agent_state import _AgentState
 from pyagentic.models.llm import Message, LLMResponse, ToolCall
 
 
@@ -76,7 +76,7 @@ class LLMProvider(ABC):
     @abstractmethod
     async def generate(
         self,
-        context: _AgentContext,
+        context: _AgentState,
         *,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,

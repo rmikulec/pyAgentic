@@ -8,10 +8,10 @@ from pydantic import BaseModel
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
-from pyagentic._base._context import ContextItem
-from pyagentic._base._state import BaseState
+from pyagentic._base._state import _StateDefinition
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup
+from pyagentic._base._info import _SpecInfo
 
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
@@ -33,7 +33,7 @@ async def _safe_run(fn, *args, **kwargs):
     return result
 
 
-@dataclass_transform(field_specifiers=(ContextItem,))
+@dataclass_transform(field_specifiers=(_SpecInfo,))
 class AgentExtension:
     """Inherit this in any mixin that contributes fields to the Agent __init__."""
 
@@ -56,7 +56,7 @@ class AgentExtension:
         cls.__annotations__ = dict(merged)
 
 
-class Agent(metaclass=AgentMeta):
+class BaseAgent(metaclass=AgentMeta):
     __abstract_base__ = ClassVar[True]
     """
     Base agent class to be extended in order to define a new Agent
@@ -111,8 +111,7 @@ class Agent(metaclass=AgentMeta):
     """
     # Immutable Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
-    __context_attrs__: ClassVar[dict[str, tuple[TypeVar, ContextItem]]]
-    __state_models__: ClassVar[dict[str, Type[BaseState]]]
+    __state_defs__: ClassVar[dict[str, _StateDefinition]]
     __linked_agents__: ClassVar[dict[str, Type[Self]]]
 
     # User-set Class Attributes
