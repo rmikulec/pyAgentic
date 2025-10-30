@@ -74,14 +74,20 @@ patch_tags = ["bug", "fix"]
 parse_squash_commits = true
 ignore_merge_commits = true
 
+[tool.semantic_release.branches.main]
+match = "^(main|master)$"
+prerelease = false
+
 [tool.semantic_release.branches.feat_bug_fix]
-match            = "^(feat|bug|fix)/.*"
-prerelease       = true
+match = "^(feat|bug|fix)/.*"
+prerelease = true
 prerelease_token = "a"
 
-[tool.semantic_release.branches.main]
-match      = "^(main|master)$"
-prerelease = false
+[tool.semantic_release.branches.dev]
+match = "^dev$"
+prerelease = true
+prerelease_token = "b"
+increment = "major"
 
 [tool.setuptools.packages.find]
 where = ["."]
