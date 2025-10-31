@@ -1,10 +1,14 @@
-from typing import Any, Callable
+from typing import Any, Callable, Self
 from pydantic import BaseModel
+
+from pyagentic._base._ref import RefNode
+
+type MaybeRef[T] = T | RefNode
 
 
 class _SpecInfo(BaseModel):
-    default: Any = None
-    default_factory: Callable = None
+    default: Any | None = None
+    default_factory: Callable | None = None
 
     def get_default(self):
         if self.default_factory:
@@ -14,19 +18,30 @@ class _SpecInfo(BaseModel):
         else:
             return None
 
+    def resolve(self, agent_reference: dict) -> Self:
+        attributes = {}
+
+        for name, value in self.model_dump():
+            if isinstance(value, RefNode):
+                attributes[name] = value.resolve(agent_reference)
+            else:
+                attributes[name] = value
+        
+        return self.__class__.model_validate(attributes)
+
 
 class AgentInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
-    condition: Callable
+    condition: MaybeRef[Callable]
 
 
 class StateInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
-    persist: bool = False
-    include_in_templates: bool | set[str] = True
-    redact_fields: set[str] = None
+    persist: MaybeRef[bool] = False
+    include_in_templates: MaybeRef[bool | set[str]] = True
+    redact_fields: MaybeRef[set[str]] = None
 
 
 class ParamInfo(_SpecInfo):
@@ -49,6 +64,6 @@ class ParamInfo(_SpecInfo):
          - values
     """
 
-    description: str = None
-    required: bool = False
-    values: list[str] = None
+    description: MaybeRef[str] | None = None
+    required: MaybeRef[bool] | None = False
+    values: MaybeRef[list[str]] | None = None

@@ -180,6 +180,19 @@ class BaseAgent(metaclass=AgentMeta):
         if not self.tracer:
             self.tracer = BasicTracer()
 
+    @property
+    def agent_reference(self) -> dict:
+        linked_agent_references = {}
+
+        for name in self.__linked_agents__.keys():
+            linked: BaseAgent = getattr(self, name)
+            linked_agent_references[name] = linked.agent_reference
+
+        return {
+            "self": self.state.model_dump(),
+            **linked_agent_references
+        }
+
     @traced(SpanKind.INFERENCE)
     async def _process_llm_inference(
         self,
