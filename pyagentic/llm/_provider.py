@@ -78,7 +78,7 @@ class LLMProvider(ABC):
     @abstractmethod
     async def generate(
         self,
-        agent_reference: dict,
+        state: _AgentState,
         *,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
