@@ -96,7 +96,7 @@ class Param:
         return f"{type(self).__name__}({vals})"
 
     @classmethod
-    def to_json_schema(cls, state: _AgentState) -> List[Dict[str, Any]]:
+    def to_json_schema(cls, agent_reference: dict) -> List[Dict[str, Any]]:
         """
         Generate a JSON-schema-style dictionary suitable for OpenAI function
         parameter definitions.
@@ -111,7 +111,7 @@ class Param:
         required = []
 
         for name, (type_, info) in cls.__attributes__.items():
-            resolved_info = info.resolve(state)
+            resolved_info = info.resolve(agent_reference)
             properties[name]["type"] = _TYPE_MAP.get(type_, "string")
             if resolved_info.description:
                 properties[name]["description"] = resolved_info.description

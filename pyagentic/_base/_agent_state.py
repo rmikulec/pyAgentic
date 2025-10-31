@@ -1,6 +1,7 @@
 from typing import Any, Type, Self, Optional
 from pydantic import BaseModel, create_model, Field, computed_field, PrivateAttr
 from jinja2 import Template
+from typing import Optional
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
@@ -20,6 +21,10 @@ class _AgentState(BaseModel):
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
         return super().model_post_init(state)
+
+    @property
+    def recent_message(self) -> Message:
+        return self._messages[-1]
 
     @property
     def system_message(self) -> str:
@@ -95,12 +100,12 @@ class _AgentState(BaseModel):
                 # ---- your existing logic for setting defaults ----
                 if definition.info.default_factory is not None:
                     pydantic_fields[_name] = (
-                        definition.model,
+                        Optional[definition.model],
                         Field(default_factory=definition.info.default_factory),
                     )
                 elif definition.info.default is not None:
                     pydantic_fields[_name] = (
-                        definition.model,
+                        Optional[definition.model],
                         Field(default=definition.info.default),
                     )
                 else:

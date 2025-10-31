@@ -8,7 +8,9 @@ class spec:
     def State(
         persist: bool = False, default: Any = None, default_factory: Callable = None, **kwargs
     ) -> StateInfo:
-        return StateInfo(persist=persist, default=default, **kwargs)
+        return StateInfo(
+            persist=persist, default=default, default_factory=default_factory, **kwargs
+        )
 
     @staticmethod
     def Param(

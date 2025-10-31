@@ -1,10 +1,14 @@
-from typing import Any, Callable
+from typing import Any, Callable, Self
 from pydantic import BaseModel
+
+from pyagentic._base._ref import RefNode
+
+type MaybeRef[T] = T | RefNode
 
 
 class _SpecInfo(BaseModel):
-    default: Any = None
-    default_factory: Callable = None
+    default: Any | None = None
+    default_factory: Callable | None = None
 
     def get_default(self):
         if self.default_factory:
@@ -12,23 +16,37 @@ class _SpecInfo(BaseModel):
         elif self.default:
             return self.default
         else:
-            raise ValueError(
-                f"Invalid Info Supplied: `default` or `default_factory`should be given"
-            )
+            return None
+
+    def resolve(self, agent_reference: dict) -> Self:
+        attrs: dict[str, Any] = {}
+
+        # walk actual model fields, not the dumped / serialized version
+        for name in self.model_fields:
+            value = getattr(self, name)
+
+            if isinstance(value, RefNode):
+                resolved = value.resolve(agent_reference)
+                attrs[name] = resolved
+            else:
+                attrs[name] = value
+
+        # rebuild same class with resolved attrs
+        return self.__class__.model_validate(attrs)
 
 
 class AgentInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
-    condition: Callable
+    condition: MaybeRef[Callable]
 
 
 class StateInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
-    persist: bool = False
-    include_in_templates: bool | set[str] = True
-    redact_fields: set[str] = None
+    persist: MaybeRef[bool] = False
+    include_in_templates: MaybeRef[bool | set[str]] = True
+    redact_fields: MaybeRef[set[str]] = None
 
 
 class ParamInfo(_SpecInfo):
@@ -51,6 +69,6 @@ class ParamInfo(_SpecInfo):
          - values
     """
 
-    description: str = None
-    required: bool = False
-    values: list[str] = None
+    description: MaybeRef[str] | None = None
+    required: MaybeRef[bool] | None = False
+    values: MaybeRef[list[str]] | None = None

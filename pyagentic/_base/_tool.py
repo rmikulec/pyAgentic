@@ -1,5 +1,5 @@
 import inspect
-from typing import Callable, Any, TypeVar, get_type_hints
+from typing import Callable, Any, TypeVar, get_type_hints, Self
 from collections import defaultdict
 
 from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
@@ -40,7 +40,25 @@ class _ToolDefinition:
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
 
-    def to_openai_spec(self, state: _AgentState) -> dict:
+    def resolve(self, agent_reference: dict) -> Self:
+        new_parameters = {}
+
+        for name, (type_, default) in self.parameters.items():
+            if isinstance(default, ParamInfo):
+                new_default = default.resolve(agent_reference)
+            else:
+                new_default = default
+
+            new_parameters[name] = (type_, new_default)
+
+        return self.__class__(
+            name=self.name,
+            description=self.description,
+            parameters=new_parameters,
+            condition=self.condition,
+        )
+
+    def to_openai_spec(self) -> dict:
         """
         Converts the definition to an "openai-ready" dictionary
 
@@ -62,21 +80,20 @@ class _ToolDefinition:
                         "items": {"type": _TYPE_MAP.get(type_info.inner_type, "string")},
                     }
                 case TypeCategory.SUBCLASS:
-                    params[name] = type_.to_json_schema(state)
+                    params[name] = type_.to_json_schema()
                 case TypeCategory.LIST_SUBCLASS:
                     params[name] = {
                         "type": "array",
-                        "items": type_info.inner_type.to_json_schema(state),
+                        "items": type_info.inner_type.to_json_schema(),
                     }
 
             if isinstance(default, ParamInfo):
-                resolved_default = default.resolve(state)
-                if resolved_default.description:
-                    params[name]["description"] = resolved_default.description
-                if resolved_default.required:
+                if default.description:
+                    params[name]["description"] = default.description
+                if default.required:
                     required.append(name)
-                if resolved_default.values:
-                    params[name]["enum"] = resolved_default.values
+                if default.values:
+                    params[name]["enum"] = default.values
 
         return {
             "type": "function",
@@ -86,14 +103,14 @@ class _ToolDefinition:
             "required": required,
         }
 
-    def to_anthropic_spec(self, state: _AgentState) -> dict:
+    def to_anthropic_spec(self) -> dict:
         """
         Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
           - name, description copied over
           - input_schema derived from OpenAI `parameters`
           - required moved from top-level to inside input_schema
         """
-        openai_spec = self.to_openai_spec(state)
+        openai_spec = self.to_openai_spec()
 
         # Copy to avoid mutating original
         input_schema = dict(openai_spec.get("parameters", {"type": "object", "properties": {}}))
@@ -108,8 +125,8 @@ class _ToolDefinition:
             "input_schema": input_schema,
         }
 
-    def to_openai_v1(self, state: _AgentState):
-        openai_spec = self.to_openai_spec(state)
+    def to_openai_v1(self):
+        openai_spec = self.to_openai_spec()
         return {"type": "function", "function": {**openai_spec}}
 
     def compile_args(self, **kwargs) -> dict[str, Any]:
@@ -190,7 +207,7 @@ def tool(
             elif default is not None:
                 params[name] = (type_, ParamInfo(default=default))
             else:
-                params[name] = (type_, ParamInfo())
+                params[name] = (type_, ParamInfo(required=True))
 
         fn.__tool_def__ = _ToolDefinition(
             name=fn.__name__,

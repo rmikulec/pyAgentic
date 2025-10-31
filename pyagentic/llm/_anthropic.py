@@ -111,13 +111,10 @@ class AnthropicProvider(LLMProvider):
         """
         # Convert messages to Anthropic format
         messages = []
-        system_message = None
 
-        for message in state.messages:
+        for message in state._messages:
             msg_dict = message.to_dict()
-            if msg_dict.get("role") == "system":
-                system_message = msg_dict.get("content")
-            elif msg_dict.get("type") == "tool_use":
+            if msg_dict.get("type") == "tool_use":
                 messages.append({"role": "assistant", "content": [{**msg_dict}]})
             elif msg_dict.get("type") == "tool_result":
                 messages.append({"role": "user", "content": [{**msg_dict}]})
@@ -134,11 +131,10 @@ class AnthropicProvider(LLMProvider):
         if "max_tokens" not in request_params:
             request_params["max_tokens"] = 1024
 
-        if system_message:
-            request_params["system"] = system_message
+        request_params["system"] = state.system_message
 
         if tool_defs:
-            request_params["tools"] = [tool.to_anthropic_spec(state) for tool in tool_defs]
+            request_params["tools"] = [tool.to_anthropic_spec() for tool in tool_defs]
 
         # Make the API call
         async with self.client.messages.stream(**request_params) as stream:

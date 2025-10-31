@@ -180,6 +180,16 @@ class BaseAgent(metaclass=AgentMeta):
         if not self.tracer:
             self.tracer = BasicTracer()
 
+    @property
+    def agent_reference(self) -> dict:
+        linked_agent_references = {}
+
+        for name in self.__linked_agents__.keys():
+            linked: BaseAgent = getattr(self, name)
+            linked_agent_references[name] = linked.agent_reference
+
+        return {"self": self.state.model_dump(), **linked_agent_references}
+
     @traced(SpanKind.INFERENCE)
     async def _process_llm_inference(
         self,
@@ -302,10 +312,10 @@ class BaseAgent(metaclass=AgentMeta):
         for tool_def in self.__tool_defs__.values():
             # Check if any of the tool params use a StateRef
             # convert to openai schema
-            tool_defs.append(tool_def)
+            tool_defs.append(tool_def.resolve(self.agent_reference))
         for name, agent in self.__linked_agents__.items():
             tool_def = agent.get_tool_definition(name)
-            tool_defs.append(tool_def)
+            tool_defs.append(tool_def.resolve(self.agent_reference))
         return tool_defs
 
     async def run(self, input_: str) -> str:
