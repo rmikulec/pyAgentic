@@ -29,13 +29,9 @@ class _AgentState(BaseModel):
         self._instructions_template = Template(source=self.instructions)
         return super().model_post_init(state)
 
-    def register_policy(self, state_name: str, policy: Policy):
-        """Attach a policy to a specific state field."""
-        self._policies.setdefault(state_name, []).append(policy)
-
     def get_policies(self, state_name: str) -> list[Policy]:
         """Get all policies attached to a given state field."""
-        return self._policies.get(state_name, [])
+        return self.__policies__.get(state_name, [])
 
     async def _dispatch_policies(self, event: Event, state_name: str):
         """Run all policies registered for a given state field."""
