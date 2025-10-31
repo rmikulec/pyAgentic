@@ -1,12 +1,14 @@
 from typing import Any, Callable, Self
-from pydantic import BaseModel
+from dataclasses import dataclass
 
 from pyagentic._base._ref import RefNode
+from pyagentic._base._policy import Policy
 
 type MaybeRef[T] = T | RefNode
 
 
-class _SpecInfo(BaseModel):
+@dataclass
+class _SpecInfo:
     default: Any | None = None
     default_factory: Callable | None = None
 
@@ -22,7 +24,7 @@ class _SpecInfo(BaseModel):
         attrs: dict[str, Any] = {}
 
         # walk actual model fields, not the dumped / serialized version
-        for name in self.model_fields:
+        for name, value in self.__dict__.items():
             value = getattr(self, name)
 
             if isinstance(value, RefNode):
@@ -32,23 +34,24 @@ class _SpecInfo(BaseModel):
                 attrs[name] = value
 
         # rebuild same class with resolved attrs
-        return self.__class__.model_validate(attrs)
+        return self.__class__(**attrs)
 
 
+@dataclass
 class AgentInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
-    condition: MaybeRef[Callable]
+    condition: MaybeRef[Callable] | None = None
 
 
+@dataclass
 class StateInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
-    persist: MaybeRef[bool] = False
-    include_in_templates: MaybeRef[bool | set[str]] = True
-    redact_fields: MaybeRef[set[str]] = None
+    policies: list[Policy] | None = None
 
 
+@dataclass
 class ParamInfo(_SpecInfo):
     """
     Declare metadata for parameters in tool declarations and/or Parameter declarations.

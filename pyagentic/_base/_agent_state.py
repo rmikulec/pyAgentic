@@ -1,10 +1,15 @@
-from typing import Any, Type, Self, Optional
-from pydantic import BaseModel, create_model, Field, computed_field, PrivateAttr
+import inspect
+import asyncio
+from typing import Any, Type, Self, Optional, ClassVar
+from pydantic import BaseModel, create_model, Field, PrivateAttr
 from jinja2 import Template
 from typing import Optional
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
+from pyagentic._base._policy import Policy
+from pyagentic._base._event import Event, EventKind
+
 from pyagentic.models.llm import Message
 
 
@@ -12,6 +17,8 @@ class _AgentState(BaseModel):
     """
     Base state class for agents; uses dataclass for auto-generated init/signature.
     """
+
+    __policies__: ClassVar[dict[str, list[Policy]]]
 
     instructions: str
     input_template: Optional[str] = None
@@ -21,6 +28,23 @@ class _AgentState(BaseModel):
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
         return super().model_post_init(state)
+
+    def register_policy(self, state_name: str, policy: Policy):
+        """Attach a policy to a specific state field."""
+        self._policies.setdefault(state_name, []).append(policy)
+
+    def get_policies(self, state_name: str) -> list[Policy]:
+        """Get all policies attached to a given state field."""
+        return self._policies.get(state_name, [])
+
+    async def _dispatch_policies(self, event: Event, state_name: str):
+        """Run all policies registered for a given state field."""
+        for policy in self.get_policies(state_name):
+            handler = policy.handle_event
+            if inspect.iscoroutinefunction(handler):
+                await handler(event)
+            else:
+                handler(event)
 
     @property
     def recent_message(self) -> Message:
@@ -75,9 +99,14 @@ class _AgentState(BaseModel):
             Any: The item. If it is a computed state item, then it is computed upon retrieval.
         """
         try:
-            return getattr(self, name)
+            value = getattr(self, name)
         except KeyError:
             raise InvalidStateRefNotFoundInState(name)
+
+        event = Event(kind=EventKind.GET, name=name, new_value=value)
+        # Fire policies synchronously (usually safe for GET)
+        asyncio.create_task(self._dispatch_policies(event, name))
+        return value
 
     def set(self, name: str, value: Any):
         """
@@ -90,9 +119,12 @@ class _AgentState(BaseModel):
             Any: The item. If it is a computed state item, then it is computed upon retrieval.
         """
         try:
-            return setattr(self, name, value)
+            old_value = getattr(self, name, value)
+            setattr(self, name, value)
         except KeyError:
             raise InvalidStateRefNotFoundInState(name)
+        event = Event(kind=EventKind.SET, name=name, old_value=old_value, new_value=value)
+        asyncio.create_task(self._dispatch_policies(event, name))
 
     @classmethod
     def make_state_model(

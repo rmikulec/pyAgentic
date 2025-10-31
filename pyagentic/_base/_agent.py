@@ -115,30 +115,6 @@ class BaseAgent(metaclass=AgentMeta):
         )
         ```
     """
-    SAFE_ATTRS: ClassVar[set[str]] = {
-        "__dict__",
-        "__class__",
-        "__annotations__",
-        "__state_defs__",
-        "__tool_defs__",
-        "__linked_agents__",
-        "__system_message__",
-        "__description__",
-        "__input_template__",
-        "__response_format__",
-        "__response_model__",
-        "__state_class__",
-        "__tool_response_models__",
-        "__call_params__",
-        "SAFE_ATTRS",
-        "state",
-        "model",
-        "api_key",
-        "provider",
-        "emitter",
-        "tracer",
-        "max_call_depth",
-    }
     # Immutable Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
     __state_defs__: ClassVar[dict[str, _StateDefinition]]

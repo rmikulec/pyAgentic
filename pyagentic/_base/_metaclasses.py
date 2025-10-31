@@ -337,6 +337,10 @@ class AgentMeta(type):
         StateClass = _AgentState.make_state_model(
             name=cls.__name__, state_definitions=cls.__state_defs__
         )
+        StateClass.__policies__ = {
+            name: def_.info.policies for name, def_ in cls.__state_defs__.items()
+        }
+
         ResponseModel = AgentResponse.from_agent_class(
             agent_name=cls.__name__,
             tool_response_models=tool_response_model_list,
