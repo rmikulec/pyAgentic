@@ -162,7 +162,6 @@ class DebugPolicy:
         self.log = log
 
     def handle_event(self, event: Event):
-        print("Called")
         if event.kind == EventKind.SET:
             payload = {
                 "event": "state_update",
