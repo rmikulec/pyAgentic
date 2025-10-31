@@ -113,7 +113,7 @@ class AnthropicProvider(LLMProvider):
         messages = []
         system_message = None
 
-        for message in agent_reference['messages']:
+        for message in agent_reference["messages"]:
             msg_dict = message.to_dict()
             if msg_dict.get("role") == "system":
                 system_message = msg_dict.get("content")
@@ -138,7 +138,9 @@ class AnthropicProvider(LLMProvider):
             request_params["system"] = system_message
 
         if tool_defs:
-            request_params["tools"] = [tool.to_anthropic_spec(agent_reference) for tool in tool_defs]
+            request_params["tools"] = [
+                tool.to_anthropic_spec(agent_reference) for tool in tool_defs
+            ]
 
         # Make the API call
         async with self.client.messages.stream(**request_params) as stream:

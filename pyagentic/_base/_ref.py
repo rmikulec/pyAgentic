@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class RefNode(BaseModel):
     """Represents a lazy dotted reference like ref.parent.conversation.goals."""
 
@@ -18,9 +19,6 @@ class RefNode(BaseModel):
     def resolve(self, agent_reference: dict):
         target = agent_reference
         for part in self._path:
-            # skip virtual roots like "self"
-            if part in ("self", "agent", "root"):
-                continue
             target = target[part]
         return target
 

@@ -19,15 +19,20 @@ class _SpecInfo(BaseModel):
             return None
 
     def resolve(self, agent_reference: dict) -> Self:
-        attributes = {}
+        attrs: dict[str, Any] = {}
 
-        for name, value in self.model_dump():
+        # walk actual model fields, not the dumped / serialized version
+        for name in self.model_fields:
+            value = getattr(self, name)
+
             if isinstance(value, RefNode):
-                attributes[name] = value.resolve(agent_reference)
+                resolved = value.resolve(agent_reference)
+                attrs[name] = resolved
             else:
-                attributes[name] = value
-        
-        return self.__class__.model_validate(attributes)
+                attrs[name] = value
+
+        # rebuild same class with resolved attrs
+        return self.__class__.model_validate(attrs)
 
 
 class AgentInfo(_SpecInfo):

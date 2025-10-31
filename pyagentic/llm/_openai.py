@@ -87,7 +87,7 @@ class OpenAIProvider(LLMProvider):
 
     async def generate(
         self,
-        agent_reference: dict,
+        state: _AgentState,
         *,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -116,8 +116,9 @@ class OpenAIProvider(LLMProvider):
         if response_format:
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
                 model=self._model,
-                input=[message.to_dict() for message in agent_reference['messages']],
-                tools=[tool.to_openai_spec(agent_reference) for tool in tool_defs],
+                instructions=state.system_message,
+                input=[message.to_dict() for message in state._messages],
+                tools=[tool.to_openai_spec() for tool in tool_defs],
                 text_format=response_format,
                 **kwargs,
             )
@@ -141,8 +142,9 @@ class OpenAIProvider(LLMProvider):
         else:
             response: OpenAIResponse = await self.client.responses.create(
                 model=self._model,
-                input=[message.to_dict() for message in agent_reference['messages']],
-                tools=[tool.to_openai_spec(agent_reference) for tool in tool_defs],
+                instructions=state.system_message,
+                input=[message.to_dict() for message in state._messages],
+                tools=[tool.to_openai_spec() for tool in tool_defs],
                 **kwargs,
             )
 
