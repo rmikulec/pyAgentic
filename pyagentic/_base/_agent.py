@@ -115,6 +115,30 @@ class BaseAgent(metaclass=AgentMeta):
         )
         ```
     """
+    SAFE_ATTRS: ClassVar[set[str]] = {
+        "__dict__",
+        "__class__",
+        "__annotations__",
+        "__state_defs__",
+        "__tool_defs__",
+        "__linked_agents__",
+        "__system_message__",
+        "__description__",
+        "__input_template__",
+        "__response_format__",
+        "__response_model__",
+        "__state_class__",
+        "__tool_response_models__",
+        "__call_params__",
+        "SAFE_ATTRS",
+        "state",
+        "model",
+        "api_key",
+        "provider",
+        "emitter",
+        "tracer",
+        "max_call_depth",
+    }
     # Immutable Class Attributes
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]
     __state_defs__: ClassVar[dict[str, _StateDefinition]]
@@ -411,6 +435,29 @@ class BaseAgent(metaclass=AgentMeta):
 
     async def __call__(self, user_input: str):
         return await self.run(input_=user_input)
+
+    def __getattribute__(self, name):
+        if hasattr(BaseAgent, name):
+            return super().__getattribute__(name)
+
+        __state_defs__ = super().__getattribute__("__state_defs__")
+        if name in __state_defs__:
+            state = super().__getattribute__("state")
+            return state.get(name)
+
+        return super().__getattribute__(name)
+
+    def __setattr__(self, name, value):
+        if hasattr(BaseAgent, name):
+            super().__setattr__(name, value)
+            return
+
+        __state_defs__ = super().__getattribute__("__state_defs__")
+        if name in __state_defs__:
+            state = super().__getattribute__("state")
+            state.set(name, value)
+        else:
+            super().__setattr__(name, value)
 
     @classmethod
     def get_tool_definition(cls, name: str) -> _ToolDefinition:

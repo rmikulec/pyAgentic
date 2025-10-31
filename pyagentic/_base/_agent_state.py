@@ -79,6 +79,21 @@ class _AgentState(BaseModel):
         except KeyError:
             raise InvalidStateRefNotFoundInState(name)
 
+    def set(self, name: str, value: Any):
+        """
+        Sets an item from the state.
+
+        Args:
+            name(str): The name of the item
+
+        Returns:
+            Any: The item. If it is a computed state item, then it is computed upon retrieval.
+        """
+        try:
+            return setattr(self, name, value)
+        except KeyError:
+            raise InvalidStateRefNotFoundInState(name)
+
     @classmethod
     def make_state_model(
         cls, name: str, state_definitions: dict[str, _StateDefinition]
