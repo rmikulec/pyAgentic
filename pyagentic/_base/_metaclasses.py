@@ -150,7 +150,7 @@ class AgentMeta(type):
             return _setter
 
         for state_name, state_def in state_defs.items():
-            privilege = state_def.info.privledge
+            privilege = state_def.info.access
 
             # --- Getter ---
             if privilege in ("read", "readwrite"):

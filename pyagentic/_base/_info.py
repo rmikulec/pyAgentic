@@ -50,7 +50,7 @@ class StateInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
     policies: list[Policy] | None = None
-    privledge: Literal["read", "write", "readwrite", "hidden"] = field(default="read")
+    access: Literal["read", "write", "readwrite", "hidden"] = field(default="read")
     get_description: str | None = None
     set_description: str | None = None
 
