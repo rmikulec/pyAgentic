@@ -1,5 +1,5 @@
-from typing import Any, Callable, Self
-from dataclasses import dataclass
+from typing import Any, Callable, Self, Literal
+from dataclasses import dataclass, field
 
 from pyagentic._base._ref import RefNode
 from pyagentic._base._policy import Policy
@@ -49,6 +49,7 @@ class StateInfo(_SpecInfo):
     """Descriptor for State field configuration"""
 
     policies: list[Policy] | None = None
+    privledge: Literal["read", "write", "readwrite", "hidden"] = field(default="read")
 
 
 @dataclass
