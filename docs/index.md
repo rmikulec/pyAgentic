@@ -32,6 +32,22 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Learn about responses](responses.md)
 
+- :material-database: **[State Management](states.md)**
+
+    ---
+
+    Persistent, type-safe state fields with Pydantic models, computed fields, and access control.
+
+    [:octicons-arrow-right-24: Learn about states](states.md)
+
+- :material-shield-check: **[Policies](policies.md)**
+
+    ---
+
+    React to state changes with validation, history tracking, persistence, and custom behaviors.
+
+    [:octicons-arrow-right-24: Learn about policies](policies.md)
+
 - :material-format-list-numbered: **[Structured Outputs](structured-output.md)**
 
     ---

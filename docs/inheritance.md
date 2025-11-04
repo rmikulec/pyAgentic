@@ -15,9 +15,9 @@ PyAgentic follows specific rules about what gets inherited and what must be rede
 #### What Gets Inherited ✅
 
 - **Tools** - All `@tool` methods are inherited and can be overridden
-- **Context Items** - `ContextItem` fields inherit with their defaults and types
+- **State Fields** - `State` fields inherit with their defaults and types
 - **Linked Agents** - Agent references are inherited, child classes can add more
-- **Computed Context** - Dynamic context methods are inherited and overridable
+- **Properties** - Dynamic properties are inherited and overridable
 
 #### What Must Be Redefined ❌
 
@@ -31,34 +31,34 @@ This design ensures that while agents can share functionality, each maintains it
 Extend agents using normal Python inheritance to build specialized capabilities on top of base functionality:
 
 ```python
-class BaseAssistantAgent(Agent):
+class BaseAssistantAgent(BaseAgent):
     __system_message__ = "I am a helpful AI assistant"
-    
-    user_name: str = ContextItem(default="User")
-    session_id: str = ContextItem(default="")
-    conversation_context: str = ContextItem(default="")
-    
+
+    user_name: State[str] = spec.State(default="User")
+    session_id: State[str] = spec.State(default="")
+    conversation_context: State[str] = spec.State(default="")
+
     @tool("Get current timestamp")
     def get_timestamp(self) -> str: ...
-    
+
     @tool("Read a file in the current directory")
     def count_words(self, file_name: str) -> int: ...
-    
+
     @tool("Update conversation context")
     def update_context(self, new_context: str) -> str: ...
 
 class CodeAssistantAgent(BaseAssistantAgent):
     __system_message__ = "I help with programming tasks and code review"
-    
+
     # Inherit user_name, session_id, conversation_context, and basic tools
-    # Add coding-specific context
-    preferred_language: str = ContextItem(default="python")
-    current_project: str = ContextItem(default="")
-    debug_mode: bool = ContextItem(default=False)
-    
+    # Add coding-specific state
+    preferred_language: State[str] = spec.State(default="python")
+    current_project: State[str] = spec.State(default="")
+    debug_mode: State[bool] = spec.State(default=False)
+
     @tool("Format code snippet")
     def format_code(self, code: str, language: str = None) -> str: ...
-    
+
     @tool("Generate code documentation")
     def document_code(self, code: str) -> str: ...
 ```
@@ -70,7 +70,7 @@ Inheritance also works with tool overriding to enhance parent functionality:
 ```python
 class AdvancedCodeAssistantAgent(CodeAssistantAgent):
     __system_message__ = "I provide advanced programming assistance with security analysis"
-    
+
     # Override parent tool with enhanced functionality
     @tool("Format and validate code snippet")
     def format_code(self, code: str, language: str = None, formatting_style: str = None) -> str: ...
@@ -86,20 +86,20 @@ Extensions inherit from `AgentExtension` and can include tools, context items, a
 
 ```python
 class FileOperationsExtension(AgentExtension):
-    base_directory: str = ContextItem(default="./workspace")
-    
+    base_directory: State[str] = spec.State(default="./workspace")
+
     @tool("Read file contents")
     def read_file(self, filename: str) -> str: ...
-    
+
     @tool("Write content to file")
     def write_file(self, filename: str, content: str) -> str: ...
 
 class WebSearchExtension(AgentExtension):
-    max_results: int = ContextItem(default=5)
-    
+    max_results: State[int] = spec.State(default=5)
+
     @tool("Search the web for information")
     def web_search(self, query: str) -> str: ...
-    
+
     @tool("Get webpage content")
     def get_webpage(self, url: str) -> str: ...
 ```
@@ -109,11 +109,11 @@ class WebSearchExtension(AgentExtension):
 Simply include extensions in your agent's inheritance list:
 
 ```python
-class ResearchAgent(Agent, FileOperationsExtension, WebSearchExtension):
+class ResearchAgent(BaseAgent, FileOperationsExtension, WebSearchExtension):
     __system_message__ = "I help with research by searching the web and managing files"
-    
-    research_topic: str = ContextItem(default="")
-    
+
+    research_topic: State[str] = spec.State(default="")
+
     @tool("Conduct comprehensive research")
     def research_topic(self, topic: str) -> str: ...
 ```
@@ -133,10 +133,10 @@ class ConversationExtension(AgentExtension):
     @tool("Remember information")
     def remember(self, info: str) -> str: ...
 
-class ChatbotAgent(Agent, MemoryExtension, ConversationExtension):
+class ChatbotAgent(BaseAgent, MemoryExtension, ConversationExtension):
     __system_message__ = "I am a conversational AI"
-    
-# MRO: ChatbotAgent -> MemoryExtension -> ConversationExtension -> Agent
+
+# MRO: ChatbotAgent -> MemoryExtension -> ConversationExtension -> BaseAgent
 # The MemoryExtension.remember() method will be used
 ```
 

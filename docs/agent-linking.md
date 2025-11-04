@@ -13,11 +13,14 @@ This happens at the class definition level - each agent knows about its linked a
 The simplest way to link agents is by declaring them as typed attributes in your agent class. This creates a direct relationship where the parent agent can call the child agent as needed:
 
 ```python
-class DatabaseAgent(Agent):
+class DatabaseAgent(BaseAgent):
     __system_message__ = "I query databases"
     __description__ = "Retrieves and analyzes data from databases"
-    
-class ReportAgent(Agent):
+
+    @tool("Execute SQL query")
+    def query(self, sql: str) -> str: ...
+
+class ReportAgent(BaseAgent):
     __system_message__ = "I generate business reports"
     database: DatabaseAgent  # Linked agent
 
@@ -32,17 +35,17 @@ When the report agent runs, the LLM sees the database agent as an available tool
 Real-world applications often require coordination between multiple specialized agents. You can link as many agents as needed to create sophisticated workflows where each agent contributes its expertise:
 
 ```python
-class EmailAgent(Agent):
+class EmailAgent(BaseAgent):
     __system_message__ = "I send emails"
     __description__ = "Sends and manages email communications"
-    
-class CalendarAgent(Agent):
+
+class CalendarAgent(BaseAgent):
     __system_message__ = "I manage calendars"
     __description__ = "Schedules meetings and manages calendar events"
-    
-class AssistantAgent(Agent):
+
+class AssistantAgent(BaseAgent):
     __system_message__ = "I help with daily tasks"
-    
+
     email: EmailAgent
     calendar: CalendarAgent
 
@@ -60,13 +63,13 @@ By default, when a linked agent is called, it receives the full user input as a 
 Overriding the `__call__` method gives you complete control over how your linked agent processes input. This allows you to define specific parameters that the parent agent can pass:
 
 ```python
-class AnalysisAgent(Agent):
+class AnalysisAgent(BaseAgent):
     __system_message__ = "I analyze data"
     __description__ = "Performs statistical analysis on datasets"
-    
+
     async def __call__(self, data: str, analysis_type: str = "basic") -> str: ...
 
-class ReportAgent(Agent):
+class ReportAgent(BaseAgent):
     __system_message__ = "I generate reports"
     analyzer: AnalysisAgent
 
@@ -88,13 +91,13 @@ class SearchParams(Param):
     max_results: int = 10
     include_metadata: bool = True
 
-class SearchAgent(Agent):
+class SearchAgent(BaseAgent):
     __system_message__ = "I search databases"
     __description__ = "Searches databases with advanced filtering"
-    
+
     async def __call__(self, params: SearchParams) -> str: ...
 
-class DataAgent(Agent):
+class DataAgent(BaseAgent):
     __system_message__ = "I manage data operations"
     searcher: SearchAgent
 
@@ -111,7 +114,7 @@ When using `Param` classes, PyAgentic automatically generates the proper OpenAI 
 Since linked agents appear as tools to the parent agent, their `__description__` attribute becomes crucial. This description is what the LLM uses to decide when and how to use the linked agent:
 
 ```python
-class DatabaseAgent(Agent):
+class DatabaseAgent(BaseAgent):
     __system_message__ = "I query databases"
     __description__ = "Retrieves and analyzes data from SQL databases"
 ```
@@ -123,13 +126,13 @@ A well-written description should be specific enough to guide the LLM's decision
 The single responsibility principle applies strongly to linked agents. Each agent should have a clear, focused purpose that makes it easy for other agents to understand when to use it:
 
 ```python
-class EmailAgent(Agent):
+class EmailAgent(BaseAgent):
     __description__ = "Sends and manages emails"
-    
-class CalendarAgent(Agent):
+
+class CalendarAgent(BaseAgent):
     __description__ = "Manages calendar events and scheduling"
-    
-class AssistantAgent(Agent):
+
+class AssistantAgent(BaseAgent):
     email: EmailAgent
     calendar: CalendarAgent
 ```
