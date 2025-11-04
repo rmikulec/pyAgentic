@@ -32,9 +32,11 @@ class _AgentState(BaseModel):
     input_template: Optional[str] = None
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
+    _input_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
+        self._input_template = Template(source=self.input_template)
         return super().model_post_init(state)
 
     def get_policies(self, state_name: str) -> list[Policy]:
@@ -97,7 +99,6 @@ class _AgentState(BaseModel):
 
     def get(self, name: str) -> Any:
         """Retrieve and transform a value via GET policies."""
-        print("GET")
         try:
             stored_value = getattr(self, name)
         except AttributeError:
@@ -110,7 +111,6 @@ class _AgentState(BaseModel):
 
     def set(self, name: str, value: Any):
         """Set a value via SET policies (transform, validate, store)."""
-        print("SET")
         try:
             previous = getattr(self, name)
         except AttributeError:
@@ -194,9 +194,9 @@ class _AgentState(BaseModel):
         """
 
         if self.input_template:
-            data = self.as_dict()
+            data = self.model_dump()
             data["user_message"] = message
-            content = self.input_template.format(**data)
+            content = self._input_template.render(**data)
         else:
             content = message
         self._messages.append(Message(role="user", content=content))
