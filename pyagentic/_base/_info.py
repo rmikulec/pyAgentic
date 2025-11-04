@@ -11,6 +11,7 @@ type MaybeRef[T] = T | RefNode
 class _SpecInfo:
     default: Any | None = None
     default_factory: Callable | None = None
+    description: str | None = None
 
     def get_default(self):
         if self.default_factory:
@@ -50,6 +51,8 @@ class StateInfo(_SpecInfo):
 
     policies: list[Policy] | None = None
     privledge: Literal["read", "write", "readwrite", "hidden"] = field(default="read")
+    get_description: str | None = None
+    set_description: str | None = None
 
 
 @dataclass

@@ -158,9 +158,14 @@ class AgentMeta(type):
                 getter_func = make_getter(state_name)
                 setattr(cls, getter_name, getter_func)
 
+                if not state_def.info.get_description:
+                    description = f"Get the current value of '{state_name}'."
+                else:
+                    description = state_def.info.get_description
+
                 state_tool_defs[getter_name] = _ToolDefinition(
                     name=getter_name,
-                    description=f"Get the current value of '{state_name}'.",
+                    description=description,
                     parameters={},  # no parameters for getter
                 )
 
@@ -170,9 +175,14 @@ class AgentMeta(type):
                 setter_func = make_setter(state_name)
                 setattr(cls, setter_name, setter_func)
 
+                if not state_def.info.set_description:
+                    description = f"Set a new value for '{state_name}'."
+                else:
+                    description = state_def.info.set_description
+
                 state_tool_defs[setter_name] = _ToolDefinition(
                     name=setter_name,
-                    description=f"Set a new value for '{state_name}'.",
+                    description=description,
                     parameters={
                         "value": (state_def.model, ParamInfo(default=state_def.info.get_default()))
                     },
