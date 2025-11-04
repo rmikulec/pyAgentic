@@ -122,10 +122,8 @@ class OpenAIProvider(LLMProvider):
                 text_format=response_format,
                 **kwargs,
             )
-
             parsed = response.output_parsed if response.output_parsed else None
             text = parsed.model_dump_json(indent=2) if parsed else None
-
             reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
             tool_calls = [rx for rx in response.output if rx.type == "function_call"]
 
@@ -138,6 +136,7 @@ class OpenAIProvider(LLMProvider):
                 ],
                 reasoning=reasoning,
                 raw=response,
+                usage=UsageInfo(**response.usage.model_dump()),
             )
         else:
             response: OpenAIResponse = await self.client.responses.create(
