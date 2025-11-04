@@ -32,11 +32,12 @@ class _AgentState(BaseModel):
     input_template: Optional[str] = None
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
-    _input_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
+    _input_template: Template = PrivateAttr(default=None)
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
-        self._input_template = Template(source=self.input_template)
+        if self.input_template:
+            self._input_template = Template(source=self.input_template)
         return super().model_post_init(state)
 
     def get_policies(self, state_name: str) -> list[Policy]:
