@@ -167,6 +167,7 @@ class AgentMeta(type):
                     name=getter_name,
                     description=description,
                     parameters={},  # no parameters for getter
+                    return_type=state_def.model,
                 )
 
             # --- Setter ---
@@ -186,6 +187,7 @@ class AgentMeta(type):
                     parameters={
                         "value": (state_def.model, ParamInfo(default=state_def.info.get_default()))
                     },
+                    return_type=state_def.model,
                 )
 
         return MappingProxyType(state_tool_defs)

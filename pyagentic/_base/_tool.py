@@ -4,7 +4,7 @@ from collections import defaultdict
 
 from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
 from pyagentic._base._agent_state import _AgentState
-from pyagentic._base._exceptions import ToolDeclarationFailed
+from pyagentic._base._exceptions import InvalidToolDefinition
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
 
@@ -58,6 +58,7 @@ class _ToolDefinition:
             description=self.description,
             parameters=new_parameters,
             condition=self.condition,
+            return_type=self.return_type,
         )
 
     def to_openai_spec(self) -> dict:
