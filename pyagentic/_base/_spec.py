@@ -1,15 +1,19 @@
 from typing import Any, Callable
 
 from pyagentic._base._info import StateInfo, ParamInfo, AgentInfo
+from pyagentic._base._policy import Policy
 
 
 class spec:
     @staticmethod
     def State(
-        persist: bool = False, default: Any = None, default_factory: Callable = None, **kwargs
+        default: Any = None,
+        default_factory: Callable = None,
+        policies: list[Policy] = None,
+        **kwargs,
     ) -> StateInfo:
         return StateInfo(
-            persist=persist, default=default, default_factory=default_factory, **kwargs
+            default=default, default_factory=default_factory, policies=policies, **kwargs
         )
 
     @staticmethod

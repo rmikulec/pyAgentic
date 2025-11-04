@@ -3,6 +3,7 @@ from typing import Type, Self, Union, Any
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._params import Param
+from pyagentic._base._agent_state import _AgentState
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
 from pyagentic.models.llm import ProviderInfo
@@ -117,12 +118,13 @@ class AgentResponse(BaseModel):
     provider_info: ProviderInfo
 
     @classmethod
-    def from_tool_defs(
+    def from_agent_class(
         cls,
         agent_name: str,
         tool_response_models: list[Type[ToolResponse]],
         linked_agents_response_models: list[Type[Self]],
-        response_format: Union[str, Type[BaseModel]],
+        ResponseFormat: Union[str, Type[BaseModel]],
+        StateClass: Type[_AgentState],
     ) -> Type[Self]:
         """
         Creates a subclass of `AgentResponse`, using Tool Definitions to create a predetermined
@@ -135,8 +137,10 @@ class AgentResponse(BaseModel):
         if linked_agents_response_models:
             AgentResult = Union[tuple(linked_agents_response_models)]
             fields["agent_responses"] = (list[AgentResult], ...)
-        if response_format:
-            fields["final_output"] = (response_format, ...)
+        if ResponseFormat:
+            fields["final_output"] = (ResponseFormat, ...)
+        if StateClass:
+            fields["state"] = (StateClass, ...)
         else:
             fields["final_output"] = (str, ...)
         return create_model(f"{agent_name}Response", __base__=cls, **fields)

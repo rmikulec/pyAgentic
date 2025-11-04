@@ -196,10 +196,6 @@ class AgentMeta(type):
         """
 
         def __init__(self, *args, **kwargs):
-            AgentState = _AgentState.make_state_model(
-                name=self.__class__.__name__, state_definitions=self.__state_defs__
-            )
-
             compiled = {}
             for name, definition in self.__state_defs__.items():
                 # Skip compted states, this validaiton will happen with the validator
@@ -217,7 +213,7 @@ class AgentMeta(type):
                 else:
                     compiled[name] = definition.info.get_default()
 
-            self.state = AgentState(
+            self.state = self.__state_class__(
                 instructions=self.__system_message__,
                 input_template=self.__input_template__,
                 **compiled,
@@ -338,15 +334,24 @@ class AgentMeta(type):
         linked_agent_response_model_list = [
             agent.__response_model__ for agent in cls.__linked_agents__.values()
         ]
-        ResponseModel = AgentResponse.from_tool_defs(
+        StateClass = _AgentState.make_state_model(
+            name=cls.__name__, state_definitions=cls.__state_defs__
+        )
+        StateClass.__policies__ = {
+            name: def_.info.policies for name, def_ in cls.__state_defs__.items()
+        }
+
+        ResponseModel = AgentResponse.from_agent_class(
             agent_name=cls.__name__,
             tool_response_models=tool_response_model_list,
             linked_agents_response_models=linked_agent_response_model_list,
-            response_format=cls.__response_format__,
+            ResponseFormat=cls.__response_format__,
+            StateClass=StateClass,
         )
         with mcs._lock:
             cls.__tool_response_models__ = MappingProxyType(tool_response_models)
             cls.__response_model__ = ResponseModel
+            cls.__state_class__ = StateClass
 
         """
         Build the new init

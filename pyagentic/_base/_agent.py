@@ -12,6 +12,7 @@ from pyagentic._base._state import _StateDefinition
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup
 from pyagentic._base._info import _SpecInfo
+from pyagentic._base._agent_state import _AgentState
 
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
@@ -127,6 +128,7 @@ class BaseAgent(metaclass=AgentMeta):
 
     # Accesible Class Attributes
     __response_model__: ClassVar[Type[AgentResponse]] = None
+    __state_class__: ClassVar[Type[_AgentState]] = None
     __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]
     __call_params__: ClassVar[dict[str, tuple[TypeVar, ParamInfo]]]
 
@@ -395,6 +397,7 @@ class BaseAgent(metaclass=AgentMeta):
 
             response_fields = {
                 "final_output": final_ai_output,
+                "state": self.state,
                 "provider_info": self.provider._info,
             }
             if self.__tool_defs__:
@@ -408,6 +411,29 @@ class BaseAgent(metaclass=AgentMeta):
 
     async def __call__(self, user_input: str):
         return await self.run(input_=user_input)
+
+    def __getattribute__(self, name):
+        if hasattr(BaseAgent, name):
+            return super().__getattribute__(name)
+
+        __state_defs__ = super().__getattribute__("__state_defs__")
+        if name in __state_defs__:
+            state = super().__getattribute__("state")
+            return state.get(name)
+
+        return super().__getattribute__(name)
+
+    def __setattr__(self, name, value):
+        if hasattr(BaseAgent, name):
+            super().__setattr__(name, value)
+            return
+
+        __state_defs__ = super().__getattribute__("__state_defs__")
+        if name in __state_defs__:
+            state = super().__getattribute__("state")
+            state.set(name, value)
+        else:
+            super().__setattr__(name, value)
 
     @classmethod
     def get_tool_definition(cls, name: str) -> _ToolDefinition:

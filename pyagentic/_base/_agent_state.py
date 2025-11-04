@@ -1,10 +1,16 @@
-from typing import Any, Type, Self, Optional
-from pydantic import BaseModel, create_model, Field, computed_field, PrivateAttr
+import inspect
+import asyncio
+import threading
+from typing import Any, Type, Self, Optional, ClassVar
+from pydantic import BaseModel, create_model, Field, PrivateAttr
 from jinja2 import Template
-from typing import Optional
+from typing import Optional, Literal
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
+from pyagentic._base._policy import Policy
+from pyagentic._base._events import Event, EventKind, GetEvent, SetEvent
+
 from pyagentic.models.llm import Message
 
 
@@ -13,71 +19,108 @@ class _AgentState(BaseModel):
     Base state class for agents; uses dataclass for auto-generated init/signature.
     """
 
+    _policy_handlers = {
+        ("on", EventKind.GET): "on_get",
+        ("background", EventKind.GET): "background_get",
+        ("on", EventKind.SET): "on_set",
+        ("background", EventKind.SET): "background_set",
+    }
+    _state_lock: ClassVar[threading.Lock] = PrivateAttr(default_factory=threading.Lock)
+    __policies__: ClassVar[dict[str, list[Policy]]]
+
     instructions: str
     input_template: Optional[str] = None
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
+    _input_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
+        self._input_template = Template(source=self.input_template)
         return super().model_post_init(state)
 
-    @property
-    def recent_message(self) -> Message:
-        return self._messages[-1]
+    def get_policies(self, state_name: str) -> list[Policy]:
+        """Get all policies attached to a given state field."""
+        return self.__policies__.get(state_name, [])
 
-    @property
-    def system_message(self) -> str:
+    def _run_policies(self, event: Event, policy_type: Literal["on", "background"]) -> Any:
         """
-        The current formatted system_message
+        Run synchronous policies as a transformation pipeline.
+        Each policy receives (event, value) and returns the next transformed value.
         """
-        # start with all the normal dataclass fields
+        value = event.value
 
-        # now format your instruction template
-        return self._instructions_template.render(**self.model_dump())
+        for policy in self.get_policies(event.name):
+            handler_name = self._policy_handlers.get((policy_type, event.kind))
+            if not handler_name:
+                raise ValueError(f"No handler for ({policy_type}, {event.kind})")
 
-    @property
-    def messages(self) -> list[Message]:
+            handler = getattr(policy, handler_name)
+
+            if policy_type != "on":
+                raise RuntimeError("_run_policies is only for synchronous 'on' policies")
+
+            try:
+                new_value = handler(event, value)
+                if new_value is not None:
+                    value = new_value
+            except Exception as e:
+                print(f"[PolicyError] {policy.__class__.__name__}.{handler_name} failed: {e}")
+
+        return value
+
+    async def _dispatch_policies(self, event: Event, policy_type: Literal["on", "background"]):
         """
-        List of openai-ready messages with the most up-to-date system message
+        Run async/background policies as a transformation pipeline.
+
+        Each async policy receives (event, value) and may return a new value.
+        The final result is written back to the state safely under a lock.
         """
-        messages = self._messages.copy()
-        messages.insert(0, Message(role="system", content=self.system_message))
-        return messages
+        value = event.value
 
-    def add_user_message(self, message: str):
-        """
-        Add a user message to the message list. If a `input_template` is given then
-            the message will be formatted in it as well as any state used in the template.
+        for policy in self.get_policies(event.name):
+            handler_name = self._policy_handlers.get((policy_type, event.kind))
+            if not handler_name:
+                raise ValueError(f"No handler for ({policy_type}, {event.kind})")
 
-        To use the user message in the template, place the key `user_message`.
+            handler = getattr(policy, handler_name)
 
-        Args:
-            message(str): The user message to be added.
-        """
+            try:
+                maybe_new_value = await handler(event, value)
+                if maybe_new_value is not None:
+                    value = maybe_new_value
+            except Exception as e:
+                print(f"[PolicyError] {policy.__class__.__name__}.{handler_name} failed: {e}")
 
-        if self.input_template:
-            data = self.as_dict()
-            data["user_message"] = message
-            content = self.input_template.format(**data)
-        else:
-            content = message
-        self._messages.append(Message(role="user", content=content))
+        # If any policy returned an updated value, apply it to state
+        if value is not None:
+            with self._state_lock:
+                setattr(self, event.name, value)
 
     def get(self, name: str) -> Any:
-        """
-        Retrieves an item from the state.
-
-        Args:
-            name(str): The name of the item
-
-        Returns:
-            Any: The item. If it is a computed state item, then it is computed upon retrieval.
-        """
+        """Retrieve and transform a value via GET policies."""
         try:
-            return getattr(self, name)
-        except KeyError:
+            stored_value = getattr(self, name)
+        except AttributeError:
             raise InvalidStateRefNotFoundInState(name)
+
+        event = GetEvent(name=name, value=stored_value)
+        transformed_value = self._run_policies(event, "on")
+        asyncio.create_task(self._dispatch_policies(event, "background"))
+        return transformed_value
+
+    def set(self, name: str, value: Any):
+        """Set a value via SET policies (transform, validate, store)."""
+        try:
+            previous = getattr(self, name)
+        except AttributeError:
+            raise InvalidStateRefNotFoundInState(name)
+
+        event = SetEvent(name=name, previous=previous, value=value)
+        final_value = self._run_policies(event, "on")
+
+        setattr(self, name, final_value)
+        asyncio.create_task(self._dispatch_policies(event, "background"))
 
     @classmethod
     def make_state_model(
@@ -115,3 +158,45 @@ class _AgentState(BaseModel):
 
         # now build the dataclass
         return create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
+
+    @property
+    def recent_message(self) -> Message:
+        return self._messages[-1]
+
+    @property
+    def system_message(self) -> str:
+        """
+        The current formatted system_message
+        """
+        # start with all the normal dataclass fields
+
+        # now format your instruction template
+        return self._instructions_template.render(**self.model_dump())
+
+    @property
+    def messages(self) -> list[Message]:
+        """
+        List of openai-ready messages with the most up-to-date system message
+        """
+        messages = self._messages.copy()
+        messages.insert(0, Message(role="system", content=self.system_message))
+        return messages
+
+    def add_user_message(self, message: str):
+        """
+        Add a user message to the message list. If a `input_template` is given then
+            the message will be formatted in it as well as any state used in the template.
+
+        To use the user message in the template, place the key `user_message`.
+
+        Args:
+            message(str): The user message to be added.
+        """
+
+        if self.input_template:
+            data = self.model_dump()
+            data["user_message"] = message
+            content = self._input_template.render(**data)
+        else:
+            content = message
+        self._messages.append(Message(role="user", content=content))
