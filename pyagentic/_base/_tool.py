@@ -1,5 +1,5 @@
 import inspect
-from typing import Callable, Any, TypeVar, get_type_hints, Self
+from typing import Callable, Any, TypeVar, get_type_hints, Self, Type
 from collections import defaultdict
 
 from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
@@ -33,12 +33,14 @@ class _ToolDefinition:
         name: str,
         description: str,
         parameters: dict[str, tuple[TypeVar, ParamInfo]],
+        return_type: Type[Any],
         condition: Callable[[Any], bool] = None,
     ):
         self.name: str = name
         self.description: str = description
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
+        self.return_type = return_type
 
     def resolve(self, agent_reference: dict) -> Self:
         new_parameters = {}
@@ -185,10 +187,6 @@ def tool(
         # Check return type
         types = get_type_hints(fn)
         return_type = types.pop("return", None)
-        if return_type != str and fn.__name__ != "__call__":
-            raise ToolDeclarationFailed(
-                tool_name=fn.__name__, message="Method must have a return type of `str`"
-            )
 
         # 2) grab default values
         sig = inspect.signature(fn)
@@ -214,6 +212,7 @@ def tool(
             description=description or fn.__doc__ or "",
             parameters=params,
             condition=condition,
+            return_type=return_type,
         )
         return fn
 
