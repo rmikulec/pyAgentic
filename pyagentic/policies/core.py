@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
-from pyagentic._base._event import Event, EventKind
+from pyagentic._base._events import Event, EventKind
 from pyagentic._base._policy import Policy
 
 

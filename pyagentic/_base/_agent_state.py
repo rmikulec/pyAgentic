@@ -1,14 +1,15 @@
 import inspect
 import asyncio
+import threading
 from typing import Any, Type, Self, Optional, ClassVar
 from pydantic import BaseModel, create_model, Field, PrivateAttr
 from jinja2 import Template
-from typing import Optional
+from typing import Optional, Literal
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
 from pyagentic._base._policy import Policy
-from pyagentic._base._event import Event, EventKind
+from pyagentic._base._events import Event, EventKind, GetEvent, SetEvent
 
 from pyagentic.models.llm import Message
 
@@ -18,6 +19,13 @@ class _AgentState(BaseModel):
     Base state class for agents; uses dataclass for auto-generated init/signature.
     """
 
+    _policy_handlers = {
+        ("on", EventKind.GET): "on_get",
+        ("background", EventKind.GET): "background_get",
+        ("on", EventKind.SET): "on_set",
+        ("background", EventKind.SET): "background_set",
+    }
+    _state_lock: ClassVar[threading.Lock] = PrivateAttr(default_factory=threading.Lock)
     __policies__: ClassVar[dict[str, list[Policy]]]
 
     instructions: str
@@ -33,14 +41,123 @@ class _AgentState(BaseModel):
         """Get all policies attached to a given state field."""
         return self.__policies__.get(state_name, [])
 
-    async def _dispatch_policies(self, event: Event, state_name: str):
-        """Run all policies registered for a given state field."""
-        for policy in self.get_policies(state_name):
-            handler = policy.handle_event
-            if inspect.iscoroutinefunction(handler):
-                await handler(event)
+    def _run_policies(self, event: Event, policy_type: Literal["on", "background"]) -> Any:
+        """
+        Run synchronous policies as a transformation pipeline.
+        Each policy receives (event, value) and returns the next transformed value.
+        """
+        value = event.value
+
+        for policy in self.get_policies(event.name):
+            handler_name = self._policy_handlers.get((policy_type, event.kind))
+            if not handler_name:
+                raise ValueError(f"No handler for ({policy_type}, {event.kind})")
+
+            handler = getattr(policy, handler_name)
+
+            if policy_type != "on":
+                raise RuntimeError("_run_policies is only for synchronous 'on' policies")
+
+            try:
+                new_value = handler(event, value)
+                if new_value is not None:
+                    value = new_value
+            except Exception as e:
+                print(f"[PolicyError] {policy.__class__.__name__}.{handler_name} failed: {e}")
+
+        return value
+
+    async def _dispatch_policies(self, event: Event, policy_type: Literal["on", "background"]):
+        """
+        Run async/background policies as a transformation pipeline.
+
+        Each async policy receives (event, value) and may return a new value.
+        The final result is written back to the state safely under a lock.
+        """
+        value = event.value
+
+        for policy in self.get_policies(event.name):
+            handler_name = self._policy_handlers.get((policy_type, event.kind))
+            if not handler_name:
+                raise ValueError(f"No handler for ({policy_type}, {event.kind})")
+
+            handler = getattr(policy, handler_name)
+
+            try:
+                maybe_new_value = await handler(event, value)
+                if maybe_new_value is not None:
+                    value = maybe_new_value
+            except Exception as e:
+                print(f"[PolicyError] {policy.__class__.__name__}.{handler_name} failed: {e}")
+
+        # If any policy returned an updated value, apply it to state
+        if value is not None:
+            with self._state_lock:
+                setattr(self, event.name, value)
+
+    def get(self, name: str) -> Any:
+        """Retrieve and transform a value via GET policies."""
+        print("GET")
+        try:
+            stored_value = getattr(self, name)
+        except AttributeError:
+            raise InvalidStateRefNotFoundInState(name)
+
+        event = GetEvent(name=name, value=stored_value)
+        transformed_value = self._run_policies(event, "on")
+        asyncio.create_task(self._dispatch_policies(event, "background"))
+        return transformed_value
+
+    def set(self, name: str, value: Any):
+        """Set a value via SET policies (transform, validate, store)."""
+        print("SET")
+        try:
+            previous = getattr(self, name)
+        except AttributeError:
+            raise InvalidStateRefNotFoundInState(name)
+
+        event = SetEvent(name=name, previous=previous, value=value)
+        final_value = self._run_policies(event, "on")
+
+        setattr(self, name, final_value)
+        asyncio.create_task(self._dispatch_policies(event, "background"))
+
+    @classmethod
+    def make_state_model(
+        cls, name: str, state_definitions: dict[str, _StateDefinition]
+    ) -> Type[Self]:
+        """
+        Dynamically create a dataclass subclass with typed state fields.
+
+        Args:
+            name: base name for the new class (e.g. 'MyAgent').
+            ctx_map: mapping of field name to (type, StateItem).
+
+        Returns:
+            A new dataclass type 'NameState'.
+        """
+        pydantic_fields = {}  # for actual dataclass fields (StateItem)
+
+        for _name, definition in state_definitions.items():
+            if isinstance(definition, _StateDefinition):
+                # ---- your existing logic for setting defaults ----
+                if definition.info.default_factory is not None:
+                    pydantic_fields[_name] = (
+                        Optional[definition.model],
+                        Field(default_factory=definition.info.default_factory),
+                    )
+                elif definition.info.default is not None:
+                    pydantic_fields[_name] = (
+                        Optional[definition.model],
+                        Field(default=definition.info.default),
+                    )
+                else:
+                    pydantic_fields[_name] = (definition.model, ...)
             else:
-                handler(event)
+                raise RuntimeError(f"Unexpected ctx_map entry for {_name!r}: {definition!r}")
+
+        # now build the dataclass
+        return create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
 
     @property
     def recent_message(self) -> Message:
@@ -83,78 +200,3 @@ class _AgentState(BaseModel):
         else:
             content = message
         self._messages.append(Message(role="user", content=content))
-
-    def get(self, name: str) -> Any:
-        """
-        Retrieves an item from the state.
-
-        Args:
-            name(str): The name of the item
-
-        Returns:
-            Any: The item. If it is a computed state item, then it is computed upon retrieval.
-        """
-        try:
-            value = getattr(self, name)
-        except KeyError:
-            raise InvalidStateRefNotFoundInState(name)
-
-        event = Event(kind=EventKind.GET, name=name, new_value=value)
-        # Fire policies synchronously (usually safe for GET)
-        asyncio.create_task(self._dispatch_policies(event, name))
-        return value
-
-    def set(self, name: str, value: Any):
-        """
-        Sets an item from the state.
-
-        Args:
-            name(str): The name of the item
-
-        Returns:
-            Any: The item. If it is a computed state item, then it is computed upon retrieval.
-        """
-        try:
-            old_value = getattr(self, name, value)
-            setattr(self, name, value)
-        except KeyError:
-            raise InvalidStateRefNotFoundInState(name)
-        event = Event(kind=EventKind.SET, name=name, old_value=old_value, new_value=value)
-        asyncio.create_task(self._dispatch_policies(event, name))
-
-    @classmethod
-    def make_state_model(
-        cls, name: str, state_definitions: dict[str, _StateDefinition]
-    ) -> Type[Self]:
-        """
-        Dynamically create a dataclass subclass with typed state fields.
-
-        Args:
-            name: base name for the new class (e.g. 'MyAgent').
-            ctx_map: mapping of field name to (type, StateItem).
-
-        Returns:
-            A new dataclass type 'NameState'.
-        """
-        pydantic_fields = {}  # for actual dataclass fields (StateItem)
-
-        for _name, definition in state_definitions.items():
-            if isinstance(definition, _StateDefinition):
-                # ---- your existing logic for setting defaults ----
-                if definition.info.default_factory is not None:
-                    pydantic_fields[_name] = (
-                        Optional[definition.model],
-                        Field(default_factory=definition.info.default_factory),
-                    )
-                elif definition.info.default is not None:
-                    pydantic_fields[_name] = (
-                        Optional[definition.model],
-                        Field(default=definition.info.default),
-                    )
-                else:
-                    pydantic_fields[_name] = (definition.model, ...)
-            else:
-                raise RuntimeError(f"Unexpected ctx_map entry for {_name!r}: {definition!r}")
-
-        # now build the dataclass
-        return create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
