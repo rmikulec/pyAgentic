@@ -4,7 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from pydantic import BaseModel
 
-from pyagentic._base._params import ParamInfo, _TYPE_MAP
+from pyagentic._base._info import ParamInfo, _TYPE_MAP
 from pyagentic._base._exceptions import InvalidToolDefinition
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
@@ -209,7 +209,7 @@ def tool(
 
     Tools are functions the LLM can invoke to perform actions or retrieve information.
     The tool description helps the LLM understand when and how to use the tool.
-    All tool methods must return a string (the result shown to the LLM).
+    All tool methods must return an object that can be casted as a string (to show the LLM).
 
     Args:
         description (str): Clear description of what the tool does. The LLM uses this
