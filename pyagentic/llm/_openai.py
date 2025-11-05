@@ -138,6 +138,7 @@ class OpenAIProvider(LLMProvider):
                 ],
                 reasoning=reasoning,
                 raw=response,
+                usage=UsageInfo(**response.usage.model_dump()),
             )
         else:
             response: OpenAIResponse = await self.client.responses.create(
