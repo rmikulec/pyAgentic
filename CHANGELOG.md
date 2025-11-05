@@ -2,6 +2,34 @@
 
 <!-- version list -->
 
+## v1.8.0-a.1 (2025-11-05)
+
+### Bug Fixes
+
+- Changed tool def failed to invalid tool def exception
+  ([`a909a64`](https://github.com/rmikulec/pyAgentic/commit/a909a64d3b1a2f623bdf70f653e72b9a04b78d34))
+
+- Made error handling in tool calling better
+  ([`75e6d4f`](https://github.com/rmikulec/pyAgentic/commit/75e6d4f3f4e8f258fc3dc59b8feb4b8265c03642))
+
+- Moved agent base code to subfolder for readability
+  ([`bf56103`](https://github.com/rmikulec/pyAgentic/commit/bf5610310d1462140c5eb5e9952342cc25fcc97e))
+
+- Moved policy to new submadule
+  ([`9cb04f6`](https://github.com/rmikulec/pyAgentic/commit/9cb04f630af5f9e26f18bba5d2368136ecbaf16d))
+
+- Removed depreactated Param class, Tools now can use pydantic BaseModels
+  ([`2c6a7b2`](https://github.com/rmikulec/pyAgentic/commit/2c6a7b21885b658affa70e3de473540da58afa46))
+
+### Features
+
+- Massive docstring update
+  ([`f2a550f`](https://github.com/rmikulec/pyAgentic/commit/f2a550fb8d5ecaffb746d2e15a0788b71fca8fc9))
+
+- Updated tool to use pydantic BaseModel rather than custom Param
+  ([`3846751`](https://github.com/rmikulec/pyAgentic/commit/384675132f8a3a29121edc3ed1e641af3cce6a4b))
+
+
 ## v1.7.0 (2025-09-18)
 
 

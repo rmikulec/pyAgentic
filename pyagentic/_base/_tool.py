@@ -1,13 +1,20 @@
 import inspect
-from typing import Callable, Any, TypeVar, get_type_hints, Self
+from typing import Callable, Any, TypeVar, get_type_hints, Self, Type
 from collections import defaultdict
 from copy import deepcopy
 from pydantic import BaseModel
 
-from pyagentic._base._info import ParamInfo, _TYPE_MAP
+from pyagentic._base._info import ParamInfo
 from pyagentic._base._exceptions import InvalidToolDefinition
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
+
+_TYPE_MAP: dict[Type[Any], str] = {
+    int: "integer",
+    float: "number",
+    str: "string",
+    bool: "boolean",
+}
 
 
 class _ToolDefinition:
