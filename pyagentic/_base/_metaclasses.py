@@ -6,12 +6,11 @@ from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
-from pydantic import BaseModel
 
 from pyagentic._base._info import _SpecInfo
 from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._state import State, StateInfo, _StateDefinition
 

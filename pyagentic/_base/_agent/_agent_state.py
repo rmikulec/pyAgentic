@@ -1,4 +1,3 @@
-import inspect
 import asyncio
 import threading
 from typing import Any, Type, Self, Optional, ClassVar

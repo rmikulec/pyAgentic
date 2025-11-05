@@ -4,8 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from pydantic import BaseModel
 
-from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._params import ParamInfo, _TYPE_MAP
 from pyagentic._base._exceptions import InvalidToolDefinition
 
 from pyagentic._utils._typing import TypeCategory, analyze_type

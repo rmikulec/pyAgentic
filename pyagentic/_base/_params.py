@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from collections import defaultdict
 from typing import get_type_hints, Any, List, Dict, Type
 
 from typeguard import check_type, TypeCheckError
 
-from pyagentic._base._agent_state import _AgentState
 from pyagentic._base._info import ParamInfo
 from pyagentic._utils._typing import analyze_type, TypeCategory
 

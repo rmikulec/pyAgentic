@@ -3,7 +3,7 @@ from typing import Type, Self, Union, Any
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._params import Param
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._agent._agent_state import _AgentState
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
 from pyagentic.models.llm import ProviderInfo

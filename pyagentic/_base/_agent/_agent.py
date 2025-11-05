@@ -1,7 +1,6 @@
 import inspect
 import json
 from functools import wraps
-from jinja2 import Template
 from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform, Optional
 
 from pydantic import BaseModel, ValidationError
@@ -13,7 +12,7 @@ from pyagentic._base._state import _StateDefinition
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup, InvalidToolDefinition
 from pyagentic._base._info import _SpecInfo
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._agent._agent_state import _AgentState
 
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
