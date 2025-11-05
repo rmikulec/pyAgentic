@@ -50,6 +50,11 @@ class _AgentState(BaseModel):
         """
         value = event.value
 
+        policies = self.get_policies(event.name)
+
+        if not policies:
+            return value
+
         for policy in self.get_policies(event.name):
             handler_name = self._policy_handlers.get((policy_type, event.kind))
             if not handler_name:
@@ -77,6 +82,11 @@ class _AgentState(BaseModel):
         The final result is written back to the state safely under a lock.
         """
         value = event.value
+
+        policies = self.get_policies(event.name)
+
+        if not policies:
+            return
 
         for policy in self.get_policies(event.name):
             handler_name = self._policy_handlers.get((policy_type, event.kind))
