@@ -1,5 +1,5 @@
 from typing import Protocol, TypeVar, Any
-from pyagentic._base._events import GetEvent, SetEvent
+from pyagentic.policies._events import GetEvent, SetEvent
 
 T = TypeVar("T")
 

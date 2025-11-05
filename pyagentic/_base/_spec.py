@@ -1,7 +1,7 @@
 from typing import Any, Callable
 
 from pyagentic._base._info import StateInfo, ParamInfo, AgentInfo
-from pyagentic._base._policy import Policy
+from pyagentic.policies._policy import Policy
 
 
 class spec:

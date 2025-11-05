@@ -7,8 +7,8 @@ from typing import Optional, Literal
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
-from pyagentic._base._policy import Policy
-from pyagentic._base._events import Event, EventKind, GetEvent, SetEvent
+from pyagentic.policies._policy import Policy
+from pyagentic.policies._events import Event, EventKind, GetEvent, SetEvent
 
 from pyagentic.models.llm import Message
 

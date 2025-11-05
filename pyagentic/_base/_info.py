@@ -2,7 +2,7 @@ from typing import Any, Callable, Self
 from dataclasses import dataclass
 
 from pyagentic._base._ref import RefNode
-from pyagentic._base._policy import Policy
+from pyagentic.policies._policy import Policy
 
 type MaybeRef[T] = T | RefNode
 
