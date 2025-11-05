@@ -12,21 +12,21 @@ from pyagentic._utils._typing import TypeCategory, analyze_type
 
 class _ToolDefinition:
     """
-    Private class to handle tool definitions
+    Private class to handle tool definitions.
 
     Attributes:
-        name(str): Name of the tool, automatically filled out as the function name
-        description(str): Description of the tool for LLM to read
-        parameters(str): Dictionary containing parameters captured by the tool descriptor
-        condition(str): The condition supplied determining when this tool should be included
+        name (str): Name of the tool, automatically filled out as the function name
+        description (str): Description of the tool for LLM to read
+        parameters (str): Dictionary containing parameters captured by the tool descriptor
+        condition (str): The condition supplied determining when this tool should be included
             in the LLM inference call
 
     Methods:
-        to_openai()->dict: Converts the definition to an "openai-ready" dictionary
-        compile_args()->dict[str, Any]: Converts any raw kwargs, usually from LLM tool call, to
+        to_openai() -> dict: Converts the definition to an "openai-ready" dictionary
+        compile_args() -> dict[str, Any]: Converts any raw kwargs, usually from LLM tool call, to
             match that of the tool definition. This process does the following:
-                1. Fills in any default values for args not supplied
-                2. Casts a raw dictionary to any arg that is a Param class
+              - Fills in any default values for args not supplied
+              - Casts a raw dictionary to any arg that is a Param class
     """
 
     def __init__(
@@ -61,10 +61,10 @@ class _ToolDefinition:
 
     def to_openai_spec(self) -> dict:
         """
-        Converts the definition to an "openai-ready" dictionary.
+        Converts the definition to an OpenAI-ready dictionary.
 
         Returns:
-            dict: An OpenAI-compliant tool spec.
+            dict: An OpenAI-compliant tool specification dictionary
         """
         params = defaultdict(dict)
         required = []
@@ -132,10 +132,13 @@ class _ToolDefinition:
 
     def to_anthropic_spec(self) -> dict:
         """
-        Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
+        Converts using the already-built OpenAI spec, then adapts shape to Anthropic:
           - name, description copied over
           - input_schema derived from OpenAI `parameters`
           - required moved from top-level to inside input_schema
+
+        Returns:
+            dict: An Anthropic-compliant tool specification dictionary
         """
         openai_spec = self.to_openai_spec()
 
@@ -161,14 +164,13 @@ class _ToolDefinition:
 
     def compile_args(self, **kwargs) -> dict[str, Any]:
         """
-        Converts the definition to an "openai-ready" dictionary
-        compile_args()->dict[str, Any]: Converts any raw kwargs, usually from LLM tool call, to
-            match that of the tool definition. This process does the following:
-                1. Fills in any default values for args not supplied
-                2. Casts a raw dictionary to any arg that is a Param class
+        Converts any raw kwargs, usually from LLM tool call, to match that of the tool definition.
+        This process does the following:
+          - Fills in any default values for args not supplied
+          - Casts a raw dictionary to any arg that is a Param class
 
         Args:
-            **kwargs: Recieves any arguements that will be verified and compiled
+            **kwargs: Receives any arguments that will be verified and compiled
 
         Returns:
             dict[str, Any]: Dictionary of args that are ready to be run through the tool
@@ -203,13 +205,40 @@ def tool(
     condition: Callable[[Any], bool] = None,
 ):
     """
-    Decorator to mark a method as a callable tool.
-    All methods marked with this descriptor **must** return a string
+    Decorator to mark an agent method as a tool that the LLM can call.
+
+    Tools are functions the LLM can invoke to perform actions or retrieve information.
+    The tool description helps the LLM understand when and how to use the tool.
+    All tool methods must return a string (the result shown to the LLM).
 
     Args:
-        description(str): Description of the tool that will be read by the LLM
-        condition(Callable): A callable that returns a boolean, determining when the tool
-            will be included in the LLM inference call
+        description (str): Clear description of what the tool does. The LLM uses this
+            to decide when to call the tool. Be specific and action-oriented.
+        condition (Callable[[Any], bool], optional): Function that returns True/False to
+            conditionally enable/disable the tool. Receives the agent instance (self).
+
+    Returns:
+        Callable: Decorated method that can be called by the LLM
+
+    Raises:
+        InvalidToolDefinition: If the method does not have a return type annotation of `str`
+
+    Example:
+        ```python
+        class FileAgent(BaseAgent):
+            __system_message__ = "You help manage files"
+
+            @tool("Read the contents of a file given its path")
+            def read_file(self, path: str) -> str:
+                with open(path, 'r') as f:
+                    return f.read()
+
+            @tool("Write content to a file", condition=lambda self: self.state.write_enabled)
+            def write_file(self, path: str, content: str) -> str:
+                with open(path, 'w') as f:
+                    f.write(content)
+                return f"Wrote {len(content)} characters to {path}"
+        ```
     """
 
     def decorator(fn: Callable):

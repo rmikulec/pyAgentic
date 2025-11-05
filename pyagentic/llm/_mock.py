@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from pyagentic.llm._provider import LLMProvider
 
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic.models.llm import Message, LLMResponse, ToolCall, ProviderInfo
 
 

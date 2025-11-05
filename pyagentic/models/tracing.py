@@ -4,6 +4,12 @@ from typing import Any, Dict, Optional
 
 
 class SpanKind(str, Enum):
+    """
+    Enumeration of span types for tracing agent execution.
+
+    Categorizes different types of operations in the agent lifecycle for
+    observability and debugging purposes.
+    """
 
     AGENT = "agent"
     TOOL = "tool"
@@ -12,12 +18,24 @@ class SpanKind(str, Enum):
 
 
 class SpanStatus(str, Enum):
+    """
+    Enumeration of span status values.
+
+    Indicates whether a traced operation completed successfully or encountered an error.
+    """
+
     OK = "ok"
     ERROR = "error"
 
 
 @dataclass(frozen=True)
 class SpanContext:
+    """
+    Immutable context information for a span.
+
+    Links a span to its trace and parent span for building execution hierarchies.
+    """
+
     trace_id: str
     span_id: str
     parent_span_id: Optional[str] = None
