@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from pyagentic._base._info import AgentInfo
-from pyagentic._base._agent import BaseAgent
+from pyagentic._base._agent._agent import BaseAgent
 
 T = TypeVar("T")
 
