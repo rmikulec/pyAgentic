@@ -74,7 +74,7 @@ class ToolResponse(BaseModel):
         """
         fields = {}
         for param_name, (param_type, param_info) in tool_def.parameters.items():
-            type_info = analyze_type(param_type, Param)
+            type_info = analyze_type(param_type, BaseModel)
             match type_info.category:
 
                 case TypeCategory.PRIMITIVE:
@@ -88,15 +88,13 @@ class ToolResponse(BaseModel):
                         Field(default=param_info.default, description=param_info.description),
                     )
                 case TypeCategory.SUBCLASS:
-                    ParamSubModel = param_to_pydantic(param_type)
                     fields[param_name] = (
-                        ParamSubModel,
+                        param_type,
                         Field(default=param_info.default, description=param_info.description),
                     )
                 case TypeCategory.LIST_SUBCLASS:
-                    ParamSubModel = param_to_pydantic(type_info.inner_type)
                     fields[param_name] = (
-                        list[ParamSubModel],
+                        param_type,
                         Field(default=param_info.default, description=param_info.description),
                     )
                 case _:

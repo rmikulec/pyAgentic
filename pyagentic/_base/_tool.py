@@ -1,10 +1,12 @@
 import inspect
 from typing import Callable, Any, TypeVar, get_type_hints, Self
 from collections import defaultdict
+from copy import deepcopy
+from pydantic import BaseModel
 
 from pyagentic._base._params import Param, ParamInfo, _TYPE_MAP
 from pyagentic._base._agent_state import _AgentState
-from pyagentic._base._exceptions import ToolDeclarationFailed
+from pyagentic._base._exceptions import InvalidToolDefinition
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
 
@@ -60,33 +62,50 @@ class _ToolDefinition:
 
     def to_openai_spec(self) -> dict:
         """
-        Converts the definition to an "openai-ready" dictionary
+        Converts the definition to an "openai-ready" dictionary.
 
         Returns:
-            dict: A openai dictionary for tool calling
+            dict: An OpenAI-compliant tool spec.
         """
         params = defaultdict(dict)
         required = []
+        top_level_defs = {}
 
         for name, (type_, default) in self.parameters.items():
-            type_info = analyze_type(type_, Param)
+            type_info = analyze_type(type_, BaseModel)
 
             match type_info.category:
                 case TypeCategory.PRIMITIVE:
                     params[name] = {"type": _TYPE_MAP.get(type_, "string")}
+
                 case TypeCategory.LIST_PRIMITIVE:
                     params[name] = {
                         "type": "array",
                         "items": {"type": _TYPE_MAP.get(type_info.inner_type, "string")},
                     }
+
                 case TypeCategory.SUBCLASS:
-                    params[name] = type_.to_json_schema()
+                    schema = deepcopy(type_.model_json_schema())
+
+                    # Move $defs to top level
+                    if "$defs" in schema:
+                        top_level_defs.update(schema.pop("$defs"))
+
+                    params[name] = schema
+
                 case TypeCategory.LIST_SUBCLASS:
+                    schema = deepcopy(type_info.inner_type.model_json_schema())
+
+                    # Move $defs to top level
+                    if "$defs" in schema:
+                        top_level_defs.update(schema.pop("$defs"))
+
                     params[name] = {
                         "type": "array",
-                        "items": type_info.inner_type.to_json_schema(),
+                        "items": schema,
                     }
 
+            # Handle defaults and metadata
             if isinstance(default, ParamInfo):
                 if default.description:
                     params[name]["description"] = default.description
@@ -95,13 +114,23 @@ class _ToolDefinition:
                 if default.values:
                     params[name]["enum"] = default.values
 
+        # Final structure
+        parameters = {
+            "type": "object",
+            "properties": dict(params),
+            "required": required,
+        }
+
+        if top_level_defs:
+            parameters["$defs"] = top_level_defs
+
         return {
             "type": "function",
             "name": self.name,
             "description": self.description,
-            "parameters": {"type": "object", "properties": dict(params)},
-            "required": required,
+            "parameters": parameters,
         }
+
 
     def to_anthropic_spec(self) -> dict:
         """
@@ -127,7 +156,10 @@ class _ToolDefinition:
 
     def to_openai_v1(self):
         openai_spec = self.to_openai_spec()
-        return {"type": "function", "function": {**openai_spec}}
+        openai_spec.pop('type')
+        v1_spec = {"type": "function", "function": {**openai_spec}}
+        v1_spec['function']['strict'] = True
+        return v1_spec
 
     def compile_args(self, **kwargs) -> dict[str, Any]:
         """
@@ -147,7 +179,7 @@ class _ToolDefinition:
 
         for name, (type_, info) in self.parameters.items():
             if name in kwargs:
-                type_info = analyze_type(type_, Param)
+                type_info = analyze_type(type_, BaseModel)
 
                 match type_info.category:
                     case TypeCategory.PRIMITIVE:
@@ -156,10 +188,10 @@ class _ToolDefinition:
                         compiled_args[name] = kwargs[name]
                     case TypeCategory.SUBCLASS:
                         param_args = kwargs[name]
-                        compiled_args[name] = type_(**param_args)
+                        compiled_args[name] = type_.model_validate(param_args)
                     case TypeCategory.LIST_SUBCLASS:
                         compiled_args[name] = [
-                            type_info.inner_type(**param_args) for param_args in kwargs[name]
+                            type_info.inner_type.model_validate(param_args) for param_args in kwargs[name]
                         ]
             else:
                 compiled_args[name] = info.default
@@ -186,7 +218,7 @@ def tool(
         types = get_type_hints(fn)
         return_type = types.pop("return", None)
         if return_type != str and fn.__name__ != "__call__":
-            raise ToolDeclarationFailed(
+            raise InvalidToolDefinition(
                 tool_name=fn.__name__, message="Method must have a return type of `str`"
             )
 
