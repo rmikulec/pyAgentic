@@ -49,6 +49,9 @@ docs = [
 eval = [
     "deepeval>=3.3.6",
 ]
+ollama = [
+    "ollama>=0.5.3",
+]
 
 
 [tool.semantic_release]

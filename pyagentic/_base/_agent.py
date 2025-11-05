@@ -1,16 +1,17 @@
 import inspect
 import json
 from functools import wraps
+from jinja2 import Template
 from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from pyagentic.logging import get_logger
 from pyagentic._base._params import ParamInfo
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import _StateDefinition
 from pyagentic._base._metaclasses import AgentMeta
-from pyagentic._base._exceptions import InvalidLLMSetup
+from pyagentic._base._exceptions import InvalidLLMSetup, InvalidToolDefinition
 from pyagentic._base._info import _SpecInfo
 from pyagentic._base._agent_state import _AgentState
 
@@ -271,7 +272,19 @@ class BaseAgent(metaclass=AgentMeta):
         except KeyError:
             return f"Tool {tool_call.name} not found"
         kwargs = json.loads(tool_call.arguments)
-
+        try:
+            compiled_args = tool_def.compile_args(**kwargs)
+        except ValidationError as e:
+            result = f"Function Args were invalid: {str(e)}"
+            compiled_args = {}
+            if self.emitter:
+                self.tracer.record_exception(str(e))
+                logger.exception(e)
+                if self.emitter:
+                    await _safe_run(
+                        self.emitter,
+                        ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
+                    )
         # Run the tool, emitting updates
         try:
             if self.emitter:
@@ -281,10 +294,22 @@ class BaseAgent(metaclass=AgentMeta):
                         status=Status.PROCESSING, tool_call=tool_call.name, tool_args=kwargs
                     ),
                 )
-
-            compiled_args = tool_def.compile_args(**kwargs)
-            result = await _safe_run(handler, **compiled_args)
-            self.tracer.set_attributes(result=result)
+            if compiled_args:
+                result = await _safe_run(handler, **compiled_args)
+                result = str(result)
+                self.tracer.set_attributes(result=result)
+        except TypeError as e:
+            self.tracer.record_exception(str(e))
+            logger.exception(e)
+            if self.emitter:
+                await _safe_run(
+                    self.emitter,
+                    ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
+                )
+            raise InvalidToolDefinition(
+                tool_name=tool_call.name,
+                message=f"Tool must have a serializable return type; {tool_def.return_type} failed to be casted to a string.",
+            )
         except Exception as e:
             self.tracer.record_exception(str(e))
             logger.exception(e)
