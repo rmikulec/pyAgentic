@@ -283,7 +283,9 @@ class BaseAgent(metaclass=AgentMeta):
                 if self.emitter:
                     await _safe_run(
                         self.emitter,
-                        ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
+                        ToolUpdate(
+                            status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs
+                        ),
                     )
         # Run the tool, emitting updates
         try:

@@ -131,7 +131,6 @@ class _ToolDefinition:
             "parameters": parameters,
         }
 
-
     def to_anthropic_spec(self) -> dict:
         """
         Convert using the already-built OpenAI spec, then adapt shape to Anthropic:
@@ -156,9 +155,9 @@ class _ToolDefinition:
 
     def to_openai_v1(self):
         openai_spec = self.to_openai_spec()
-        openai_spec.pop('type')
+        openai_spec.pop("type")
         v1_spec = {"type": "function", "function": {**openai_spec}}
-        v1_spec['function']['strict'] = True
+        v1_spec["function"]["strict"] = True
         return v1_spec
 
     def compile_args(self, **kwargs) -> dict[str, Any]:
@@ -191,7 +190,8 @@ class _ToolDefinition:
                         compiled_args[name] = type_.model_validate(param_args)
                     case TypeCategory.LIST_SUBCLASS:
                         compiled_args[name] = [
-                            type_info.inner_type.model_validate(param_args) for param_args in kwargs[name]
+                            type_info.inner_type.model_validate(param_args)
+                            for param_args in kwargs[name]
                         ]
             else:
                 compiled_args[name] = info.default
