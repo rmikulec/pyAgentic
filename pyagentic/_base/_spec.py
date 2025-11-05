@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from pyagentic._base._info import StateInfo, ParamInfo, AgentInfo
 from pyagentic._base._policy import Policy
@@ -10,10 +10,22 @@ class spec:
         default: Any = None,
         default_factory: Callable = None,
         policies: list[Policy] = None,
+        access: Literal["read", "write", "readwrite", "hidden"] = "read",
+        description: str | None = None,
+        get_description: str | None = None,
+        set_description: str | None = None,
         **kwargs,
     ) -> StateInfo:
+
         return StateInfo(
-            default=default, default_factory=default_factory, policies=policies, **kwargs
+            default=default,
+            default_factory=default_factory,
+            policies=policies,
+            access=access,
+            description=description,
+            get_description=get_description,
+            set_description=set_description,
+            **kwargs,
         )
 
     @staticmethod
