@@ -33,10 +33,10 @@ class UsageInfo(BaseModel):
 
 
 class LLMResponse(BaseModel):
-    text: str
-    tool_calls: List[ToolCall]
-    parsed: BaseModel = None
-    reasoning: list[dict] = None
+    text: str | None = None
+    tool_calls: List[ToolCall] | None = None
+    parsed: BaseModel | None = None
+    reasoning: list[dict] | None = None
     finish_reason: Optional[str] = None
     usage: UsageInfo = None
     raw: Optional[Any] = None
