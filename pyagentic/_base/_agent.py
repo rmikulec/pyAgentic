@@ -129,7 +129,6 @@ class BaseAgent(metaclass=AgentMeta):
     __response_model__: ClassVar[Type[AgentResponse]] = None
     __state_class__: ClassVar[Type[_AgentState]] = None
     __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]
-    __call_params__: ClassVar[dict[str, tuple[TypeVar, ParamInfo]]]
 
     # Base Attributes
     model: str = None
