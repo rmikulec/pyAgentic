@@ -1522,7 +1522,7 @@ wheels = [
 
 [[package]]
 name = "pyagentic-core"
-version = "1.7.0"
+version = "1.8.0a1"
 source = { virtual = "." }
 dependencies = [
     { name = "anthropic" },
@@ -1561,6 +1561,9 @@ docs = [
 eval = [
     { name = "deepeval" },
 ]
+ollama = [
+    { name = "ollama" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1598,6 +1601,7 @@ docs = [
     { name = "pymdown-extensions", specifier = ">=10.16.1" },
 ]
 eval = [{ name = "deepeval", specifier = ">=3.3.6" }]
+ollama = [{ name = "ollama", specifier = ">=0.5.3" }]
 
 [[package]]
 name = "pyasn1"

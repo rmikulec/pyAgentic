@@ -12,7 +12,7 @@ from openai.types.responses import ParsedResponse as OpenAIParsedResponse
 from typing import List, Optional, Type
 from pydantic import BaseModel
 
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
@@ -138,6 +138,7 @@ class OpenAIProvider(LLMProvider):
                 ],
                 reasoning=reasoning,
                 raw=response,
+                usage=UsageInfo(**response.usage.model_dump()),
             )
         else:
             response: OpenAIResponse = await self.client.responses.create(

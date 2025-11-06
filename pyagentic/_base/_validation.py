@@ -2,12 +2,18 @@ from typing import Type, get_args
 from typeguard import check_type, TypeCheckError
 
 
-# Temp class for typing
+# Placeholder class for Agent type annotation.
+# Can't import actual agent as it would cause a circular import error.
 class Agent:
     pass
 
 
 class AgentValidationError(Exception):
+    """
+    Exception raised when an Agent class fails validation checks.
+    Aggregates all validation problems into a single error message.
+    """
+
     def __init__(self, problems):
         message = "Agent failed to be validated: \n"
         message += "\n".join(problems)
@@ -16,10 +22,10 @@ class AgentValidationError(Exception):
 
 class _AgentConstructionValidator:
     """
-    Class to hold validation logic that needs to be checked at runtime
+    Class to hold validation logic that needs to be checked at runtime.
 
-    Class works by using default values to construct a sample agent, then runs additional checks
-        that could not be run on creation of the class
+    Works by using default values to construct a sample agent, then runs additional checks
+        that could not be run on creation of the class.
     """
 
     def __init__(self, AgentClass: Type["Agent"]):
@@ -29,11 +35,11 @@ class _AgentConstructionValidator:
 
     def validate(self):
         """
-        Validate an Agent class
+        Validate an Agent class.
 
         Raises:
             AgentValidationError: A custom exception that includes all problems found in the
-                validation pipelines
+                validation pipeline.
         """
         self._verify_default_values(self.AgentClass)
         self._verify_state_items_can_be_strings(self.AgentClass)
@@ -45,8 +51,8 @@ class _AgentConstructionValidator:
     def _verify_tool_state_refs(self, AgentClass: Type["Agent"]):
         """
         Verifies that all state refs used:
-            - links to an item in the state
-            - The linked state item has the same type as the field it is being used in
+          - Link to an item in the state
+          - The linked state item has the same type as the field it is being used in
         """
         for tool_name, tool_def in AgentClass.__tool_defs__.items():
             for param_name, (param_type, param_info) in tool_def.parameters.items():
@@ -72,8 +78,8 @@ class _AgentConstructionValidator:
 
     def _verify_state_items_can_be_strings(self, AgentClass: Type["Agent"]):
         """
-        Verifies that all items in the state can be injected / used in the system message or
-            input template
+        Verifies that all items in the state can be injected and used in the system message or
+            input template.
         """
         for state_name in AgentClass.__state_attrs__.keys():
             sample_value = self.sample_agent.state.get(state_name)

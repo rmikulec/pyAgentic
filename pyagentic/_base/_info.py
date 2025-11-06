@@ -2,7 +2,7 @@ from typing import Any, Callable, Self, Literal
 from dataclasses import dataclass, field
 
 from pyagentic._base._ref import RefNode
-from pyagentic._base._policy import Policy
+from pyagentic.policies._policy import Policy
 
 type MaybeRef[T] = T | RefNode
 
@@ -40,14 +40,18 @@ class _SpecInfo:
 
 @dataclass
 class AgentInfo(_SpecInfo):
-    """Descriptor for State field configuration"""
+    """
+    Descriptor for configuring linked agent fields.
+    """
 
     condition: MaybeRef[Callable] | None = None
 
 
 @dataclass
 class StateInfo(_SpecInfo):
-    """Descriptor for State field configuration"""
+    """
+    Descriptor for configuring State field metadata and policies.
+    """
 
     policies: list[Policy] | None = None
     access: Literal["read", "write", "readwrite", "hidden"] = field(default="read")
@@ -58,22 +62,21 @@ class StateInfo(_SpecInfo):
 @dataclass
 class ParamInfo(_SpecInfo):
     """
-    Declare metadata for parameters in tool declarations and/or Parameter declarations.
+    Declares metadata for parameters in tool declarations and/or Parameter declarations.
 
     Attributes:
-        description (str | None): A human-readable description of the parameter.
-        required (bool): Whether this parameter must be provided by the user.
-        default (Any): The default value to use if none is provided.
-        values (list[str]): values to limit the input of this parameter. If used, the
-            agent is forced to use on the the values in the list.
+        description (str | None): A human-readable description of the parameter
+        required (bool): Whether this parameter must be provided by the user
+        default (Any): The default value to use if none is provided
+        values (list[str]): Values to limit the input of this parameter. If used, the
+            agent is forced to use one of the values in the list
 
     State-Ready Attributes:
-        These attributes can be given a `StateRef` to link them to any state items in
-        the agent.
-
-         - description
-         - default
-         - values
+        These attributes can be given a StateRef to link them to any state items in
+        the agent:
+          - description
+          - default
+          - values
     """
 
     description: MaybeRef[str] | None = None
