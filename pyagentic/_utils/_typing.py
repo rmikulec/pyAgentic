@@ -23,6 +23,7 @@ class TypeCategory(Enum):
     """
     Enumeration of type categories for parameter analysis.
     """
+
     PRIMITIVE = "primitive"
     LIST_PRIMITIVE = "list_primitive"
     SUBCLASS = "subclass"

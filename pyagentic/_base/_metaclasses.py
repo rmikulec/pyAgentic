@@ -1,17 +1,17 @@
 import inspect
 import threading
 import warnings
-from typing import dataclass_transform, TypeVar, Mapping, Type
+from typing import dataclass_transform, TypeVar, Mapping, Type, Any
 from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
 
-from pyagentic._base._info import _SpecInfo
+from pyagentic._base._info import _SpecInfo, ParamInfo
 from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
 from pyagentic._base._agent._agent_state import _AgentState
-from pyagentic._base._tool import _ToolDefinition
+from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import State, StateInfo, _StateDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
@@ -150,6 +150,77 @@ class AgentMeta(type):
                 state_attributes[attr_name] = _StateDefinition(model=state_model, info=state_info)
 
         return MappingProxyType(state_attributes)
+
+    @staticmethod
+    def _generate_state_tools(
+        cls, state_defs: Mapping[str, "_StateDefinition"]
+    ) -> Mapping[str, _ToolDefinition]:
+        """
+        Dynamically generate `get_<state>` and `set_<state>` tools
+        based on each state's privileges and attach them to the agent class.
+        """
+
+        state_tool_defs: dict[str, _ToolDefinition] = {}
+
+        def make_getter(name: str):
+            @tool(f"Get the current value of '{name}'.")
+            def _getter(self) -> str:
+                """Return the current value of the given state."""
+                return str(getattr(self, name))
+
+            return _getter
+
+        def make_setter(name: str):
+            @tool(f"Set a new value for '{name}'.")
+            def _setter(self, value: Any) -> str:
+                """Update the state value."""
+                setattr(self, name, value)
+                return f"'{name}' updated to: {value!r}"
+
+            return _setter
+
+        for state_name, state_def in state_defs.items():
+            privilege = state_def.info.access
+
+            # --- Getter ---
+            if privilege in ("read", "readwrite"):
+                getter_name = f"get_{state_name}"
+                getter_func = make_getter(state_name)
+                setattr(cls, getter_name, getter_func)
+
+                if not state_def.info.get_description:
+                    description = f"Get the current value of '{state_name}'."
+                else:
+                    description = state_def.info.get_description
+
+                state_tool_defs[getter_name] = _ToolDefinition(
+                    name=getter_name,
+                    description=description,
+                    parameters={},  # no parameters for getter
+                    return_type=state_def.model,
+                )
+
+            # --- Setter ---
+            if privilege in ("write", "readwrite"):
+                setter_name = f"set_{state_name}"
+                setter_func = make_setter(state_name)
+                setattr(cls, setter_name, setter_func)
+
+                if not state_def.info.set_description:
+                    description = f"Set a new value for '{state_name}'."
+                else:
+                    description = state_def.info.set_description
+
+                state_tool_defs[setter_name] = _ToolDefinition(
+                    name=setter_name,
+                    description=description,
+                    parameters={
+                        "value": (state_def.model, ParamInfo(default=state_def.info.get_default()))
+                    },
+                    return_type=state_def.model,
+                )
+
+        return MappingProxyType(state_tool_defs)
 
     @staticmethod
     def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
@@ -359,7 +430,10 @@ class AgentMeta(type):
         #     subclass of Agent. These don't use namespace defaults, only annotations
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
+        tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         state_defs = mcs._extract_state_defs(annotations, inherited_namespace | namespace)
+        state_tool_defs = mcs._generate_state_tools(cls, state_defs)
+        tool_defs = MappingProxyType({**tool_defs, **state_tool_defs})
         linked_agents = mcs._extract_linked_agents(annotations, mcs.__BaseAgent__)
         with mcs._lock:
             cls.__tool_defs__ = tool_defs

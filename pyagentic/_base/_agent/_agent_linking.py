@@ -62,5 +62,6 @@ class _LinkedAgentDefinition:
     """
     Internal definition for linked agent configuration.
     """
+
     agent: BaseAgent
     info: AgentInfo = None

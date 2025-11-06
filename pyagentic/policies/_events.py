@@ -8,6 +8,7 @@ class EventKind(Enum):
     """
     Enumeration of event types for state policy handling.
     """
+
     INIT = auto()
     GET = auto()
     SET = auto()
