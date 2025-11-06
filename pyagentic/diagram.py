@@ -56,14 +56,15 @@ class AgentDiagramGenerator:
         self.agent_class = agent_class
         self.agent_name = agent_class.__name__
         self.visited: Set[Type[BaseAgent]] = set()
-        self.graph = graphviz.Digraph(
-            name=f"Agent_{self.agent_name}",
-            comment=f"Agent Architecture: {self.agent_name}",
+
+        # Structure diagram (declaration)
+        self.structure_graph = graphviz.Digraph(
+            name=f"Structure_{self.agent_name}",
+            comment=f"Agent Structure: {self.agent_name}",
             format='png'
         )
-        # Compact vertical layout
-        self.graph.attr(
-            rankdir='LR',  # Left to right for better horizontal use
+        self.structure_graph.attr(
+            rankdir='LR',
             splines='spline',
             nodesep='0.4',
             ranksep='1.0',
@@ -72,8 +73,27 @@ class AgentDiagramGenerator:
             pad='0.3',
             dpi='150'
         )
-        self.graph.attr('node', fontname='Arial', fontsize='10')
-        self.graph.attr('edge', fontname='Arial', fontsize='8')
+        self.structure_graph.attr('node', fontname='Arial', fontsize='10')
+        self.structure_graph.attr('edge', fontname='Arial', fontsize='8')
+
+        # Execution flow diagram
+        self.flow_graph = graphviz.Digraph(
+            name=f"Flow_{self.agent_name}",
+            comment=f"Execution Flow: {self.agent_name}",
+            format='png'
+        )
+        self.flow_graph.attr(
+            rankdir='TB',  # Top to bottom for flow
+            splines='spline',
+            nodesep='0.6',
+            ranksep='0.8',
+            compound='true',
+            bgcolor='white',
+            pad='0.4',
+            dpi='150'
+        )
+        self.flow_graph.attr('node', fontname='Arial', fontsize='9')
+        self.flow_graph.attr('edge', fontname='Arial', fontsize='8')
 
     def _truncate_text(self, text: str, max_length: int = 80) -> str:
         """
@@ -151,7 +171,7 @@ class AgentDiagramGenerator:
 
         return result
 
-    def _add_agent_to_graph(self, agent_class: Type[BaseAgent]) -> None:
+    def _add_agent_to_structure(self, agent_class: Type[BaseAgent]) -> None:
         """
         Add an agent and its components to the graph recursively.
 
@@ -181,7 +201,7 @@ class AgentDiagramGenerator:
         if description:
             cluster_label += f"\\n{self._sanitize_label(self._truncate_text(description, 50))}"
 
-        with self.graph.subgraph(name=f'cluster_{agent_name}') as cluster:
+        with self.structure_graph.subgraph(name=f'cluster_{agent_name}') as cluster:
             cluster.attr(
                 label=cluster_label,
                 style='rounded,filled',
@@ -233,7 +253,28 @@ class AgentDiagramGenerator:
                     for name, state_def in state_defs.items():
                         if isinstance(state_def, _StateDefinition):
                             type_name = state_def.model.__name__ if hasattr(state_def.model, '__name__') else str(state_def.model)
-                            label = f"{name}: {type_name}"
+
+                            # Get access level and policies
+                            access = "read"  # default
+                            policies = []
+                            if state_def.info:
+                                access = getattr(state_def.info, 'access', 'read')
+                                policies = getattr(state_def.info, 'policies', []) or []
+
+                            # Access level indicator
+                            access_icon = {
+                                'read': '👁️',
+                                'write': '✏️',
+                                'readwrite': '🔄',
+                                'hidden': '🔒'
+                            }.get(access, '')
+
+                            label = f"{access_icon} {name}: {type_name}"
+
+                            # Add policy indicator if policies exist
+                            if policies:
+                                policy_names = [p.__class__.__name__ for p in policies]
+                                label += f"\\n[{', '.join(policy_names)}]"
                         else:
                             label = name
 
@@ -294,7 +335,7 @@ class AgentDiagramGenerator:
         # Add edges: system_message -> state variables it uses
         if system_msg and system_msg_vars:
             for var in system_msg_vars:
-                self.graph.edge(
+                self.structure_graph.edge(
                     self._node_id(agent_name, 'SystemMessage'),
                     self._node_id(agent_name, f'State_{var}'),
                     color='#7c3aed',
@@ -305,7 +346,7 @@ class AgentDiagramGenerator:
         # Add edges: input_template -> state variables it uses
         if input_template and input_template_vars:
             for var in input_template_vars:
-                self.graph.edge(
+                self.structure_graph.edge(
                     self._node_id(agent_name, 'InputTemplate'),
                     self._node_id(agent_name, f'State_{var}'),
                     color='#db2777',
@@ -318,7 +359,7 @@ class AgentDiagramGenerator:
         if linked_agents:
             for link_name, linked_class in linked_agents.items():
                 # Recursively add the linked agent
-                self._add_agent_to_graph(linked_class)
+                self._add_agent_to_structure(linked_class)
 
                 # Add edge from this agent cluster to linked agent cluster
                 # Connect from first state/tool node to first state/tool node of linked agent
@@ -346,7 +387,7 @@ class AgentDiagramGenerator:
 
                 # Only add edge if we found both nodes
                 if from_node and to_node:
-                    self.graph.edge(
+                    self.structure_graph.edge(
                         from_node,
                         to_node,
                         label=link_name,
@@ -358,38 +399,258 @@ class AgentDiagramGenerator:
                         lhead=f'cluster_{linked_class.__name__}'
                     )
 
-    def generate(self) -> graphviz.Digraph:
+    def _add_execution_flow(self, visited_agents: Optional[Set] = None) -> None:
+        """Add simplified agent execution flow diagram."""
+        if visited_agents is None:
+            visited_agents = set()
+
+        agent_class = self.agent_class
+        agent_name = agent_class.__name__
+
+        # Skip if already added
+        if agent_name in visited_agents:
+            return
+        visited_agents.add(agent_name)
+
+        # Extract flow components
+        state_defs = agent_class.__state_defs__
+        tool_defs = agent_class.__tool_defs__
+        linked_agents = agent_class.__linked_agents__
+        system_msg = getattr(agent_class, "__system_message__", "")
+        input_template = getattr(agent_class, "__input_template__", "")
+        max_call_depth = getattr(agent_class, "max_call_depth", 1)
+
+        # Get which states are used where
+        system_msg_vars = self._extract_state_variables(system_msg, state_defs) if system_msg else []
+        input_template_vars = self._extract_state_variables(input_template, state_defs) if input_template else []
+
+        # Count states with policies
+        states_with_policies = sum(1 for name, state_def in state_defs.items()
+                                   if isinstance(state_def, _StateDefinition) and state_def.info
+                                   and getattr(state_def.info, 'policies', None))
+
+        # Build simplified flow
+        with self.flow_graph.subgraph(name=f'cluster_flow_{agent_name}') as flow:
+            flow.attr(
+                label=f'Execution Flow: {agent_name}',
+                style='rounded',
+                fillcolor='#fafafa',
+                color='#64748b',
+                penwidth='2',
+                fontsize='12',
+                fontname='Arial Bold'
+            )
+
+            # Step 1: User Input
+            flow.node(f'flow_{agent_name}_1', label='1. User Input', shape='box',
+                     style='rounded,filled', fillcolor='#e0e7ff', color='#4f46e5',
+                     fontsize='10', penwidth='2')
+
+            # Step 2: Format templates with state
+            if input_template_vars or system_msg_vars:
+                template_info = []
+                if input_template_vars:
+                    template_info.append(f"input_template: {', '.join(input_template_vars)}")
+                if system_msg_vars:
+                    template_info.append(f"system_message: {', '.join(system_msg_vars)}")
+
+                flow.node(f'flow_{agent_name}_2',
+                         label=f'2. Format Templates\\n{chr(10).join(template_info)}',
+                         shape='box', style='rounded,filled', fillcolor='#ddd6fe',
+                         color='#7c3aed', fontsize='10', penwidth='2')
+
+            # Step 3: LLM Processing
+            flow.node(f'flow_{agent_name}_3', label='3. LLM Processing', shape='ellipse',
+                     style='filled', fillcolor='#e0f2fe', color='#0284c7',
+                     fontsize='10', penwidth='2', fontname='Arial Bold')
+
+            # Step 4: Decision
+            flow.node(f'flow_{agent_name}_4', label='4. Decision', shape='diamond',
+                     style='filled', fillcolor='#fef3c7', color='#d97706',
+                     fontsize='10', penwidth='2')
+
+            # Step 5: Tool execution
+            if tool_defs or linked_agents:
+                tool_count = len(tool_defs) + len(linked_agents)
+                tool_names = list(tool_defs.keys())[:3]
+                if len(tool_defs) > 3:
+                    tool_label = f"5. Execute Tool\\n({', '.join(tool_names)}... +{len(tool_defs)-3} more)"
+                elif tool_names:
+                    tool_label = f"5. Execute Tool\\n({', '.join(tool_names)})"
+                else:
+                    tool_label = "5. Execute Tool"
+
+                if linked_agents:
+                    tool_label += f"\\n(or call linked agent)"
+
+                flow.node(f'flow_{agent_name}_5', label=tool_label, shape='box',
+                         style='rounded,filled', fillcolor='#fee2e2', color='#dc2626',
+                         fontsize='10', penwidth='2')
+
+            # Step 6: State access with policies
+            if state_defs:
+                state_label = f"6. Access State\\n({len(state_defs)} variables"
+                if states_with_policies > 0:
+                    state_label += f", {states_with_policies} with policies)"
+                else:
+                    state_label += ")"
+
+                flow.node(f'flow_{agent_name}_6', label=state_label, shape='cylinder',
+                         style='filled', fillcolor='#fef3c7', color='#d97706',
+                         fontsize='10', penwidth='2')
+
+            # Step 7: Loop check
+            flow.node(f'flow_{agent_name}_7',
+                     label=f'7. Check Loop\\n(max {max_call_depth} iterations)',
+                     shape='diamond', style='filled', fillcolor='#f1f5f9',
+                     color='#64748b', fontsize='10', penwidth='2')
+
+            # Step 8: Final Response
+            flow.node(f'flow_{agent_name}_8', label='8. Return Response', shape='box',
+                     style='rounded,filled', fillcolor='#d1fae5', color='#10b981',
+                     fontsize='10', penwidth='2', fontname='Arial Bold')
+
+        # Connect the flow - simple linear path
+        self.flow_graph.edge(f'flow_{agent_name}_1', f'flow_{agent_name}_2' if (input_template_vars or system_msg_vars) else f'flow_{agent_name}_3',
+                           color='#64748b', penwidth='2')
+
+        if input_template_vars or system_msg_vars:
+            self.flow_graph.edge(f'flow_{agent_name}_2', f'flow_{agent_name}_3',
+                               color='#7c3aed', penwidth='2')
+
+        self.flow_graph.edge(f'flow_{agent_name}_3', f'flow_{agent_name}_4',
+                           color='#0284c7', penwidth='2')
+
+        if tool_defs or linked_agents:
+            self.flow_graph.edge(f'flow_{agent_name}_4', f'flow_{agent_name}_5',
+                               label='call tool', color='#dc2626', penwidth='2',
+                               fontsize='9')
+
+            if state_defs:
+                self.flow_graph.edge(f'flow_{agent_name}_5', f'flow_{agent_name}_6',
+                                   color='#d97706', penwidth='2')
+                self.flow_graph.edge(f'flow_{agent_name}_6', f'flow_{agent_name}_7',
+                                   color='#64748b', penwidth='2')
+            else:
+                self.flow_graph.edge(f'flow_{agent_name}_5', f'flow_{agent_name}_7',
+                                   color='#64748b', penwidth='2')
+
+            # Loop back
+            self.flow_graph.edge(f'flow_{agent_name}_7', f'flow_{agent_name}_3',
+                               label='continue', color='#64748b', penwidth='1.5',
+                               style='dashed', fontsize='9')
+
+        # Done path
+        final_decision = f'flow_{agent_name}_7' if (tool_defs or linked_agents) else f'flow_{agent_name}_4'
+        self.flow_graph.edge(final_decision, f'flow_{agent_name}_8',
+                           label='done', color='#10b981', penwidth='2',
+                           fontsize='9')
+
+        # Recursively add linked agents
+        for link_name, linked_class in linked_agents.items():
+            linked_gen = AgentDiagramGenerator(linked_class)
+            linked_gen.flow_graph = self.flow_graph
+            linked_gen._add_execution_flow(visited_agents)
+
+    def generate_structure(self) -> graphviz.Digraph:
         """
-        Generate the complete Graphviz diagram.
+        Generate the agent structure (declaration) diagram.
+
+        Shows:
+        - Agent components (state, tools, templates)
+        - Linked agents
+        - Template → state dependencies
+        - Access levels and policies
 
         Returns:
-            Graphviz Digraph object
+            Graphviz Digraph object for structure
         """
-        self._add_agent_to_graph(self.agent_class)
-        return self.graph
+        self.visited.clear()
+        self._add_agent_to_structure(self.agent_class)
 
-    def save(self, filename: str, format: str = 'png') -> str:
+        # Add legend for access levels
+        with self.structure_graph.subgraph(name='cluster_legend') as legend:
+            legend.attr(
+                label='State Access Levels',
+                style='rounded,dashed',
+                color='#94a3b8',
+                penwidth='1',
+                fontsize='10',
+                fontname='Arial Bold'
+            )
+
+            legend.node('legend_read', label='👁️ read: LLM can see', shape='note',
+                       style='filled', fillcolor='#f8fafc', fontsize='8')
+            legend.node('legend_write', label='✏️ write: Tools can modify', shape='note',
+                       style='filled', fillcolor='#f8fafc', fontsize='8')
+            legend.node('legend_readwrite', label='🔄 readwrite: LLM sees + Tools modify', shape='note',
+                       style='filled', fillcolor='#f8fafc', fontsize='8')
+            legend.node('legend_hidden', label='🔒 hidden: Neither LLM nor tools', shape='note',
+                       style='filled', fillcolor='#f8fafc', fontsize='8')
+
+        return self.structure_graph
+
+    def generate_flow(self) -> graphviz.Digraph:
         """
-        Generate and save the diagram to a file.
+        Generate the execution flow diagram.
+
+        Shows how the agent executes step-by-step with individual nodes
+        for states, tools, and policies.
+
+        Returns:
+            Graphviz Digraph object for execution flow
+        """
+        self._add_execution_flow()
+        return self.flow_graph
+
+    def save_structure(self, filename: str, format: str = 'png') -> str:
+        """
+        Generate and save the structure diagram to a file.
 
         Args:
-            filename: Path to the output file (without extension)
+            filename: Path to output file (without extension)
             format: Output format (png, pdf, svg, etc.)
 
         Returns:
             Path to the saved file
         """
-        self.graph.format = format
-        self.generate()
-        output_path = self.graph.render(filename, cleanup=True)
-        print(f"Diagram saved to {output_path}")
+        self.structure_graph.format = format
+        self.generate_structure()
+        output_path = self.structure_graph.render(filename, cleanup=True)
+        print(f"Structure diagram saved to {output_path}")
         return output_path
 
-    def view(self) -> None:
+    def save_flow(self, filename: str, format: str = 'png') -> str:
         """
-        Generate and display the diagram.
+        Generate and save the execution flow diagram to a file.
 
-        This will open the diagram in the default viewer for your system.
+        Args:
+            filename: Path to output file (without extension)
+            format: Output format (png, pdf, svg, etc.)
+
+        Returns:
+            Path to the saved file
         """
-        self.generate()
-        self.graph.view(cleanup=True)
+        self.flow_graph.format = format
+        self.generate_flow()
+        output_path = self.flow_graph.render(filename, cleanup=True)
+        print(f"Execution flow diagram saved to {output_path}")
+        return output_path
+
+    def view_structure(self) -> None:
+        """
+        Generate and display the structure diagram.
+
+        Opens the diagram in the default system viewer.
+        """
+        self.generate_structure()
+        self.structure_graph.view(cleanup=True)
+
+    def view_flow(self) -> None:
+        """
+        Generate and display the execution flow diagram.
+
+        Opens the diagram in the default system viewer.
+        """
+        self.generate_flow()
+        self.flow_graph.view(cleanup=True)
