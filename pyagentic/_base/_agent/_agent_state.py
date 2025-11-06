@@ -1,4 +1,3 @@
-import inspect
 import asyncio
 import threading
 from typing import Any, Type, Self, Optional, ClassVar
@@ -8,15 +7,16 @@ from typing import Optional, Literal
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
-from pyagentic._base._policy import Policy
-from pyagentic._base._events import Event, EventKind, GetEvent, SetEvent
+from pyagentic.policies._policy import Policy
+from pyagentic.policies._events import Event, EventKind, GetEvent, SetEvent
 
 from pyagentic.models.llm import Message
 
 
 class _AgentState(BaseModel):
     """
-    Base state class for agents; uses dataclass for auto-generated init/signature.
+    Base state class for agents, uses Pydantic for auto-generated init and validation.
+    Manages state fields, policies, and message history for agent execution.
     """
 
     _policy_handlers = {
@@ -41,15 +41,39 @@ class _AgentState(BaseModel):
         return super().model_post_init(state)
 
     def get_policies(self, state_name: str) -> list[Policy]:
-        """Get all policies attached to a given state field."""
+        """
+        Get all policies attached to a given state field.
+
+        Args:
+            state_name (str): The name of the state field
+
+        Returns:
+            list[Policy]: List of policies for the field, or empty list if none
+        """
         return self.__policies__.get(state_name, [])
 
     def _run_policies(self, event: Event, policy_type: Literal["on", "background"]) -> Any:
         """
         Run synchronous policies as a transformation pipeline.
         Each policy receives (event, value) and returns the next transformed value.
+
+        Args:
+            event (Event): The event being processed
+            policy_type (Literal["on", "background"]): The type of policy handler to run
+
+        Returns:
+            Any: The transformed value after all policies have been applied
+
+        Raises:
+            ValueError: If no handler exists for the policy type and event kind combination
+            RuntimeError: If called with non-synchronous policy type
         """
         value = event.value
+
+        policies = self.get_policies(event.name)
+
+        if not policies:
+            return value
 
         for policy in self.get_policies(event.name):
             handler_name = self._policy_handlers.get((policy_type, event.kind))
@@ -76,8 +100,20 @@ class _AgentState(BaseModel):
 
         Each async policy receives (event, value) and may return a new value.
         The final result is written back to the state safely under a lock.
+
+        Args:
+            event (Event): The event being processed
+            policy_type (Literal["on", "background"]): The type of policy handler to run
+
+        Raises:
+            ValueError: If no handler exists for the policy type and event kind combination
         """
         value = event.value
+
+        policies = self.get_policies(event.name)
+
+        if not policies:
+            return
 
         for policy in self.get_policies(event.name):
             handler_name = self._policy_handlers.get((policy_type, event.kind))
@@ -99,7 +135,18 @@ class _AgentState(BaseModel):
                 setattr(self, event.name, value)
 
     def get(self, name: str) -> Any:
-        """Retrieve and transform a value via GET policies."""
+        """
+        Retrieves and transforms a value via GET policies.
+
+        Args:
+            name (str): The name of the state field to retrieve
+
+        Returns:
+            Any: The retrieved and transformed value
+
+        Raises:
+            InvalidStateRefNotFoundInState: If the state field does not exist
+        """
         try:
             stored_value = getattr(self, name)
         except AttributeError:
@@ -111,7 +158,16 @@ class _AgentState(BaseModel):
         return transformed_value
 
     def set(self, name: str, value: Any):
-        """Set a value via SET policies (transform, validate, store)."""
+        """
+        Sets a value via SET policies (transform, validate, store).
+
+        Args:
+            name (str): The name of the state field to set
+            value (Any): The new value to set
+
+        Raises:
+            InvalidStateRefNotFoundInState: If the state field does not exist
+        """
         try:
             previous = getattr(self, name)
         except AttributeError:
@@ -128,14 +184,17 @@ class _AgentState(BaseModel):
         cls, name: str, state_definitions: dict[str, _StateDefinition]
     ) -> Type[Self]:
         """
-        Dynamically create a dataclass subclass with typed state fields.
+        Dynamically creates a Pydantic model subclass with typed state fields.
 
         Args:
-            name: base name for the new class (e.g. 'MyAgent').
-            ctx_map: mapping of field name to (type, StateItem).
+            name (str): Base name for the new class (e.g. 'MyAgent')
+            state_definitions (dict[str, _StateDefinition]): Mapping of field names to state definitions
 
         Returns:
-            A new dataclass type 'NameState'.
+            Type[Self]: A new Pydantic model type named 'AgentState[name]'
+
+        Raises:
+            RuntimeError: If an unexpected entry type is found in state_definitions
         """
         pydantic_fields = {}  # for actual dataclass fields (StateItem)
 
@@ -162,12 +221,21 @@ class _AgentState(BaseModel):
 
     @property
     def recent_message(self) -> Message:
+        """
+        Returns the most recent message in the message history.
+
+        Returns:
+            Message: The last message added to the state
+        """
         return self._messages[-1]
 
     @property
     def system_message(self) -> str:
         """
-        The current formatted system_message
+        Returns the current formatted system message with state fields interpolated.
+
+        Returns:
+            str: The rendered system message with state values
         """
         # start with all the normal dataclass fields
 
@@ -177,7 +245,10 @@ class _AgentState(BaseModel):
     @property
     def messages(self) -> list[Message]:
         """
-        List of openai-ready messages with the most up-to-date system message
+        Returns a list of OpenAI-ready messages with the most up-to-date system message.
+
+        Returns:
+            list[Message]: Complete message list with system message prepended
         """
         messages = self._messages.copy()
         messages.insert(0, Message(role="system", content=self.system_message))
@@ -185,13 +256,13 @@ class _AgentState(BaseModel):
 
     def add_user_message(self, message: str):
         """
-        Add a user message to the message list. If a `input_template` is given then
+        Adds a user message to the message list. If an `input_template` is given then
             the message will be formatted in it as well as any state used in the template.
 
         To use the user message in the template, place the key `user_message`.
 
         Args:
-            message(str): The user message to be added.
+            message (str): The user message to be added
         """
 
         if self.input_template:

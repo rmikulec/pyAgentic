@@ -2,56 +2,10 @@ from pydantic import BaseModel, Field, create_model
 from typing import Type, Self, Union, Any
 
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic._base._params import Param
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._agent._agent_state import _AgentState
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
 from pyagentic.models.llm import ProviderInfo
-
-
-def param_to_pydantic(ParamClass: Type[Param]) -> Type[BaseModel]:
-    """
-    Converts a pyagentic Param Class to a pydantic BaseModel
-
-    Args:
-        - ParamClass(Type[Param]): A pyagentic ParamClass, this is any class that extends Param
-
-    Returns:
-        - Type[BaseModel]: A pydantic BaseModel with the same fields as the pyagentic ParamClass
-    """
-    fields = {}
-
-    for attr_name, (attr_type, attr_info) in ParamClass.__attributes__.items():
-        type_info = analyze_type(attr_type, Param)
-
-        match type_info.category:
-
-            case TypeCategory.PRIMITIVE:
-                fields[attr_name] = (
-                    attr_type,
-                    Field(default=attr_info.default, description=attr_info.description),
-                )
-            case TypeCategory.LIST_PRIMITIVE:
-                fields[attr_name] = (
-                    list[attr_type],
-                    Field(default=attr_info.default, description=attr_info.description),
-                )
-            case TypeCategory.SUBCLASS:
-                SubParamModel = param_to_pydantic(attr_type)
-                fields[attr_name] = (
-                    SubParamModel,
-                    Field(default=attr_info.default, description=attr_info.description),
-                )
-            case TypeCategory.LIST_SUBCLASS:
-                SubParamModel = param_to_pydantic(type_info.inner_type)
-                fields[attr_name] = (
-                    list[SubParamModel],
-                    Field(default=attr_info.default, description=attr_info.description),
-                )
-            case _:
-                raise Exception(f"Unsupported type: {attr_type}")
-
-    return create_model(f"{ParamClass.__name__}Model", **fields)
 
 
 class ToolResponse(BaseModel):
@@ -70,11 +24,17 @@ class ToolResponse(BaseModel):
     def from_tool_def(cls, tool_def: _ToolDefinition) -> Type[Self]:
         """
         Creates a subclass of `ToolResponse`, using the Tool Definition to make the kwargs
-            accessible through pydantic
+            accessible through pydantic.
+
+        Args:
+            tool_def (_ToolDefinition): Tool definition containing parameter specifications
+
+        Returns:
+            Type[Self]: New ToolResponse subclass with tool parameters as fields
         """
         fields = {}
         for param_name, (param_type, param_info) in tool_def.parameters.items():
-            type_info = analyze_type(param_type, Param)
+            type_info = analyze_type(param_type, BaseModel)
             match type_info.category:
 
                 case TypeCategory.PRIMITIVE:
@@ -88,15 +48,13 @@ class ToolResponse(BaseModel):
                         Field(default=param_info.default, description=param_info.description),
                     )
                 case TypeCategory.SUBCLASS:
-                    ParamSubModel = param_to_pydantic(param_type)
                     fields[param_name] = (
-                        ParamSubModel,
+                        param_type,
                         Field(default=param_info.default, description=param_info.description),
                     )
                 case TypeCategory.LIST_SUBCLASS:
-                    ParamSubModel = param_to_pydantic(type_info.inner_type)
                     fields[param_name] = (
-                        list[ParamSubModel],
+                        param_type,
                         Field(default=param_info.default, description=param_info.description),
                     )
                 case _:
@@ -129,6 +87,16 @@ class AgentResponse(BaseModel):
         """
         Creates a subclass of `AgentResponse`, using Tool Definitions to create a predetermined
             schema of what the response will look like.
+
+        Args:
+            agent_name (str): Name of the agent class
+            tool_response_models (list[Type[ToolResponse]]): List of tool response model types
+            linked_agents_response_models (list[Type[Self]]): List of linked agent response types
+            ResponseFormat (Union[str, Type[BaseModel]]): Expected response format specification
+            StateClass (Type[_AgentState]): Agent state class type
+
+        Returns:
+            Type[Self]: New AgentResponse subclass with predetermined schema
         """
         fields = {}
         if tool_response_models:

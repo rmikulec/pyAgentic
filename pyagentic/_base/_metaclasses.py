@@ -6,15 +6,13 @@ from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
-from pydantic import BaseModel
 
-from pyagentic._base._info import _SpecInfo
+from pyagentic._base._info import _SpecInfo, ParamInfo
 from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
-from pyagentic._base._agent_state import _AgentState
+from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import State, StateInfo, _StateDefinition
-from pyagentic._base._params import ParamInfo
 
 from pyagentic.models.response import AgentResponse, ToolResponse
 
@@ -31,9 +29,9 @@ class Agent:
 class AgentMeta(type):
     """
     Metaclass that applies only to Agent subclasses:
-      - Ensures @system_message was declared
-      - Collects @tool definitions and StateItem attributes
-      - Initializes class __tool_defs__ and __state_items__
+      - Ensures __system_message__ was declared
+      - Collects @tool definitions and State field attributes
+      - Initializes class __tool_defs__ and __state_defs__
       - Dynamically injects an __init__ signature based on class __annotations__
     """
 
@@ -43,15 +41,21 @@ class AgentMeta(type):
     @staticmethod
     def _inherited_namespace_from_bases(bases: tuple[type, ...]) -> dict[str, object]:
         """
-        Build the inherited (raw) namespace you'd see via MRO lookup for a class with `bases`.
+        Builds the inherited (raw) namespace you'd see via MRO lookup for a class with `bases`.
         Returns a dict where earlier bases in the MRO win.
+
+        Args:
+            bases (tuple[type, ...]): Tuple of base classes
+
+        Returns:
+            dict[str, object]: Combined namespace from all bases in MRO order
         """
-        # Build a graph: any hashable node -> list of parents.
-        # We'll use a sentinel NEW for the (not-yet-created) class.
+        # Build a graph: any hashable node -> list of parents
+        # Use a sentinel NEW for the (not-yet-created) class
         NEW = object()
         graph = {NEW: list(bases)}
 
-        # Add all reachable base classes and their parents.
+        # Add all reachable base classes and their parents
         stack = list(bases)
         seen = set()
         while stack:
@@ -63,7 +67,7 @@ class AgentMeta(type):
             graph[cls] = parents
             stack.extend(parents)
 
-        # C3 linearize starting from NEW
+        # Use C3 linearization starting from NEW
         order = linearize(graph)[NEW]
         mro_bases = [c for c in order if isinstance(c, type) and c is not object]
 
@@ -73,10 +77,16 @@ class AgentMeta(type):
     @staticmethod
     def _extract_tool_defs(namespace) -> Mapping[str, _ToolDefinition]:
         """
-        Extracts tool definitions from a given namespace
+        Extracts tool definitions from a given namespace.
 
-        Any method with the `@tool` descriptor will be attached to the `__tool_defs__` class
-            attribute
+        Any method with the `@tool` decorator will be attached to the `__tool_defs__` class
+            attribute.
+
+        Args:
+            namespace (dict): The class namespace to search
+
+        Returns:
+            Mapping[str, _ToolDefinition]: Immutable mapping of tool names to definitions
         """
         tools: dict[str, _ToolDefinition] = {}
         for attr_name, attr_value in namespace.items():
@@ -87,8 +97,15 @@ class AgentMeta(type):
     @staticmethod
     def _extract_annotations(namespace, bases) -> dict[str, TypeVar]:
         """
-        Extracts all annotations from current class and all its subclasses. Combines them into
-            one dictionary, with class order respected (subclasses overide parent classes.)
+        Extracts all annotations from current class and all its parent classes. Combines them
+            into one dictionary, with class order respected (subclasses override parent classes).
+
+        Args:
+            namespace (dict): The class namespace containing __annotations__
+            bases (tuple): The base classes
+
+        Returns:
+            dict[str, TypeVar]: Combined annotations from all classes in hierarchy
         """
         annotations = {}
         for base in reversed(bases):
@@ -103,6 +120,19 @@ class AgentMeta(type):
 
     @staticmethod
     def _extract_state_defs(annotations, namespace) -> Mapping[str, _StateDefinition]:
+        """
+        Extracts state field definitions from annotations and namespace.
+
+        Looks for State[T] type annotations and pairs them with StateInfo descriptors
+        from the namespace if present.
+
+        Args:
+            annotations (dict): Combined annotations from the class hierarchy
+            namespace (dict): The class namespace
+
+        Returns:
+            Mapping[str, _StateDefinition]: Immutable mapping of state field names to definitions
+        """
         state_attributes: dict[str, _StateDefinition] = {}
 
         for attr_name, attr_type in annotations.items():
@@ -110,7 +140,7 @@ class AgentMeta(type):
             if hasattr(attr_type, "__origin__") and attr_type.__origin__ is State:
                 state_model = attr_type.__state_model__
 
-                # Check if there's a descriptor in namespace
+                # Check if there's a StateInfo descriptor in namespace
                 descriptor = namespace.get(attr_name)
                 if isinstance(descriptor, StateInfo):
                     state_info = descriptor
@@ -195,9 +225,17 @@ class AgentMeta(type):
     @staticmethod
     def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
         """
-        Extracts any class field from annotations and namespace where the value is that of
-            `StateItem`, these will later be appeneded to the agents state. This will return
-            both the type and the user defined state item.
+        Extracts linked agent fields from annotations.
+
+        Looks for annotations where the type is a subclass of Agent (or Link[Agent]).
+        These will be available as callable tools to the LLM.
+
+        Args:
+            annotations (dict): Combined annotations from the class hierarchy
+            Agent (type): The base Agent class to check against
+
+        Returns:
+            Mapping[str, Agent]: Immutable mapping of agent field names to agent types
         """
         linked_agents: dict[str, "Agent"] = {}
         for attr_name, attr_type in annotations.items():
@@ -216,16 +254,24 @@ class AgentMeta(type):
     @staticmethod
     def _build_init_signature(agent_cls: Type[Agent]) -> inspect.Signature:
         """
-        Build __init__ signature with all non-default (required) params
+        Builds __init__ signature with all non-default (required) params
         before any defaulted (optional) params.
+
+        Args:
+            agent_cls (Type[Agent]): The agent class being constructed
+
+        Returns:
+            inspect.Signature: The constructed __init__ signature
         """
         self_param = inspect.Parameter("self", inspect.Parameter.POSITIONAL_ONLY)
 
-        required: list[inspect.Parameter] = []
-        optional: list[inspect.Parameter] = []
-        agents: list[inspect.Parameter] = []  # Agents go last in signature for better order
+        # Group parameters by type for proper ordering
+        required: list[inspect.Parameter] = []  # Required parameters (no default)
+        optional: list[inspect.Parameter] = []  # Optional parameters (with default)
+        agents: list[inspect.Parameter] = []  # Linked agents (always optional, go last)
 
         for field_name, field_type in agent_cls.__annotations__.items():
+            # State fields are always optional (have defaults or default_factory)
             if field_name in agent_cls.__state_defs__:
                 param = inspect.Parameter(
                     field_name,
@@ -234,8 +280,8 @@ class AgentMeta(type):
                     annotation=field_type,
                 )
                 optional.append(param)
+            # Linked agents are optional by default (can be None)
             elif field_name in agent_cls.__linked_agents__:
-                # Treat linked agents as optional by default
                 param = inspect.Parameter(
                     field_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
@@ -243,6 +289,7 @@ class AgentMeta(type):
                     annotation=field_type,
                 )
                 agents.append(param)
+            # Other annotated fields (like model, api_key, tracer, etc.)
             else:
                 default = getattr(agent_cls, field_name, inspect._empty)
                 param = inspect.Parameter(
@@ -262,17 +309,22 @@ class AgentMeta(type):
     @staticmethod
     def _build_init(sig):
         """
-        Builds the init function for the class. This init will automatically have user-defined
-            state items as arguements, allow for easy initialization of agents for a variety
+        Builds the __init__ function for the class. This init will automatically have user-defined
+            state fields as arguments, allowing for easy initialization of agents for a variety
             of different tasks.
+
+        Args:
+            sig (inspect.Signature): The signature to attach to the __init__
+
+        Returns:
+            Callable: The constructed __init__ function
         """
 
         def __init__(self, *args, **kwargs):
             compiled = {}
+            # Process all state field definitions
             for name, definition in self.__state_defs__.items():
-                # Skip compted states, this validaiton will happen with the validator
-                #   using a dry run with supplied default values
-                # Add all StateItems to the kwargs, checking type as it goes
+                # Add all state fields to compiled dict, validating types as we go
                 if name in kwargs:
                     val = kwargs[name]
                     try:
@@ -285,23 +337,26 @@ class AgentMeta(type):
                 else:
                     compiled[name] = definition.info.get_default()
 
+            # Create the state object with system message and state fields
             self.state = self.__state_class__(
                 instructions=self.__system_message__,
                 input_template=self.__input_template__,
                 **compiled,
             )
 
+            # Collect linked agent instances from kwargs
             for agent_name in self.__linked_agents__.keys():
                 agent_instance = kwargs.get(agent_name, None)
                 compiled[agent_name] = agent_instance
 
+            # Bind all arguments to signature and set as instance attributes
             bound = sig.bind(self, *args, **(kwargs | compiled))
-            # Add all other arguements to instance
-            for name, val in list(bound.arguments.items())[1:]:  # skip 'self'
+            for name, val in list(bound.arguments.items())[1:]:  # Skip 'self'
                 if name in self.__state_defs__:
-                    continue
+                    continue  # State fields already set on state object
                 setattr(self, name, val)
 
+            # Call post-initialization hook
             self.__post_init__()
 
         __init__.__signature__ = sig
@@ -312,70 +367,68 @@ class AgentMeta(type):
 
     def __new__(mcs, name, bases, namespace, **kwargs):
         """
-        This metaclass is attached to the Agent base class, so that when a new subclass of Agent
-            is created, then this class will automatically set up class variables that define
-            the functionality of the agent.
+        Creates a new Agent subclass with all the necessary class attributes and behavior.
 
-            - __tool_defs__: dictionary holding all tool defintions registered by @tool
-            - __state_attrs__: dictionary holding tuple of type and item for all attributes
-                that are either have a default of StateItem or use @computed_state
-            - __tool_response_models__: dictionary holding pydantic response models for each tool
-            - __response_model__: The response model of the current agent that is being built
+        This metaclass automatically sets up:
+          - __tool_defs__: Dictionary holding all tool definitions registered by @tool
+          - __state_defs__: Dictionary holding state field definitions
+          - __tool_response_models__: Dictionary holding Pydantic response models for each tool
+          - __response_model__: The response model of the current agent being built
 
-        Inhertance is repected in MRO order. Tools, state attributes, computed states and
-            linked agents can all be inherited, from other agents or mixins.
-            __system_message__ and __input_template__ are *not* inherited
+        Inheritance is respected in MRO order. Tools, state attributes, and linked agents
+        can all be inherited from other agents or mixins.
+        __system_message__ and __input_template__ are *not* inherited.
+
+        Args:
+            name (str): Name of the new class
+            bases (tuple): Base classes
+            namespace (dict): Class namespace
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            type: The newly created Agent subclass
+
+        Raises:
+            SystemMessageNotDeclared: If __system_message__ is not defined in the class
         """
 
-        """
-        Create an inherited namespace by combining all bases in MRO order.
-        This uses c3linearize to determine the order, allowing uses to extend other Agents
-            and / or any mixins.
-        Mixins are classes that do not extend Agent, but can offer Agent attributes, like
-            tools, state items, and/or linked agents
-        """
+        # Create an inherited namespace by combining all bases in MRO order
+        # Uses c3linearize to determine the order, allowing users to extend other Agents
+        # and/or any mixins. Mixins are classes that do not extend Agent, but can offer
+        # Agent attributes like tools, state fields, and/or linked agents
         inherited_namespace = mcs._inherited_namespace_from_bases(bases)
 
-        """
-        Declare the new Agent subclass.
-        If this is the base agent being declared (usually on import), then the initializtion of
-            tools, state items, etc.. will be skipped, and this class will be stored in the meta
-            for future use.
-        All other Agent subclasses will have __abstract_base__ marked as False, so that future
-            implementions "know" it is not the base.
-        Since system message is not inherited, an exception is raised if the user does not
-            supply one
-        """
+        # Declare the new Agent subclass
+        # If this is the base agent being declared (usually on import), then the initialization
+        # of tools, state fields, etc. will be skipped, and this class will be stored in the
+        # metaclass for future use. All other Agent subclasses will have __abstract_base__
+        # marked as False. Since system message is not inherited, an exception is raised if
+        # the user does not supply one
         with mcs._lock:
             cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-            # If it is a base Agent, then return
+            # If this is the base Agent, store it and return early
             if namespace.get("__abstract_base__", False):
                 mcs.__BaseAgent__ = cls
                 return cls
             cls.__abstract_base__ = False
-            # Verify system message is set
+            # Verify system message is set (not inherited)
             if "__system_message__" not in namespace:
                 raise SystemMessageNotDeclared()
 
-        """
-        Extract and attach Agent attributes
-
-        __tool_defs__: Tool definitions (from any method marked with an @tool decorator) are
-            extracted from both the current namespace and the MRO ordered inherited namespace
-
-        __annotations__: Python annotations are extracted using the namespace and the inherited
-            namespace
-
-        __state_attrs__: State attributes (from any class attribute with a StateItem in
-            the namespace, or any method marked with a @computed_state decorator) are extracted
-            from both the current namespace and the inherited namespace. This also needs the
-            classes annotations, in order to attach the annotation to the state attribute for
-            later validation
-
-        __linked_agents__: Linked agents work a bit differently, since they cannot have default
-            values, the namespaces are not used. Instead, it relies on the MRO ordered annotations
-            to build a dict of any agents are are linked.
-        """
+        # Extract and attach Agent attributes:
+        #
+        # __tool_defs__: Tool definitions from any method marked with @tool decorator,
+        #     extracted from both current namespace and inherited namespace
+        #
+        # __annotations__: Python annotations extracted from namespace and inherited namespace
+        #
+        # __state_defs__: State field definitions from annotations of type State[T], paired
+        #     with StateInfo descriptors from the namespace. Extracted from both current and
+        #     inherited namespaces, using annotations to get the type information
+        #
+        # __linked_agents__: Linked agents extracted from annotations where the type is a
+        #     subclass of Agent. These don't use namespace defaults, only annotations
+        tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         state_defs = mcs._extract_state_defs(annotations, inherited_namespace | namespace)
@@ -388,18 +441,17 @@ class AgentMeta(type):
             cls.__state_defs__ = state_defs
             cls.__linked_agents__ = linked_agents
 
-        """
-        Create response models. Response models are created on class declaration to give the agent
-            a predetermined output. This allows developers to know exactly what the output of the
-            agent will be, before even creating an instance of the agent.
-
-        __tool_response_models__: All tools have their own pydantic response model, these need
-            to be build using their Tool Definition. This needs to be stored on the agent, so that
-            it can create instances of the tool response after calling the tool.
-
-        __response_model__: The final pydantic response model of the agent. This is constructed
-            using the tool definition models, and any response model of linked agents.
-        """
+        # Create response models at class declaration time, giving the agent a predetermined
+        # output structure. This allows developers to know exactly what the output of the
+        # agent will be before even creating an instance.
+        #
+        # __tool_response_models__: All tools have their own Pydantic response model built
+        #     from their ToolDefinition. Stored on the agent so it can create instances of
+        #     the tool response after calling the tool.
+        #
+        # __response_model__: The final Pydantic response model of the agent, constructed
+        #     using the tool response models and linked agent response models
+        # Build tool response models for each tool
         tool_response_models = {
             tool_name: ToolResponse.from_tool_def(tool_def)
             for tool_name, tool_def in cls.__tool_defs__.items()
@@ -408,13 +460,17 @@ class AgentMeta(type):
         linked_agent_response_model_list = [
             agent.__response_model__ for agent in cls.__linked_agents__.values()
         ]
+
+        # Create a Pydantic model for the agent's state
         StateClass = _AgentState.make_state_model(
             name=cls.__name__, state_definitions=cls.__state_defs__
         )
+        # Attach policies to the state class for runtime policy enforcement
         StateClass.__policies__ = {
             name: def_.info.policies for name, def_ in cls.__state_defs__.items()
         }
 
+        # Create the final agent response model
         ResponseModel = AgentResponse.from_agent_class(
             agent_name=cls.__name__,
             tool_response_models=tool_response_model_list,
@@ -427,31 +483,24 @@ class AgentMeta(type):
             cls.__response_model__ = ResponseModel
             cls.__state_class__ = StateClass
 
-        """
-        Build the new init
-
-        The base init just accepts *args and **kwargs, this is changed by building a new init
-            signature. The new signature combines any state attributes, agents, and any other
-            dataclass field in the following order:
-                1. required: any dataclass field with no value in the namespace
-                2. optional: mostly state attributes, can include dataclass fields with values in
-                    the namespace
-                3. linked agents: These come last in order to keep a clear order in the init. They
-                    all default to None. So if the user does not supply a linked agent, then the
-                    parent agent will ignore it.
-
-        The new init function then creates a new AgentState class, using the state attributes
-            as its attributes. It loads in all the state items in it using the specified defaults
-            and attaches it to the agent.
-            After that it attaches any linked agents to the parent agent.
-        """
+        # Build the custom __init__ method
+        #
+        # The base init just accepts *args and **kwargs. This is replaced with a new init
+        # that has a specific signature combining state fields, linked agents, and other
+        # dataclass fields in the following order:
+        #   1. required: Any annotated field with no default value in the namespace
+        #   2. optional: State fields (always have defaults) and other fields with defaults
+        #   3. linked agents: Always optional (default to None) and come last
+        #
+        # The new init function creates an AgentState instance with the state field values,
+        # attaches it to self.state, then attaches linked agent instances and other fields
+        # as instance attributes
         sig = mcs._build_init_signature(cls)
         __init__ = mcs._build_init(sig)
         with mcs._lock:
             cls.__init__ = __init__
 
-        """
-        Validate and return
-        """
+        # Validation is commented out but can be enabled for additional runtime checks
         # _AgentConstructionValidator(cls).validate()
+
         return cls
