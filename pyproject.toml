@@ -1,6 +1,6 @@
 [project]
 name = "pyagentic-core"
-version = "1.7.0"
+version = "1.8.0-a.1"
 description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -49,6 +49,9 @@ docs = [
 eval = [
     "deepeval>=3.3.6",
 ]
+ollama = [
+    "ollama>=0.5.3",
+]
 
 
 [tool.semantic_release]
@@ -74,14 +77,20 @@ patch_tags = ["bug", "fix"]
 parse_squash_commits = true
 ignore_merge_commits = true
 
+[tool.semantic_release.branches.main]
+match = "^(main|master)$"
+prerelease = false
+
 [tool.semantic_release.branches.feat_bug_fix]
-match            = "^(feat|bug|fix)/.*"
-prerelease       = true
+match = "^(feat|bug|fix)/.*"
+prerelease = true
 prerelease_token = "a"
 
-[tool.semantic_release.branches.main]
-match      = "^(main|master)$"
-prerelease = false
+[tool.semantic_release.branches.dev]
+match = "^dev$"
+prerelease = true
+prerelease_token = "b"
+increment = "major"
 
 [tool.setuptools.packages.find]
 where = ["."]

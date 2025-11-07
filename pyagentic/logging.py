@@ -42,6 +42,13 @@ _configured = False
 
 
 def configure_logging() -> None:
+    """
+    Configures the logging system using the predefined LOGGING_CONFIG.
+    Only runs once per session to avoid duplicate configuration.
+
+    Returns:
+        None
+    """
     global _configured
     if not _configured:
         dictConfig(LOGGING_CONFIG)
@@ -49,5 +56,15 @@ def configure_logging() -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
+    """
+    Returns a configured logger instance for the given name.
+    Ensures logging is configured before returning the logger.
+
+    Args:
+        name (str): The name of the logger to retrieve
+
+    Returns:
+        logging.Logger: A configured logger instance
+    """
     configure_logging()
     return logging.getLogger(name)
