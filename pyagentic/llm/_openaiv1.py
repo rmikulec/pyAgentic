@@ -170,7 +170,7 @@ class OpenAIV1Provider(LLMProvider):
                 usage=UsageInfo(**usage),
             )
         else:
-            response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.chat.completions.create(
+            response: OpenAIResponse = await self.client.chat.completions.create(
                 model=self._model,
                 messages=self._convert_messages([message.to_dict() for message in state.messages]),
                 tools=[tool.to_openai_v1() for tool in tool_defs],
