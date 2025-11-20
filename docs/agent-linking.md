@@ -56,7 +56,7 @@ With multiple linked agents, the coordinator can intelligently decide which agen
 
 ## Custom Agent Parameters
 
-By default, when a linked agent is called, it receives the full user input as a single string. However, you can customize this behavior to create more sophisticated interactions by implementing custom `__call__` methods and using `Param` classes to define structured input parameters.
+By default, when a linked agent is called, it receives the full user input as a single string. However, you can customize this behavior to create more sophisticated interactions by implementing custom `__call__` methods and using Pydantic models to define structured input parameters.
 
 ### Basic Custom __call__
 
@@ -79,23 +79,26 @@ response = await report_agent("Create a detailed analysis report")
 
 With this setup, the parent agent's LLM can call the analysis agent with specific parameters like `analysis_type="advanced"`, giving it precise control over the linked agent's behavior.
 
-### Using Param for Structured Input
+### Using Pydantic Models for Structured Input
 
-For more complex scenarios with multiple parameters, validation, and documentation, use `Param` classes. These provide type safety and automatic schema generation:
+For more complex scenarios with multiple parameters, validation, and documentation, use Pydantic `BaseModel` classes. These provide type safety, validation, and automatic schema generation:
 
 ```python
-from pyagentic import Param
+from pydantic import BaseModel, Field
 
-class SearchParams(Param):
-    query: str
-    max_results: int = 10
-    include_metadata: bool = True
+class SearchParams(BaseModel):
+    query: str = Field(..., description="The search query to execute")
+    max_results: int = Field(default=10, description="Maximum number of results to return")
+    include_metadata: bool = Field(default=True, description="Whether to include metadata in results")
 
 class SearchAgent(BaseAgent):
     __system_message__ = "I search databases"
     __description__ = "Searches databases with advanced filtering"
 
-    async def __call__(self, params: SearchParams) -> str: ...
+    async def __call__(self, params: SearchParams) -> str:
+        # Access validated parameters
+        results = self.search_db(params.query, params.max_results)
+        return f"Found {len(results)} results for '{params.query}'"
 
 class DataAgent(BaseAgent):
     __system_message__ = "I manage data operations"
@@ -105,7 +108,7 @@ class DataAgent(BaseAgent):
 result = await data_agent("Find customer records for 'John Smith'")
 ```
 
-When using `Param` classes, PyAgentic automatically generates the proper OpenAI tool schema, complete with parameter types, defaults, and descriptions. This makes the linked agent's interface clear to the calling LLM and ensures type safety throughout the system.
+When using Pydantic `BaseModel` classes, PyAgentic automatically generates the proper OpenAI tool schema, complete with parameter types, defaults, descriptions, and validation rules. This makes the linked agent's interface clear to the calling LLM and ensures type safety throughout the system.
 
 ## Best Practices
 
