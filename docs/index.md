@@ -24,13 +24,13 @@ Dive deeper into PyAgentic's powerful features:
 
 <div class="grid cards" markdown>
 
-- :material-chat-processing: **[Agent Responses](responses.md)**
+- :material-tools: **[Tools](tools.md)**
 
     ---
 
-    Understanding structured response objects with tool execution details and type safety.
+    Give agents capabilities with the @tool decorator, parameter validation, and dynamic constraints.
 
-    [:octicons-arrow-right-24: Learn about responses](responses.md)
+    [:octicons-arrow-right-24: Learn about tools](tools.md)
 
 - :material-database: **[State Management](states.md)**
 
@@ -47,6 +47,14 @@ Dive deeper into PyAgentic's powerful features:
     React to state changes with validation, history tracking, persistence, and custom behaviors.
 
     [:octicons-arrow-right-24: Learn about policies](policies.md)
+
+- :material-chat-processing: **[Agent Responses](responses.md)**
+
+    ---
+
+    Understanding structured response objects with tool execution details and type safety.
+
+    [:octicons-arrow-right-24: Learn about responses](responses.md)
 
 - :material-format-list-numbered: **[Structured Outputs](structured-output.md)**
 
