@@ -10,11 +10,10 @@ from enum import Enum
 from pyagentic.llm._openai import OpenAIProvider
 from pyagentic.llm._openaiv1 import OpenAIV1Provider
 from pyagentic.llm._anthropic import AnthropicProvider
-from pyagentic.llm._gemini import GeminiProvider
 from pyagentic.llm._mock import _MockProvider
 
 
-__all__ = ["OpenAIProvider", "AnthropicProvider", "GeminiProvider"]
+__all__ = ["OpenAIProvider", "AnthropicProvider"]
 
 
 class LLMProviders(Enum):
@@ -28,5 +27,4 @@ class LLMProviders(Enum):
     OPENAI = OpenAIProvider
     OPENAIV1 = OpenAIV1Provider
     ANTHROPIC = AnthropicProvider
-    GEMINI = GeminiProvider
     _MOCK = _MockProvider
