@@ -72,8 +72,8 @@ PyAgentic supports a variety of parameter types:
 | `bool` | `include_all: bool` | Boolean true/false |
 | `list[T]` | `tags: list[str]` | Lists of primitives |
 | `dict` | `metadata: dict` | Dictionary/object |
-| `Param` | `options: Param` | Custom Pydantic model |
-| `list[Param]` | `items: list[Item]` | List of custom models |
+| `BaseModel` | `options: SearchOptions` | Custom Pydantic model |
+| `list[BaseModel]` | `items: list[Item]` | List of custom models |
 
 ## Parameter Configuration with `spec.Param`
 
@@ -120,13 +120,12 @@ spec.Param(
 
 ## Custom Parameter Models
 
-For complex structured input, use Pydantic `BaseModel` classes with the `Param` base class:
+For complex structured input, use Pydantic `BaseModel` classes:
 
 ```python
-from pydantic import Field
-from pyagentic import Param
+from pydantic import BaseModel, Field
 
-class SearchOptions(Param):
+class SearchOptions(BaseModel):
     query: str = Field(..., description="Search query string")
     max_results: int = Field(default=10, description="Maximum results")
     filters: dict = Field(default_factory=dict, description="Additional filters")
@@ -158,7 +157,7 @@ Benefits of custom parameter models:
 Tools can accept lists of custom models for batch operations:
 
 ```python
-class Task(Param):
+class Task(BaseModel):
     title: str = Field(..., description="Task title")
     priority: int = Field(default=1, description="Priority level 1-5")
     tags: list[str] = Field(default_factory=list, description="Task tags")
@@ -471,7 +470,9 @@ def create_user(
 ) -> str: ...
 
 # ✅ Organized with Pydantic model
-class UserData(Param):
+from pydantic import BaseModel
+
+class UserData(BaseModel):
     name: str
     email: str
     age: int
