@@ -1,79 +1,109 @@
 import pytest
 import random
+from pydantic import BaseModel
 
-from pyagentic._base._context import (
-    _AgentContext,
-    ContextItem,
-    computed_context,
-    ContextRef,
-)
-from pyagentic._base._tool import tool
-from pyagentic._base._params import ParamInfo
-from pyagentic._base._agent import Agent
+from pyagentic import BaseAgent, tool, spec, State, ref
+
+
+# Pydantic models for state
+class IntStateModel(BaseModel):
+    value: int = 4
+
+
+class StrStateModel(BaseModel):
+    value: str = "test"
+
+
+class EnumValuesModel(BaseModel):
+    values: list[str] = []
 
 
 @pytest.fixture
-def mock_context():
-    @computed_context
-    def test(self):
-        return random.randint(1000, 10000)
+def mock_state():
+    """Creates a mock state instance for testing state-related functionality"""
 
-    MockContext = _AgentContext.make_ctx_class(
-        "Mock",
-        ctx_map={
-            "int_default": (int, ContextItem(default=4)),
-            "str_default": (str, ContextItem(default="test")),
-            "int_factory": (int, ContextItem(default_factory=lambda: random.randint(0, 100))),
-            "str_factory": (
-                str,
-                ContextItem(default_factory=lambda: f"Random: {random.randint(100, 200)}"),
-            ),
-            "random_computed": (computed_context, test),
-            "default_override": (str, ContextItem(default="testing")),
-        },
+    class MockAgent(BaseAgent):
+        __system_message__ = "This is a mock"
+        __input_template__ = ""  # Prevent None from being passed to Jinja2
+
+        int_default: State[IntStateModel] = spec.State(
+            default_factory=lambda: IntStateModel(value=4)
+        )
+        str_default: State[StrStateModel] = spec.State(
+            default_factory=lambda: StrStateModel(value="test")
+        )
+        int_factory: State[IntStateModel] = spec.State(
+            default_factory=lambda: IntStateModel(value=random.randint(0, 100))
+        )
+        str_factory: State[StrStateModel] = spec.State(
+            default_factory=lambda: StrStateModel(
+                value=f"Random: {random.randint(100, 200)}"
+            )
+        )
+        default_override: State[StrStateModel] = spec.State(
+            default_factory=lambda: StrStateModel(value="testing")
+        )
+
+    # Create instance with overridden default
+    agent = MockAgent(
+        model="_mock::test-model",
+        api_key="MyKey",
     )
-    yield MockContext(instructions="This is a mock", default_override="overriden")
+    agent.state.default_override = StrStateModel(value="overriden")
+
+    yield agent.state
 
 
 @pytest.fixture
 def mock_agent():
-    class MockAgent(Agent):
+    """Creates a mock agent instance for testing agent functionality"""
+
+    class MockAgent(BaseAgent):
         __system_message__ = "This is a mock agent"
+        __input_template__ = ""  # Prevent None from being passed to Jinja2
 
-        int_default: int = ContextItem(default=4)
-        str_default: str = ContextItem(default="test")
-        int_factory: int = ContextItem(default_factory=lambda: random.randint(0, 100))
-        str_factory: str = ContextItem(
-            default_factory=lambda: f"Random: {random.randint(100, 200)}"
+        int_default: State[IntStateModel] = spec.State(
+            default_factory=lambda: IntStateModel(value=4)
         )
-        default_override: str = ContextItem(default="testing")
-        test_enum_values: list[str] = ContextItem(default_factory=list)
-
-        @computed_context
-        def random_computed(self):
-            return self.int_default * random.randint(1000, 10000)
-
-        @computed_context
-        def computed_values(self):
-            return ["a", "b", "c"]
+        str_default: State[StrStateModel] = spec.State(
+            default_factory=lambda: StrStateModel(value="test")
+        )
+        int_factory: State[IntStateModel] = spec.State(
+            default_factory=lambda: IntStateModel(value=random.randint(0, 100))
+        )
+        str_factory: State[StrStateModel] = spec.State(
+            default_factory=lambda: StrStateModel(
+                value=f"Random: {random.randint(100, 200)}"
+            )
+        )
+        default_override: State[StrStateModel] = spec.State(
+            default_factory=lambda: StrStateModel(value="testing")
+        )
+        test_enum_values: State[EnumValuesModel] = spec.State(
+            default_factory=lambda: EnumValuesModel(values=[])
+        )
 
         @tool("Testing from mock agent")
         def test(self) -> str:
-            pass
+            return "test"
 
         @tool("Testing params in tool with ref")
-        def test_ref(self, letter: str = ParamInfo(values=ContextRef("test_enum_values"))) -> str:
-            pass
+        def test_ref(
+            self, letter: str = spec.Param(values=ref.self.test_enum_values.values)
+        ) -> str:
+            return f"letter: {letter}"
 
         @tool("testing ref with computed")
         def test_computed_ref(
-            self, letter: str = ParamInfo(values=ContextRef("computed_values"))
+            self, letter: str = spec.Param(values=["a", "b", "c"])
         ) -> str:
-            pass
+            return f"letter: {letter}"
 
-    yield MockAgent(
+    agent = MockAgent(
         model="_mock::test-model",
         api_key="MyKey",
-        default_override="overriden",
-        test_enum_values=["a", "b", "c"],
     )
+    agent.state.default_override = StrStateModel(value="overriden")
+    agent.state.test_enum_values = EnumValuesModel(values=["a", "b", "c"])
+
+    yield agent
