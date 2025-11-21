@@ -99,6 +99,7 @@ include = ["pyagentic*"]
 
 
 [tool.taskipy.tasks]
-build-docs  = "mkdocs build --clean"
-serve-docs  = "mkdocs serve"
-deploy-docs = "mkdocs gh-deploy --force"
+compile-diagrams = "for file in docs/diagrams/source/*.d2; do d2 --layout elk \"$file\" \"docs/diagrams/$(basename \"$file\" .d2).svg\"; done"
+build-docs  = "task compile-diagrams && mkdocs build --clean"
+serve-docs  = "task compile-diagrams && mkdocs serve"
+deploy-docs = "task compile-diagrams && mkdocs gh-deploy --force"
