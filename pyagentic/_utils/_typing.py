@@ -8,12 +8,22 @@ PRIMITIVES = (bool, str, int, float, type(None))
 
 def is_primitive(type_: Any) -> bool:
     """
-    Helper function to check if a type is a python primitive
+    Helper function to check if a type is a Python primitive.
+
+    Args:
+        type_ (Any): The type to check
+
+    Returns:
+        bool: True if the type is a primitive, False otherwise
     """
     return type_ in PRIMITIVES
 
 
 class TypeCategory(Enum):
+    """
+    Enumeration of type categories for parameter analysis.
+    """
+
     PRIMITIVE = "primitive"
     LIST_PRIMITIVE = "list_primitive"
     SUBCLASS = "subclass"
@@ -23,7 +33,9 @@ class TypeCategory(Enum):
 
 @dataclass
 class TypeInfo:
-    """Normalized information about a type"""
+    """
+    Normalized information about a type, including category and inner types.
+    """
 
     category: TypeCategory
     base_type: type
@@ -31,15 +43,29 @@ class TypeInfo:
 
     @property
     def is_list(self) -> bool:
+        """
+        Returns whether the type is a list type.
+
+        Returns:
+            bool: True if the category is a list type
+        """
         return self.category in [TypeCategory.LIST_PRIMITIVE, TypeCategory.LIST_SUBCLASS]
 
     @property
     def is_subclass(self) -> bool:
+        """
+        Returns whether the type is a subclass of a base class.
+
+        Returns:
+            bool: True if the category is a subclass type
+        """
         return self.category in [TypeCategory.SUBCLASS, TypeCategory.LIST_SUBCLASS]
 
     @property
     def effective_type(self) -> type:
-        """Returns the type to work with (inner type for lists, base type otherwise)"""
+        """
+        Returns the type to work with (inner type for lists, base type otherwise).
+        """
         return self.inner_type if self.is_list else self.base_type
 
     @property
@@ -66,12 +92,11 @@ class TypeInfo:
 
 def analyze_type(type_: type, base_class: type) -> TypeInfo:
     """
-    Analyze a type and return normalized information about it.
+    Analyzes a type and returns normalized information about it.
 
     Args:
         type_: The type to analyze
-        is_primitive_func: Function to check if a type is primitive
-        param_base_class: Base class for Param types (e.g., Param)
+        base_class: Base class for checking subclass relationships
     """
     origin = get_origin(type_)
 

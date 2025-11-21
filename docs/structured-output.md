@@ -7,7 +7,7 @@ PyAgentic can automatically structure the final output of an agent into a Pydant
 To specify a structured output, define a Pydantic model and assign it to the `__response_format__` attribute of your agent.
 
 ```python
-from pyagentic import Agent, tool
+from pyagentic import BaseAgent, tool
 from pydantic import BaseModel
 
 class UserInfo(BaseModel):
@@ -17,7 +17,7 @@ class UserInfo(BaseModel):
     city: str
     state: str
 
-class UserParsingAgent(Agent):
+class UserParsingAgent(BaseAgent):
     __system_message__ = "You are an AI that is an expert at parsing user information from any text"
     __response_format__ = UserInfo
 
@@ -37,9 +37,14 @@ await agent("Im John, im 28 and my postal code is 10012")
   "final_output": {
     "name": "John",
     "age": 28,
-    "desc": "User is John, aged 28, from NYC.",
+    "desc": "Postal code was 10012",
     "city": "NYC",
     "state": "New York"
+  },
+  "provider_info": {
+    "name": "openai",
+    "model": "gpt-4o",
+    "attributes": {}
   },
   "tool_responses": [
     {
@@ -48,7 +53,11 @@ await agent("Im John, im 28 and my postal code is 10012")
       "output": "NYC, New York",
       "zipcode": "10012"
     }
-  ]
+  ],
+  "state": {
+    "instructions": "You are an AI that is an expert at parsing user information from any text",
+    "input_template": null
+  }
 }
 ```
 
@@ -60,76 +69,143 @@ advantage of the LLMs structured output feature (if supported). Pyagentic also a
 
 ```json
 {
-    "$defs": {
-        "ToolResponse_get_user_": {
-            "properties": {
-                "raw_kwargs": {
-                    "title": "Raw Kwargs",
-                    "type": "string"
-                },
-                "call_depth": {
-                    "title": "Call Depth",
-                    "type": "integer"
-                },
-                "output": {
-                    "title": "Output"
-                },
-                "user_id": {
-                    "default": null,
-                    "title": "User Id",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "raw_kwargs",
-                "call_depth",
-                "output"
-            ],
-            "title": "ToolResponse[get_user]",
-            "type": "object"
+  "$defs": {
+    "AgentState_UserParsingAgent_": {
+      "properties": {
+        "instructions": {
+          "title": "Instructions",
+          "type": "string"
         },
-        "UserInfo": {
-            "properties": {
-                "name": {
-                    "title": "Name",
-                    "type": "string"
-                },
-                "age": {
-                    "title": "Age",
-                    "type": "integer"
-                },
-                "desc": {
-                    "title": "Desc",
-                    "type": "string"
-                }
+        "input_template": {
+          "anyOf": [
+            {
+              "type": "string"
             },
-            "required": [
-                "name",
-                "age",
-                "desc"
-            ],
-            "title": "UserInfo",
-            "type": "object"
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Template"
         }
+      },
+      "required": [
+        "instructions"
+      ],
+      "title": "AgentState[UserParsingAgent]",
+      "type": "object"
     },
-    "properties": {
-        "final_output": {
-            "$ref": "#/$defs/UserInfo"
+    "ProviderInfo": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
         },
-        "tool_responses": {
-            "items": {
-                "$ref": "#/$defs/ToolResponse_get_user_"
-            },
-            "title": "Tool Responses",
-            "type": "array"
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "attributes": {
+          "additionalProperties": true,
+          "default": null,
+          "title": "Attributes",
+          "type": "object"
         }
+      },
+      "required": [
+        "name",
+        "model"
+      ],
+      "title": "ProviderInfo",
+      "type": "object"
     },
-    "required": [
-        "final_output",
-        "tool_responses"
-    ],
-    "title": "UserParsingAgentResponse",
-    "type": "object"
+    "ToolResponse_zipcode_lookup_": {
+      "properties": {
+        "raw_kwargs": {
+          "title": "Raw Kwargs",
+          "type": "string"
+        },
+        "call_depth": {
+          "title": "Call Depth",
+          "type": "integer"
+        },
+        "output": {
+          "title": "Output"
+        },
+        "zipcode": {
+          "default": null,
+          "title": "Zipcode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "raw_kwargs",
+        "call_depth",
+        "output"
+      ],
+      "title": "ToolResponse[zipcode_lookup]",
+      "type": "object"
+    },
+    "UserInfo": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "age": {
+          "title": "Age",
+          "type": "integer"
+        },
+        "desc": {
+          "title": "Desc",
+          "type": "string"
+        },
+        "city": {
+          "title": "City",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "age",
+        "desc",
+        "city",
+        "state"
+      ],
+      "title": "UserInfo",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "final_output": {
+      "$ref": "#/$defs/UserInfo"
+    },
+    "provider_info": {
+      "$ref": "#/$defs/ProviderInfo"
+    },
+    "tool_responses": {
+      "items": {
+        "$ref": "#/$defs/ToolResponse_zipcode_lookup_"
+      },
+      "title": "Tool Responses",
+      "type": "array"
+    },
+    "state": {
+      "$ref": "#/$defs/AgentState_UserParsingAgent_"
+    }
+  },
+  "required": [
+    "final_output",
+    "provider_info",
+    "tool_responses",
+    "state"
+  ],
+  "title": "UserParsingAgentResponse",
+  "type": "object"
 }
 ```
 

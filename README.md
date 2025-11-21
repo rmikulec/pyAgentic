@@ -5,7 +5,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tests](https://github.com/rmikulec/pyagentic/workflows/Tests/badge.svg?branch=main)](https://github.com/rmikulec/pyAgentic/actions/workflows/testing.yml?query=branch%3Amain)
 
-A declarative, type-safe framework for building AI agents with OpenAI integration. PyAgentic lets you create sophisticated LLM agents using clean Python class syntax, with full support for tools, persistent context, agent linking, and agent inheritance.
+A declarative, type-safe framework for building AI agents with OpenAI integration. PyAgentic lets you create sophisticated LLM agents using clean Python class syntax, with full support for tools, persistent state, agent linking, and agent inheritance.
 
 ## Documentation
 
@@ -17,10 +17,10 @@ Complete documentation, tutorials, and examples can be found **[here](https://rm
 
 - **Declarative Design** - Define agents with simple class-based syntax and decorators
 - **Powerful Tools** - Easy `@tool` decoration with automatic OpenAI schema generation
-- **Persistent Context** - Stateful agents with `ContextItem` fields that persist across conversations
+- **Persistent State** - Stateful agents with `State` fields that persist across conversations
 - **Agent Linking** - Compose complex workflows by linking agents together
 - **Structured Responses** - Type-safe Pydantic responses with full tool execution details
-- **Dynamic Constraints** - Use `ContextRef` to create smart parameter validation
+- **Dynamic Constraints** - Use `ref` to create smart parameter validation
 - **Inheritance & Extensions** - Build agent hierarchies and mix in cross-cutting capabilities
 - **Native Async Support** - Built for scalable applications with async/await throughout
 - **Type Safety** - Complete typing support with validation and IDE autocompletion
@@ -36,25 +36,20 @@ pip install pyagentic-core
 ### Simple Agent Example
 
 ```python
-from pyagentic import Agent, tool, ContextItem
+from pyagentic import BaseAgent, tool, State, spec
 
-class ResearchAgent(Agent):
+class ResearchAgent(BaseAgent):
     __system_message__ = "I help with research tasks and maintain a collection of papers"
-    
-    # Persistent context that survives across conversations
-    paper_count: int = ContextItem(default=0)
-    current_topic: str = ContextItem(default="general")
-    
+
+    # Persistent state that survives across conversations
+    paper_count: State[int] = spec.State(default=0)
+    current_topic: State[str] = spec.State(default="general", access="write")
+
     @tool("Search for academic papers")
     def search_papers(self, query: str, max_results: int = 5) -> str:
         # Your search logic here
-        self.context.paper_count += max_results
+        self.paper_count += max_results
         return f"Found {max_results} papers about '{query}'"
-    
-    @tool("Set research focus")
-    def set_topic(self, topic: str) -> str:
-        self.context.current_topic = topic
-        return f"Research focus set to: {topic}"
 
 # Create and use the agent
 agent = ResearchAgent(model="openai::gpt-4", api_key="your-key")
@@ -63,7 +58,7 @@ response = await agent("Help me research machine learning papers")
 # Access structured response data
 print(response.final_output)  # Natural language response
 print(len(response.tool_responses))  # Number of tools called
-print(agent.context.paper_count)  # Persistent state
+print(agent.paper_count)  # Persistent state
 ```
 
 ### Advanced Features
@@ -72,25 +67,25 @@ print(agent.context.paper_count)  # Persistent state
 Create multi-agent workflows where agents can call other agents as tools:
 
 ```python
-class DatabaseAgent(Agent):
+class DatabaseAgent(BaseAgent):
     __system_message__ = "I query databases"
     __description__ = "Retrieves data from SQL databases"
-    
+
     @tool("Execute SQL query")
     def query(self, sql: str) -> str: ...
 
-class WebAgent(Agent):
+class WebAgent(BaseAgent):
     __system_message__ = "I search the web"
     __description__ = "Searches the internet"
 
     @tool("search")
     def search(self, terms: list[str]) -> str: ...
 
-class ReportAgent(Agent):
+class ReportAgent(BaseAgent):
     __system_message__ = "I generate business reports"
     database: DatabaseAgent  # Linked agent appears as a tool
     searcher: WebAgent
-    
+
     @tool("Create visualization")
     def create_chart(self, data: str) -> str: ...
 
@@ -100,26 +95,31 @@ response = await report_agent("Generate a plot of the latest financial data")
 ```
 
 #### Dynamic Parameter Constraints
-Use `ContextRef` to create intelligent parameter validation:
+Use `ref` with Pydantic computed fields to create intelligent parameter validation:
 
 ```python
-from pyagentic import computed_context, ContextRef, ParamInfo
+from pydantic import BaseModel, computed_field
+from pyagentic import ref, spec
 
-class DataAgent(Agent):
-    __system_message__ = "I manage datasets"
-    
-    available_datasets: list = ContextItem(default_factory=list)
-    
-    @computed_context
-    def dataset_names(self):
+class DatasetState(BaseModel):
+    available_datasets: list = []
+
+    @computed_field
+    @property
+    def dataset_names(self) -> list[str]:
         return [ds['name'] for ds in self.available_datasets]
-    
+
+class DataAgent(BaseAgent):
+    __system_message__ = "I manage datasets"
+
+    datasets: State[DatasetState] = spec.State(default_factory=DatasetState)
+
     @tool("Analyze specific dataset")
     def analyze(
-        self, 
-        dataset: str = ParamInfo(
+        self,
+        dataset: str = spec.Param(
             description="Dataset to analyze",
-            values=ContextRef("dataset_names")  # LLM can only pick from available datasets
+            values=ref.datasets.dataset_names  # LLM can only pick from available datasets
     )) -> str: ...
 ```
 

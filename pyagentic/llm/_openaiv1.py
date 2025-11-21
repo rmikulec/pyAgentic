@@ -18,7 +18,7 @@ from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
 
 
-class OpenAIMessage(Message):
+class OpenAIV1Message(Message):
     """
     OpenAI-specific message format extending the base Message class.
 
@@ -33,7 +33,7 @@ class OpenAIMessage(Message):
     output: Optional[str] = None
 
 
-class OpenAIProvider(LLMProvider):
+class OpenAIV1Provider(LLMProvider):
     """
     OpenAI provider implementation for language model inference.
 
@@ -65,7 +65,7 @@ class OpenAIProvider(LLMProvider):
         Returns:
             OpenAIMessage formatted for OpenAI's function calling API
         """
-        return OpenAIMessage(
+        return OpenAIV1Message(
             type="function_call",
             call_id=tool_call.id,
             name=tool_call.name,
@@ -83,7 +83,32 @@ class OpenAIProvider(LLMProvider):
         Returns:
             OpenAIMessage containing the function execution result
         """
-        return OpenAIMessage(type="function_call_output", call_id=id_, output=result)
+        return OpenAIV1Message(type="function_call_output", call_id=id_, output=result)
+
+    def _convert_messages(self, messages):
+        converted = []
+        for msg in messages:
+            if msg.get("type") == "function_call":
+                converted.append({
+                    "role": "assistant",
+                    "tool_calls": [{
+                        "id": msg["call_id"],
+                        "type": "function",
+                        "function": {
+                            "name": msg["name"],
+                            "arguments": msg["arguments"],
+                        },
+                    }],
+                })
+            elif msg.get("type") == "function_call_output":
+                converted.append({
+                    "role": "tool",
+                    "tool_call_id": msg["call_id"],
+                    "content": msg["output"],
+                })
+            elif "role" in msg:
+                converted.append(msg)
+        return converted
 
     async def generate(
         self,
@@ -114,49 +139,63 @@ class OpenAIProvider(LLMProvider):
             tool_defs = []
 
         if response_format:
-            response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
+            response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.beta.chat.completions.parse(
                 model=self._model,
-                instructions=state.system_message,
-                input=[message.to_dict() for message in state._messages],
-                tools=[tool.to_openai_spec() for tool in tool_defs],
-                text_format=response_format,
+                messages=self._convert_messages([message.to_dict() for message in state.messages]),
+                tools=[tool.to_openai_v1() for tool in tool_defs],
+                response_format=response_format,
+                max_tokens=128000,
+                parallel_tool_calls=True,
+                tool_choice="auto",
                 **kwargs,
             )
-            parsed = response.output_parsed if response.output_parsed else None
+            parsed = response.choices[0].message.parsed if response.choices[0].message.parsed else None
             text = parsed.model_dump_json(indent=2) if parsed else None
-            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
-            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
 
+            reasoning = None
+            tool_calls = response.choices[0].message.tool_calls
+            tool_calls = tool_calls if tool_calls else []
+            usage = response.usage.model_dump()
+            usage['input_tokens'] = usage['prompt_tokens']
+            usage['output_tokens'] = usage['completion_tokens']
             return LLMResponse(
                 text=text,
                 parsed=parsed,
                 tool_calls=[
-                    ToolCall(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
+                    ToolCall(id=tool_call.id, name=tool_call.function.name, arguments=tool_call.function.arguments)
                     for tool_call in tool_calls
                 ],
                 reasoning=reasoning,
                 raw=response,
-                usage=UsageInfo(**response.usage.model_dump()),
+                usage=UsageInfo(**usage),
             )
         else:
-            response: OpenAIResponse = await self.client.responses.create(
+            response: OpenAIResponse = await self.client.chat.completions.create(
                 model=self._model,
-                instructions=state.system_message,
-                input=[message.to_dict() for message in state._messages],
-                tools=[tool.to_openai_spec() for tool in tool_defs],
+                messages=self._convert_messages([message.to_dict() for message in state.messages]),
+                tools=[tool.to_openai_v1() for tool in tool_defs],
+                max_tokens=128000,
+                parallel_tool_calls=True,
+                tool_choice="auto",
                 **kwargs,
             )
+            parsed = None
+            text = response.choices[0].message.content
 
-            reasoning = [rx.to_dict() for rx in response.output if rx.type == "reasoning"]
-            tool_calls = [rx for rx in response.output if rx.type == "function_call"]
-
+            reasoning = None
+            tool_calls = response.choices[0].message.tool_calls
+            tool_calls = tool_calls if tool_calls else []
+            usage = response.usage.model_dump()
+            usage['input_tokens'] = usage['prompt_tokens']
+            usage['output_tokens'] = usage['completion_tokens']
             return LLMResponse(
-                text=response.output_text,
+                text=text,
+                parsed=parsed,
                 tool_calls=[
-                    ToolCall(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
+                    ToolCall(id=tool_call.id, name=tool_call.function.name, arguments=tool_call.function.arguments)
                     for tool_call in tool_calls
                 ],
                 reasoning=reasoning,
                 raw=response,
-                usage=UsageInfo(**response.usage.model_dump()),
+                usage=UsageInfo(**usage),
             )

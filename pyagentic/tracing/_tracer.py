@@ -23,15 +23,40 @@ class AgentTracer(ABC):
 
     @property
     def current_span(self) -> Optional[Span]:
+        """
+        Returns the currently active span from context.
+
+        Returns:
+            Optional[Span]: The current span, or None if no span is active
+        """
         return _current_span.get()
 
     def set_attributes(self, **kwargs):
+        """
+        Set attributes on the current span.
+
+        Args:
+            **kwargs: Arbitrary key-value pairs to attach as span attributes
+        """
         self._set_attributes(self.current_span, kwargs)
 
     def add_event(self, name, **kwargs):
+        """
+        Add a point-in-time event to the current span.
+
+        Args:
+            name (str): Name of the event
+            **kwargs: Event attributes as key-value pairs
+        """
         self._add_event(self.current_span, name, kwargs)
 
     def record_exception(self, exception: str):
+        """
+        Record an exception on the current span.
+
+        Args:
+            exception (str): Exception message or description
+        """
         self._record_exception(self.current_span, exc=exception)
 
     # ---------- low-level lifecycle ----------
@@ -42,22 +67,67 @@ class AgentTracer(ABC):
         kind: SpanKind,
         parent: Optional[Span] = None,
         attributes: Optional[Dict[str, Any]] = None,
-    ) -> Span: ...
+    ) -> Span:
+        """
+        Start a new span.
+
+        Args:
+            name (str): Name of the span
+            kind (SpanKind): Type of span (agent, tool, inference, step)
+            parent (Optional[Span]): Parent span for nesting. Defaults to None.
+            attributes (Optional[Dict[str, Any]]): Initial span attributes. Defaults to None.
+
+        Returns:
+            Span: The newly created span
+        """
+        ...
 
     @abstractmethod
-    def end_span(self, span: Span) -> None: ...
+    def end_span(self, span: Span) -> None:
+        """
+        End a span and record its completion time.
+
+        Args:
+            span (Span): The span to end
+        """
+        ...
 
     # ---------- enrichment ----------
     @abstractmethod
     def _add_event(
         self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None
-    ) -> None: ...
+    ) -> None:
+        """
+        Add an event to a specific span (internal implementation).
+
+        Args:
+            span (Span): The span to add the event to
+            name (str): Name of the event
+            attributes (Optional[Dict[str, Any]]): Event attributes. Defaults to None.
+        """
+        ...
 
     @abstractmethod
-    def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None: ...
+    def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
+        """
+        Set attributes on a specific span (internal implementation).
+
+        Args:
+            span (Span): The span to update
+            attributes (Dict[str, Any]): Attributes to set
+        """
+        ...
 
     @abstractmethod
-    def _record_exception(self, span: Span, exc: BaseException) -> None: ...
+    def _record_exception(self, span: Span, exc: BaseException) -> None:
+        """
+        Record an exception on a specific span (internal implementation).
+
+        Args:
+            span (Span): The span to record the exception on
+            exc (BaseException): The exception to record
+        """
+        ...
 
     def record_tokens(
         self,
@@ -69,7 +139,20 @@ class AgentTracer(ABC):
         total_tokens: Optional[int] = None,
         attributes: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Default token recording as an event; impls may override to native metrics."""
+        """
+        Record token usage information for an LLM call.
+
+        Default implementation records tokens as an event; implementations may
+        override to use native metrics.
+
+        Args:
+            span (Span): The span to record tokens on
+            model (Optional[str]): Model identifier. Defaults to None.
+            prompt_tokens (Optional[int]): Number of input tokens. Defaults to None.
+            completion_tokens (Optional[int]): Number of output tokens. Defaults to None.
+            total_tokens (Optional[int]): Total tokens used. Defaults to None.
+            attributes (Optional[Dict[str, Any]]): Additional attributes. Defaults to None.
+        """
         payload = {
             "model": model,
             "prompt_tokens": prompt_tokens,
@@ -125,8 +208,17 @@ class AgentTracer(ABC):
 
 def traced(kind: SpanKind, name: Optional[str] = None, attrs: Optional[dict] = None):
     """
-    Decorate async or sync callables to run inside a span.
-    Uses Agent.tracer and current_span ContextVar for nesting.
+    Decorator to run async methods inside a traced span.
+
+    Uses Agent.tracer and current_span ContextVar for automatic span nesting.
+
+    Args:
+        kind (SpanKind): Type of span to create
+        name (Optional[str]): Custom span name. Defaults to ClassName.method_name.
+        attrs (Optional[dict]): Initial span attributes. Defaults to None.
+
+    Returns:
+        Callable: Decorated function that runs within a span context
     """
 
     def outer(fn: Callable):
