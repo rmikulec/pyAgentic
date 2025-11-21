@@ -21,6 +21,12 @@ class BasicTracer(AgentTracer):
     """
 
     def __init__(self) -> None:
+        """
+        Initialize the in-memory tracer with empty storage.
+
+        Sets up dictionaries to track spans, events, traces, and parent-child
+        relationships with thread-safe locking.
+        """
         # span_id -> Span (live object, updated in-place)
         self._spans: Dict[str, Span] = {}
         # span_id -> list[dict] events
@@ -41,6 +47,18 @@ class BasicTracer(AgentTracer):
         parent: Optional[Span] = None,
         attributes: Optional[Dict[str, Any]] = None,
     ) -> Span:
+        """
+        Start a new span and record it in memory.
+
+        Args:
+            name (str): Name of the span
+            kind (SpanKind): Type of span (agent, tool, inference, step)
+            parent (Optional[Span]): Parent span for nesting. Defaults to None.
+            attributes (Optional[Dict[str, Any]]): Initial span attributes. Defaults to None.
+
+        Returns:
+            Span: The newly created span
+        """
         trace_id = parent.context.trace_id if parent else uuid.uuid4().hex
         span_id = uuid.uuid4().hex
         parent_span_id = parent.context.span_id if parent else None
@@ -63,12 +81,26 @@ class BasicTracer(AgentTracer):
         return span
 
     def end_span(self, span: Span) -> None:
+        """
+        Mark a span as ended by recording the end timestamp.
+
+        Args:
+            span (Span): The span to end
+        """
         with self._lock:
             span.end_ns = time.monotonic_ns()
 
     def _add_event(
         self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None
     ) -> None:
+        """
+        Add an event to a span.
+
+        Args:
+            span (Span): The span to add the event to
+            name (str): Name of the event
+            attributes (Optional[Dict[str, Any]]): Event attributes. Defaults to None.
+        """
         evt = {
             "name": name,
             "ts_ns": time.monotonic_ns(),
@@ -78,10 +110,24 @@ class BasicTracer(AgentTracer):
             self._events[span.context.span_id].append(evt)
 
     def _set_attributes(self, span: Span, attributes: Dict[str, Any]) -> None:
+        """
+        Update attributes on a span.
+
+        Args:
+            span (Span): The span to update
+            attributes (Dict[str, Any]): Attributes to set
+        """
         with self._lock:
             span.attributes.update(attributes)
 
     def _record_exception(self, span: Span, exc: BaseException) -> None:
+        """
+        Record an exception on a span and mark it as errored.
+
+        Args:
+            span (Span): The span to record the exception on
+            exc (BaseException): The exception to record
+        """
         with self._lock:
             span.status = SpanStatus.ERROR
             span.error = f"{type(exc).__name__}: {exc}"
@@ -95,16 +141,38 @@ class BasicTracer(AgentTracer):
     # ---------- Utilities / Export ----------
 
     def get_trace_ids(self) -> List[str]:
+        """
+        Get all trace IDs currently stored.
+
+        Returns:
+            List[str]: List of trace IDs
+        """
         with self._lock:
             return list(self._trace_index.keys())
 
     def get_span(self, span_id: str) -> Optional[Span]:
+        """
+        Retrieve a span by its ID.
+
+        Args:
+            span_id (str): The span ID to look up
+
+        Returns:
+            Optional[Span]: The span, or None if not found
+        """
         with self._lock:
             return self._spans.get(span_id)
 
     def export_trace(self, trace_id: str, *, reset: bool = False) -> Dict[str, Any]:
         """
-        Return a JSON-serializable dict for a single trace:
+        Export a single trace as a JSON-serializable dictionary.
+
+        Args:
+            trace_id (str): The trace ID to export
+            reset (bool): Whether to clear the trace from storage after export. Defaults to False.
+
+        Returns:
+            Dict[str, Any]: JSON-serializable trace data with the following structure:
         {
           "trace_id": "...",
           "spans": [
@@ -171,12 +239,24 @@ class BasicTracer(AgentTracer):
             return out
 
     def export_all(self, *, reset: bool = False) -> List[Dict[str, Any]]:
+        """
+        Export all traces as a list of JSON-serializable dictionaries.
+
+        Args:
+            reset (bool): Whether to clear all traces after export. Defaults to False.
+
+        Returns:
+            List[Dict[str, Any]]: List of trace data dictionaries
+        """
         with self._lock:
             trace_ids = list(self._trace_index.keys())
         traces = [self.export_trace(tid, reset=reset) for tid in trace_ids]
         return traces
 
     def clear(self) -> None:
+        """
+        Clear all stored traces, spans, and events from memory.
+        """
         with self._lock:
             self._spans.clear()
             self._events.clear()

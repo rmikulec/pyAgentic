@@ -21,18 +21,14 @@ class MockTracer(AgentTracer):
         trace_id = parent.context.trace_id if parent else f"trace-{len(self.spans)}"
         parent_span_id = parent.context.span_id if parent else None
 
-        context = SpanContext(
-            trace_id=trace_id,
-            span_id=span_id,
-            parent_span_id=parent_span_id
-        )
+        context = SpanContext(trace_id=trace_id, span_id=span_id, parent_span_id=parent_span_id)
 
         span = Span(
             name=name,
             kind=kind,
             context=context,
             start_ns=1000000000,  # Fixed for testing
-            attributes=dict(attributes or {})
+            attributes=dict(attributes or {}),
         )
 
         self.spans[span_id] = span
@@ -43,11 +39,9 @@ class MockTracer(AgentTracer):
         span.end_ns = 2000000000  # Fixed for testing
 
     def _add_event(self, span, name, attributes=None):
-        self.events.append({
-            'span_id': span.context.span_id,
-            'name': name,
-            'attributes': attributes or {}
-        })
+        self.events.append(
+            {"span_id": span.context.span_id, "name": name, "attributes": attributes or {}}
+        )
 
     def _set_attributes(self, span, attributes):
         if span.context.span_id not in self.attributes:
@@ -56,10 +50,7 @@ class MockTracer(AgentTracer):
         span.attributes.update(attributes)
 
     def _record_exception(self, span, exc):
-        self.exceptions.append({
-            'span_id': span.context.span_id,
-            'exception': exc
-        })
+        self.exceptions.append({"span_id": span.context.span_id, "exception": exc})
         span.status = SpanStatus.ERROR
         span.error = str(exc)
 
@@ -137,7 +128,7 @@ class TestAgentTracer:
             prompt_tokens=100,
             completion_tokens=50,
             total_tokens=150,
-            attributes={"custom": "value"}
+            attributes={"custom": "value"},
         )
 
         # Check that token event was added
@@ -249,6 +240,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_traced_decorator_basic(self, mock_agent):
         """Test basic functionality of @traced decorator."""
+
         @traced(SpanKind.TOOL, "custom-name")
         async def test_method(self, arg1, arg2="default"):
             return f"result: {arg1}-{arg2}"
@@ -273,6 +265,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_traced_decorator_default_name(self, mock_agent):
         """Test @traced decorator with default span name."""
+
         @traced(SpanKind.AGENT)
         async def my_method(self):
             return "success"
@@ -302,6 +295,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_traced_decorator_with_exception(self, mock_agent):
         """Test @traced decorator handles exceptions."""
+
         @traced(SpanKind.TOOL)
         async def failing_method(self):
             raise ValueError("Something went wrong")
@@ -318,6 +312,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_traced_decorator_nested_calls(self, mock_agent):
         """Test nested calls with @traced decorator."""
+
         @traced(SpanKind.AGENT)
         async def outer_method(self):
             return await inner_method(self)
