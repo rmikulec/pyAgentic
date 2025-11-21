@@ -28,7 +28,7 @@ Since responses are Pydantic models, you can serialize them to JSON, validate th
 When agents use tools, the response automatically includes structured information about each tool call. All tool parameters become accessible as typed fields on the response:
 
 ```python
-class EmailAgent(Agent):
+class EmailAgent(BaseAgent):
     @tool("Send email")
     def send_email(self, to: str, urgent: bool = False) -> str: ...
 
@@ -58,11 +58,11 @@ This gives you both the conversational response and programmatic access to exact
 PyAgentic automatically generates response schemas that can handle any combination of tools your agent might use. The response type is created at class definition time and includes proper typing for all possible tool combinations:
 
 ```python
-class CustomerAgent(Agent):
+class CustomerAgent(BaseAgent):
     @tool("Get customer")
     def get_customer(self, email: str): ...
-    
-    @tool("Update status") 
+
+    @tool("Update status")
     def update_status(self, id: int, status: str): ...
 
 # Response automatically includes fields for whichever tools were called
@@ -75,9 +75,9 @@ You can access any tool's parameters through the `tool_responses` list, with ful
 When agents call other agents, their complete responses are nested within the parent response. This creates a tree structure that captures the full execution flow:
 
 ```python
-class ReportAgent(Agent):
-    database: DatabaseAgent = AgentLink()
-    
+class ReportAgent(BaseAgent):
+    database: DatabaseAgent
+
     @tool("Create chart")
     def make_chart(self, type: str): ...
 
