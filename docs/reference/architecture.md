@@ -200,18 +200,25 @@ Both custom `@tool` methods and linked agents use the same `_ToolDefinition` int
 
 ## Source Diagrams
 
-These architecture diagrams were created using [D2](https://d2lang.com/). The source `.d2` files are available in the `diagrams/` directory:
+These architecture diagrams were created using [D2](https://d2lang.com/). The source `.d2` files are available in `docs/diagrams/source/`:
 
-- `diagrams/declaration.d2` - Declaration phase diagram
-- `diagrams/instantiation.d2` - Instantiation phase diagram
-- `diagrams/runtime.d2` - Runtime phase diagram
+- `docs/diagrams/source/declaration.d2` - Declaration phase diagram
+- `docs/diagrams/source/instantiation.d2` - Instantiation phase diagram
+- `docs/diagrams/source/runtime.d2` - Runtime phase diagram
 
-To regenerate the diagrams:
+The diagrams are automatically compiled to SVG when building or deploying the documentation. To manually regenerate:
+
 ```bash
-d2 diagrams/declaration.d2 docs/diagrams/declaration.svg
-d2 diagrams/instantiation.d2 docs/diagrams/instantiation.svg
-d2 diagrams/runtime.d2 docs/diagrams/runtime.svg
+# Compile all diagrams (uses elk layout engine)
+uv run task compile-diagrams
+
+# Or compile individually with elk layout
+d2 --layout elk docs/diagrams/source/declaration.d2 docs/diagrams/declaration.svg
+d2 --layout elk docs/diagrams/source/instantiation.d2 docs/diagrams/instantiation.svg
+d2 --layout elk docs/diagrams/source/runtime.d2 docs/diagrams/runtime.svg
 ```
+
+**Note**: The `.d2` source files specify the `tala` layout engine, but the build process overrides this with `elk` since `tala` requires a separate installation. If you have `tala` installed locally, you can compile without the `--layout elk` flag for potentially better layouts.
 
 ## Next Steps
 

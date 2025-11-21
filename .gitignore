@@ -147,6 +147,9 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# Generated diagrams (compiled from .d2 sources)
+docs/diagrams/*.svg
+
 # mypy
 .mypy_cache/
 .dmypy.json
