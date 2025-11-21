@@ -28,9 +28,7 @@ def test_validator_with_state():
         __system_message__ = "Test agent with state"
         __input_template__ = ""
 
-        test_state: State[TestState] = spec.State(
-            default_factory=lambda: TestState(value=42)
-        )
+        test_state: State[TestState] = spec.State(default_factory=lambda: TestState(value=42))
 
     validator = _AgentConstructionValidator(TestAgent)
     assert validator is not None
@@ -46,9 +44,7 @@ def test_validator_with_tools():
         __system_message__ = "Test agent"
         __input_template__ = ""
 
-        test_state: State[TestState] = spec.State(
-            default_factory=lambda: TestState(value=42)
-        )
+        test_state: State[TestState] = spec.State(default_factory=lambda: TestState(value=42))
 
         @tool("Test tool with ref")
         def test_tool(self, value: int = spec.Param(default=ref.self.test_state.value)) -> str:
@@ -67,9 +63,7 @@ def test_validator_creates_sample_agent():
     class TestAgent(BaseAgent):
         __system_message__ = "Test"
 
-        test_state: State[TestState] = spec.State(
-            default_factory=lambda: TestState(value=1)
-        )
+        test_state: State[TestState] = spec.State(default_factory=lambda: TestState(value=1))
 
     validator = _AgentConstructionValidator(TestAgent)
     assert validator.sample_agent is not None
@@ -84,5 +78,5 @@ def test_validator_accumulates_problems():
         __input_template__ = ""
 
     validator = _AgentConstructionValidator(TestAgent)
-    assert hasattr(validator, 'problems')
+    assert hasattr(validator, "problems")
     assert isinstance(validator.problems, list)

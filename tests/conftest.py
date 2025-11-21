@@ -36,9 +36,7 @@ def mock_state():
             default_factory=lambda: IntStateModel(value=random.randint(0, 100))
         )
         str_factory: State[StrStateModel] = spec.State(
-            default_factory=lambda: StrStateModel(
-                value=f"Random: {random.randint(100, 200)}"
-            )
+            default_factory=lambda: StrStateModel(value=f"Random: {random.randint(100, 200)}")
         )
         default_override: State[StrStateModel] = spec.State(
             default_factory=lambda: StrStateModel(value="testing")
@@ -72,9 +70,7 @@ def mock_agent():
             default_factory=lambda: IntStateModel(value=random.randint(0, 100))
         )
         str_factory: State[StrStateModel] = spec.State(
-            default_factory=lambda: StrStateModel(
-                value=f"Random: {random.randint(100, 200)}"
-            )
+            default_factory=lambda: StrStateModel(value=f"Random: {random.randint(100, 200)}")
         )
         default_override: State[StrStateModel] = spec.State(
             default_factory=lambda: StrStateModel(value="testing")
@@ -94,9 +90,7 @@ def mock_agent():
             return f"letter: {letter}"
 
         @tool("testing ref with computed")
-        def test_computed_ref(
-            self, letter: str = spec.Param(values=["a", "b", "c"])
-        ) -> str:
+        def test_computed_ref(self, letter: str = spec.Param(values=["a", "b", "c"])) -> str:
             return f"letter: {letter}"
 
     agent = MockAgent(

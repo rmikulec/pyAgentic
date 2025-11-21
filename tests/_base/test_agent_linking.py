@@ -24,7 +24,7 @@ class TestBasicAgentLinking:
         assert "helper" in MainAgent.__linked_agents__
         # Check it's the correct agent type
         linked_def = MainAgent.__linked_agents__["helper"]
-        assert hasattr(linked_def, 'agent')
+        assert hasattr(linked_def, "agent")
         assert linked_def.agent == HelperAgent
 
     @pytest.mark.skip(reason="Link[] type detection not yet implemented in metaclass")
@@ -61,9 +61,7 @@ class TestBasicAgentLinking:
         class MainAgent(BaseAgent):
             __system_message__ = "I have a conditional helper"
 
-            helper: Link[HelperAgent] = spec.AgentLink(
-                condition=lambda self: True
-            )
+            helper: Link[HelperAgent] = spec.AgentLink(condition=lambda self: True)
 
         assert "helper" in MainAgent.__linked_agents__
 

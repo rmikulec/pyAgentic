@@ -32,12 +32,8 @@ def test_agent_state_class_construction():
     class TestAgent(BaseAgent):
         __system_message__ = "Test"
 
-        int_default: State[IntModel] = spec.State(
-            default_factory=lambda: IntModel(value=4)
-        )
-        str_default: State[StrModel] = spec.State(
-            default_factory=lambda: StrModel(value="test")
-        )
+        int_default: State[IntModel] = spec.State(default_factory=lambda: IntModel(value=4))
+        str_default: State[StrModel] = spec.State(default_factory=lambda: StrModel(value="test"))
         int_factory: State[IntModel] = spec.State(
             default_factory=lambda: IntModel(value=random.randint(0, 1000))
         )
@@ -48,7 +44,9 @@ def test_agent_state_class_construction():
     agent = TestAgent(model="_mock::test-model", api_key="test")
     state_class = agent.__state_class__
 
-    assert issubclass(state_class, _AgentState), "Created state class is not a subclass of _AgentState"
+    assert issubclass(
+        state_class, _AgentState
+    ), "Created state class is not a subclass of _AgentState"
 
     assert state_class.__name__ == "AgentState[TestAgent]", (
         "New state name not being set properly\n"
@@ -65,7 +63,9 @@ def test_agent_state_class_construction():
 
 def test_agent_state_default_values(mock_state):
     """Test that state default values are properly set"""
-    assert mock_state.int_default.value == 4, f"Unexpected value with default: {mock_state.int_default.value}"
+    assert (
+        mock_state.int_default.value == 4
+    ), f"Unexpected value with default: {mock_state.int_default.value}"
     assert (
         mock_state.int_factory.value < 100
     ), f"Unexpected value with factory: {mock_state.int_factory.value}"

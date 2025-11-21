@@ -129,4 +129,8 @@ def test_agent_has_state_class(mock_agent):
 def test_agent_provider_setup(mock_agent):
     """Test that provider is properly set up"""
     assert mock_agent.provider is not None
-    assert mock_agent.provider.__class__.__name__ in ["OpenAIProvider", "AnthropicProvider", "_MockProvider"]
+    assert mock_agent.provider.__class__.__name__ in [
+        "OpenAIProvider",
+        "AnthropicProvider",
+        "_MockProvider",
+    ]

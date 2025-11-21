@@ -28,6 +28,7 @@ def test_tool_declaration():
 
 def test_tool_declaration_enforces_string_return():
     """Test that tool decorator works with proper return type"""
+
     # Tools with string return type should work fine
     @tool("string return test")
     def test() -> str:

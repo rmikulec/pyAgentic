@@ -49,9 +49,7 @@ def test_param_info_resolve():
     """Test that ParamInfo.resolve resolves ref references"""
     info = spec.Param(description=ref.self.str_default.value, values=ref.self.enum_values)
 
-    agent_reference = {
-        "self": {"str_default": {"value": "test"}, "enum_values": ["a", "b", "c"]}
-    }
+    agent_reference = {"self": {"str_default": {"value": "test"}, "enum_values": ["a", "b", "c"]}}
 
     resolved_info = info.resolve(agent_reference)
     assert resolved_info.description == "test"
