@@ -89,23 +89,29 @@ class OpenAIV1Provider(LLMProvider):
         converted = []
         for msg in messages:
             if msg.get("type") == "function_call":
-                converted.append({
-                    "role": "assistant",
-                    "tool_calls": [{
-                        "id": msg["call_id"],
-                        "type": "function",
-                        "function": {
-                            "name": msg["name"],
-                            "arguments": msg["arguments"],
-                        },
-                    }],
-                })
+                converted.append(
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": msg["call_id"],
+                                "type": "function",
+                                "function": {
+                                    "name": msg["name"],
+                                    "arguments": msg["arguments"],
+                                },
+                            }
+                        ],
+                    }
+                )
             elif msg.get("type") == "function_call_output":
-                converted.append({
-                    "role": "tool",
-                    "tool_call_id": msg["call_id"],
-                    "content": msg["output"],
-                })
+                converted.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": msg["call_id"],
+                        "content": msg["output"],
+                    }
+                )
             elif "role" in msg:
                 converted.append(msg)
         return converted
@@ -139,30 +145,40 @@ class OpenAIV1Provider(LLMProvider):
             tool_defs = []
 
         if response_format:
-            response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.beta.chat.completions.parse(
-                model=self._model,
-                messages=self._convert_messages([message.to_dict() for message in state.messages]),
-                tools=[tool.to_openai_v1() for tool in tool_defs],
-                response_format=response_format,
-                max_tokens=128000,
-                parallel_tool_calls=True,
-                tool_choice="auto",
-                **kwargs,
+            response: OpenAIParsedResponse[Type[BaseModel]] = (
+                await self.client.beta.chat.completions.parse(
+                    model=self._model,
+                    messages=self._convert_messages(
+                        [message.to_dict() for message in state.messages]
+                    ),
+                    tools=[tool.to_openai_v1() for tool in tool_defs],
+                    response_format=response_format,
+                    max_tokens=128000,
+                    parallel_tool_calls=True,
+                    tool_choice="auto",
+                    **kwargs,
+                )
             )
-            parsed = response.choices[0].message.parsed if response.choices[0].message.parsed else None
+            parsed = (
+                response.choices[0].message.parsed if response.choices[0].message.parsed else None
+            )
             text = parsed.model_dump_json(indent=2) if parsed else None
 
             reasoning = None
             tool_calls = response.choices[0].message.tool_calls
             tool_calls = tool_calls if tool_calls else []
             usage = response.usage.model_dump()
-            usage['input_tokens'] = usage['prompt_tokens']
-            usage['output_tokens'] = usage['completion_tokens']
+            usage["input_tokens"] = usage["prompt_tokens"]
+            usage["output_tokens"] = usage["completion_tokens"]
             return LLMResponse(
                 text=text,
                 parsed=parsed,
                 tool_calls=[
-                    ToolCall(id=tool_call.id, name=tool_call.function.name, arguments=tool_call.function.arguments)
+                    ToolCall(
+                        id=tool_call.id,
+                        name=tool_call.function.name,
+                        arguments=tool_call.function.arguments,
+                    )
                     for tool_call in tool_calls
                 ],
                 reasoning=reasoning,
@@ -186,13 +202,17 @@ class OpenAIV1Provider(LLMProvider):
             tool_calls = response.choices[0].message.tool_calls
             tool_calls = tool_calls if tool_calls else []
             usage = response.usage.model_dump()
-            usage['input_tokens'] = usage['prompt_tokens']
-            usage['output_tokens'] = usage['completion_tokens']
+            usage["input_tokens"] = usage["prompt_tokens"]
+            usage["output_tokens"] = usage["completion_tokens"]
             return LLMResponse(
                 text=text,
                 parsed=parsed,
                 tool_calls=[
-                    ToolCall(id=tool_call.id, name=tool_call.function.name, arguments=tool_call.function.arguments)
+                    ToolCall(
+                        id=tool_call.id,
+                        name=tool_call.function.name,
+                        arguments=tool_call.function.arguments,
+                    )
                     for tool_call in tool_calls
                 ],
                 reasoning=reasoning,
