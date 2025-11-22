@@ -89,7 +89,8 @@ prerelease_token = "a"
 
 [tool.semantic_release.branches.dev]
 match = "^dev$"
-prerelease = false
+prerelease = true
+prerelease_token = "b"
 
 [tool.setuptools.packages.find]
 where = ["."]
