@@ -1,0 +1,264 @@
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+direction: right
+
+AgentInstanceRuntime: {
+  label: "AgentInstance\n(Runtime Object)"
+  direction: down
+  style.fill: "#eff6ff"
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.font-color: "#1e40af"
+
+  RuntimeAttributes: {
+    label: "Instance Attributes"
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+
+    state: {
+      label: "state: AgentState"
+      style.fill: "#fef3c7"
+      style.stroke: "#f59e0b"
+      style.stroke-width: 2
+    }
+    linkedAgents: {
+      label: "agent instances"
+      style.fill: "#d1fae5"
+      style.stroke: "#10b981"
+      style.stroke-width: 2
+    }
+    provider: {
+      label: "provider: LLMProvider"
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+  }
+
+  RuntimeMethods: {
+    label: "Runtime Methods"
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+
+    run: {
+      label: "run(input)"
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+    __call__: {
+      label: "__call__()"
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+  }
+}
+
+Execution: {
+  label: "Execution Loop\n(run/call)"
+  direction: right
+  style.fill: "#fef2f2"
+  style.stroke: "#dc2626"
+  style.stroke-width: 3
+  style.font-color: "#991b1b"
+  style.stroke-dash: 3
+
+  AddUserMessage: {
+    label: "Add User\nMessage"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  GetToolDefs: {
+    label: "Get Tool\nDefinitions"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  ProcessLLMInference: {
+    label: "Process LLM\nInference"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  ToolCallRouting: {
+    label: "Tool Call Routing"
+    style.fill: "white"
+    style.stroke: "#b91c1c"
+    style.stroke-width: 2
+
+    ProcessToolCall: {
+      label: "Process\nTool Call"
+      style.fill: "#fed7aa"
+      style.stroke: "#ea580c"
+      style.stroke-width: 2
+    }
+
+    ProcessAgentCall: {
+      label: "Process\nAgent Call"
+      style.fill: "#d1fae5"
+      style.stroke: "#10b981"
+      style.stroke-width: 2
+    }
+  }
+
+  IncrementDepth: {
+    label: "Increment\nDepth"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  BuildResponse: {
+    label: "Build\nResponse"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+}
+
+AgentResponseOutput: {
+  label: "AgentResponse\n(Output)"
+  direction: down
+  style.fill: "#f0fdf4"
+  style.stroke: "#059669"
+  style.stroke-width: 3
+  style.font-color: "#065f46"
+
+  ResponseFields: {
+    label: "Response Fields"
+    style.fill: "white"
+    style.stroke: "#34d399"
+    style.stroke-width: 2
+
+    final_output: {
+      label: "final_output: str"
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+    tool_responses: {
+      label: "tool_responses: list"
+      style.fill: "#fed7aa"
+      style.stroke: "#ea580c"
+      style.stroke-width: 2
+    }
+    agent_responses: {
+      label: "agent_responses: list"
+      style.fill: "#d1fae5"
+      style.stroke: "#10b981"
+      style.stroke-width: 2
+    }
+    provider_info: {
+      label: "provider_info: dict"
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+  }
+}
+
+# AgentInstance → Execution
+AgentInstanceRuntime.RuntimeMethods.run-->Execution.AddUserMessage: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+}
+
+AgentInstanceRuntime.RuntimeAttributes.state-->Execution.AddUserMessage: {
+  style.stroke: "#eab308"
+  style.stroke-width: 3
+}
+
+# Execution flow
+Execution.AddUserMessage-->Execution.GetToolDefs: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+Execution.GetToolDefs-->Execution.ProcessLLMInference: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+AgentInstanceRuntime.RuntimeAttributes.provider-->Execution.ProcessLLMInference: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+}
+
+# ProcessLLMInference → ToolCallRouting
+Execution.ProcessLLMInference-->Execution.ToolCallRouting.ProcessToolCall: {
+  style.stroke: "#ea580c"
+  style.stroke-width: 3
+}
+
+Execution.ProcessLLMInference-->Execution.ToolCallRouting.ProcessAgentCall: {
+  style.stroke: "#10b981"
+  style.stroke-width: 3
+}
+
+# ToolCallRouting → IncrementDepth
+Execution.ToolCallRouting.ProcessToolCall-->Execution.IncrementDepth: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+Execution.ToolCallRouting.ProcessAgentCall-->Execution.IncrementDepth: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+# Loop back or continue
+Execution.IncrementDepth-->Execution.ProcessLLMInference: {
+  label: "if depth < max"
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+Execution.IncrementDepth-->Execution.BuildResponse: {
+  label: "if depth >= max"
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+Execution.ProcessLLMInference-->Execution.BuildResponse: {
+  label: "if no tool calls"
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+# BuildResponse → AgentResponse
+Execution.BuildResponse-->AgentResponseOutput.ResponseFields.final_output: {
+  style.stroke: "#059669"
+  style.stroke-width: 3
+}
+
+Execution.ToolCallRouting.ProcessToolCall-->AgentResponseOutput.ResponseFields.tool_responses: {
+  style.stroke: "#ea580c"
+  style.stroke-width: 3
+}
+
+Execution.ToolCallRouting.ProcessAgentCall-->AgentResponseOutput.ResponseFields.agent_responses: {
+  style.stroke: "#10b981"
+  style.stroke-width: 3
+}
+
+AgentInstanceRuntime.RuntimeAttributes.provider-->AgentResponseOutput.ResponseFields.provider_info: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+}
