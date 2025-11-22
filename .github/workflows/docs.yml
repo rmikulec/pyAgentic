@@ -22,9 +22,13 @@ jobs:
         run: python -m pip install --upgrade pip uv
 
       - name: Install D2
-        run: |
-          curl -fsSL https://d2lang.com/install.sh | sh -s --
-          sudo mv d2 /usr/local/bin/
+        run: curl -fsSL https://d2lang.com/install.sh | sh -s --
+
+      - name: Add D2 to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify D2
+        run: d2 --version
 
       - name: Install dependencies
         run: uv sync --group docs
