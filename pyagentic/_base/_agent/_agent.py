@@ -1,7 +1,17 @@
 import inspect
 import json
 from functools import wraps
-from typing import Callable, Any, TypeVar, ClassVar, Type, Self, dataclass_transform, Optional
+from typing import (
+    Callable,
+    Any,
+    TypeVar,
+    ClassVar,
+    Type,
+    Self,
+    dataclass_transform,
+    Optional,
+    TYPE_CHECKING,
+)
 
 from pydantic import BaseModel, ValidationError
 
@@ -12,6 +22,9 @@ from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup, InvalidToolDefinition
 from pyagentic._base._info import _SpecInfo
 from pyagentic._base._agent._agent_state import _AgentState
+
+if TYPE_CHECKING:
+    from pyagentic._base._agent._agent_linking import _LinkedAgentDefinition
 
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
@@ -147,7 +160,7 @@ class BaseAgent(metaclass=AgentMeta):
     # Immutable Class Attributes (set by metaclass)
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]  # Registered @tool methods
     __state_defs__: ClassVar[dict[str, _StateDefinition]]  # State field definitions
-    __linked_agents__: ClassVar[dict[str, Type[Self]]]  # Linked agent definitions
+    __linked_agents__: ClassVar[dict[str, "_LinkedAgentDefinition"]]  # Linked agent definitions
 
     # User-set Class Attributes (defined in subclass)
     __system_message__: ClassVar[str]  # Required: system prompt for the agent
@@ -460,13 +473,13 @@ class BaseAgent(metaclass=AgentMeta):
             tool_defs.append(tool_def.resolve(self.agent_reference))
 
         # Add linked agents as tools
-        for name, agent in self.__linked_agents__.items():
-            tool_def = agent.get_tool_definition(name)
+        for name, linked_def in self.__linked_agents__.items():
+            tool_def = linked_def.agent.get_tool_definition(name)
             tool_defs.append(tool_def.resolve(self.agent_reference))
 
         return tool_defs
 
-    async def run(self, input_: str) -> str:
+    async def run(self, input_: str) -> BaseModel:
         """
         Main execution loop for the agent. Processes user input through multiple rounds
         of LLM inference and tool/agent calls until completion or max_call_depth reached.
@@ -579,7 +592,7 @@ class BaseAgent(metaclass=AgentMeta):
             self.tracer.set_attributes(output=response)
             return response
 
-    async def __call__(self, user_input: str):
+    async def __call__(self, user_input: str) -> BaseModel:
         """
         Allows the agent to be called directly as a function.
 

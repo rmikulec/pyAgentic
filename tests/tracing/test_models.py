@@ -59,11 +59,7 @@ class TestSpanContext:
 
     def test_span_context_with_parent(self):
         """Test creating a SpanContext with parent."""
-        context = SpanContext(
-            trace_id="trace123",
-            span_id="span456",
-            parent_span_id="parent789"
-        )
+        context = SpanContext(trace_id="trace123", span_id="span456", parent_span_id="parent789")
 
         assert context.trace_id == "trace123"
         assert context.span_id == "span456"
@@ -110,12 +106,7 @@ class TestSpan:
     def test_span_creation_minimal(self):
         """Test creating a Span with minimal required fields."""
         context = SpanContext(trace_id="trace123", span_id="span456")
-        span = Span(
-            name="test-span",
-            kind=SpanKind.AGENT,
-            context=context,
-            start_ns=1000000000
-        )
+        span = Span(name="test-span", kind=SpanKind.AGENT, context=context, start_ns=1000000000)
 
         assert span.name == "test-span"
         assert span.kind == SpanKind.AGENT
@@ -139,7 +130,7 @@ class TestSpan:
             end_ns=2000000000,
             status=SpanStatus.ERROR,
             attributes=attributes,
-            error="Test error"
+            error="Test error",
         )
 
         assert span.name == "test-span"
@@ -154,12 +145,7 @@ class TestSpan:
     def test_span_attributes_default_factory(self):
         """Test that attributes default to empty dict and are mutable."""
         context = SpanContext(trace_id="trace123", span_id="span456")
-        span = Span(
-            name="test-span",
-            kind=SpanKind.AGENT,
-            context=context,
-            start_ns=1000000000
-        )
+        span = Span(name="test-span", kind=SpanKind.AGENT, context=context, start_ns=1000000000)
 
         # Should start with empty dict
         assert span.attributes == {}
@@ -171,12 +157,7 @@ class TestSpan:
     def test_span_mutability(self):
         """Test that Span fields can be modified after creation."""
         context = SpanContext(trace_id="trace123", span_id="span456")
-        span = Span(
-            name="test-span",
-            kind=SpanKind.AGENT,
-            context=context,
-            start_ns=1000000000
-        )
+        span = Span(name="test-span", kind=SpanKind.AGENT, context=context, start_ns=1000000000)
 
         # Should be able to modify mutable fields
         span.end_ns = 2000000000
@@ -192,12 +173,7 @@ class TestSpan:
     def test_span_context_immutability(self):
         """Test that Span's context remains immutable."""
         context = SpanContext(trace_id="trace123", span_id="span456")
-        span = Span(
-            name="test-span",
-            kind=SpanKind.AGENT,
-            context=context,
-            start_ns=1000000000
-        )
+        span = Span(name="test-span", kind=SpanKind.AGENT, context=context, start_ns=1000000000)
 
         # Context should still be frozen
         with pytest.raises(FrozenInstanceError):
@@ -211,7 +187,7 @@ class TestSpan:
             kind=SpanKind.AGENT,
             context=context,
             start_ns=1000000000,
-            end_ns=1500000000
+            end_ns=1500000000,
         )
 
         # Duration in nanoseconds
@@ -227,24 +203,14 @@ class TestSpan:
         context = SpanContext(trace_id="trace123", span_id="span456")
 
         for kind in SpanKind:
-            span = Span(
-                name=f"test-{kind.value}",
-                kind=kind,
-                context=context,
-                start_ns=1000000000
-            )
+            span = Span(name=f"test-{kind.value}", kind=kind, context=context, start_ns=1000000000)
             assert span.kind == kind
             assert span.name == f"test-{kind.value}"
 
     def test_span_different_statuses(self):
         """Test setting different span statuses."""
         context = SpanContext(trace_id="trace123", span_id="span456")
-        span = Span(
-            name="test-span",
-            kind=SpanKind.AGENT,
-            context=context,
-            start_ns=1000000000
-        )
+        span = Span(name="test-span", kind=SpanKind.AGENT, context=context, start_ns=1000000000)
 
         # Test OK status (default)
         assert span.status == SpanStatus.OK

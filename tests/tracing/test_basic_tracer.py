@@ -109,11 +109,7 @@ class TestBasicTracer:
         span = tracer.start_span("test-span", SpanKind.INFERENCE)
 
         tracer.record_tokens(
-            span,
-            model="gpt-4",
-            prompt_tokens=100,
-            completion_tokens=50,
-            total_tokens=150
+            span, model="gpt-4", prompt_tokens=100, completion_tokens=50, total_tokens=150
         )
 
         events = tracer._events[span.context.span_id]

@@ -1,10 +1,8 @@
-from typing import Any, TypeVar, Generic
+from typing import TypeVar, Generic
 from dataclasses import dataclass
 
-from pydantic import BaseModel
-
 from pyagentic._base._info import AgentInfo
-from pyagentic._base._agent._agent import BaseAgent
+
 
 T = TypeVar("T")
 
@@ -63,5 +61,5 @@ class _LinkedAgentDefinition:
     Internal definition for linked agent configuration.
     """
 
-    agent: BaseAgent
+    agent: "BaseAgent"
     info: AgentInfo = None
