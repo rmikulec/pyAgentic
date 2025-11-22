@@ -1,6 +1,6 @@
 [project]
 name = "pyagentic-core"
-version = "1.8.0-b.1"
+version = "1.7.0"
 description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -73,6 +73,7 @@ build_command = """
 """
 
 [tool.semantic_release.commit_parser_options]
+major_tags = ["major"]
 minor_tags = ["feat"]
 patch_tags = ["bug", "fix"]
 parse_squash_commits = true
