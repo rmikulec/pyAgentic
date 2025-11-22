@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.0.1-a.1 (2025-11-22)
+
+### Bug Fixes
+
+- Quick change to force version bump
+  ([`c6f92a8`](https://github.com/rmikulec/pyAgentic/commit/c6f92a89c580ca58b926ea67b4d792a5106588e0))
+
+
 ## v2.0.0-b.1 (2025-11-22)
 
 ### Refactoring
