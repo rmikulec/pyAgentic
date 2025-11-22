@@ -33,15 +33,17 @@ An in-memory tracer that stores traces locally in Python dictionaries. Perfect f
 The BasicTracer is the simplest way to get started with tracing. It stores all trace data in memory and provides export functionality.
 
 ```python
-from your_agent_module import YourAgent
+from pyagentic import BaseAgent
 
+class YourAgent(BaseAgent):
+    __system_message__ = "Your agent description"
+    # ... your agent implementation ...
 
 # Create an agent - The BasicTracer is the default tracer of any declared agent
 agent = YourAgent(
     model="openai::gpt-4o",
     api_key=MY_API_KEY,
 )
-
 
 # Run your agent
 result = await agent("Your task here")
@@ -87,8 +89,12 @@ export LANGFUSE_HOST="https://cloud.langfuse.com"  # or your self-hosted instanc
 #### Usage
 
 ```python
+from pyagentic import BaseAgent
 from pyagentic.tracing import LangfuseTracer
-from your_agent_module import YourAgent
+
+class YourAgent(BaseAgent):
+    __system_message__ = "Your agent description"
+    # ... your agent implementation ...
 
 # Create an agent with the tracer
 agent = YourAgent(

@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v2.0.0-b.1 (2025-11-22)
+
+### Refactoring
+
+- Major State Update
+  ([`7078e07`](https://github.com/rmikulec/pyAgentic/commit/7078e07d8aa9220f36807f1f17bc29c274e793f3))
+
+
+## v1.8.0 (2025-11-22)
+
+
+## v1.8.0-b.1 (2025-11-22)
+
+
+## v3.0.0 (2025-11-22)
+
+
+## v2.0.0 (2025-11-22)
+
+
+## v1.8.0-a.3 (2025-11-22)
+
+
+## v1.8.0-a.2 (2025-11-22)
+
+### Features
+
+- Agent links are now working with spec
+  ([`3f288cb`](https://github.com/rmikulec/pyAgentic/commit/3f288cb0bb9790835403e36afade9e3befbc3f80))
+
+
 ## v1.8.0-a.1 (2025-11-05)
 
 ### Bug Fixes

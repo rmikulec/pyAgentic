@@ -7,12 +7,16 @@ nav:
   - Home: index.md
   - User Guide:
     - Getting Started: getting-started.md
-    - Inheritance: inheritance.md
+    - Tools: tools.md
+    - State Management: states.md
+    - Policies: policies.md
     - Agent Linking: agent-linking.md
     - Responses: responses.md
     - Structured Outputs: structured-output.md
+    - Inheritance: inheritance.md
     - Observability: observability.md
   - API Reference:
+      - Architecture: reference/architecture.md
       - Modules: reference/modules.md
 
 plugins:
@@ -28,7 +32,7 @@ plugins:
             source_directory: "pyagentic"
             members: true
             filters:
-              - "!^__.*__$"  # Regex to exclude __dunder__ methods
+              - "!^_"  # Exclude all private/internal members (starting with _)
             # Show init args as class signature
             show_signature: true
             show_signature_annotations: true

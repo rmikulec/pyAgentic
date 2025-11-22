@@ -86,11 +86,11 @@ The provider instance method gives you more control over client configuration, a
 Let's start by creating a simple research assistant agent:
 
 ``` py linenums="1"
-from pyagentic import Agent
+from pyagentic import BaseAgent
 
-class ResearchAgent(Agent):
+class ResearchAgent(BaseAgent):
     """An AI assistant for managing and analyzing research papers."""
-    
+
     __system_message__ = """
     You are a research assistant that helps organize and analyze academic papers.
     You maintain a collection of research papers and can answer questions about them.
@@ -100,26 +100,26 @@ class ResearchAgent(Agent):
 
 This creates a basic conversational agent, but it can't do much beyond chat. Let's add some memory and capabilities.
 
-## Step 2: Adding Context with ContextItem
+## Step 2: Adding State with State Fields
 
-Real research assistants need to remember things! Let's add some persistent context to track the papers in our collection:
+Real research assistants need to remember things! Let's add some persistent state to track the papers in our collection:
 
 ``` py linenums="1"
-from pyagentic import Agent, ContextItem
+from pyagentic import BaseAgent, State, spec
 from typing import List, Dict
 from collections import defaultdict
 
 from arxiv import Result as Paper
 
-class ResearchAgent(Agent):
+class ResearchAgent(BaseAgent):
     """An AI assistant for managing and analyzing research papers."""
-    
+
     __system_message__ = """
     You are a research assistant that helps organize and analyze academic papers.
     You have full access to the Arxiv
 
     Available topics: {available_topics}
-    
+
     Use your tools to help users manage and analyze their research collection.
     Feel free to use many tools at once
     """
@@ -129,12 +129,12 @@ class ResearchAgent(Agent):
 
     User Message: {user_message}
     """
-    
-    papers: Dict[str, List[Paper]] = ContextItem(default_factory=lambda: defaultdict(list))
-    current_topic: str = ContextItem(default="General Research")
+
+    papers: State[Dict[str, List[Paper]]] = spec.State(default_factory=lambda: defaultdict(list))
+    current_topic: State[str] = spec.State(default="General Research")
 ```
 
-Now our agent has memory! The `papers` list and `current_topic` string persist between conversations. Notice how we reference `{available_topics}` in the system message - we'll make that work next.
+Now our agent has memory! The `papers` dict and `current_topic` string persist between conversations. Notice how we reference `{available_topics}` in the system message - we'll make that work next using Pydantic computed fields.
 
 ## Step 3: Adding Tools for Actions
 
@@ -144,7 +144,7 @@ Let's give our agent the ability to actually search and papers by adding tools:
 @tool("Search the Arxiv for relevant papers")
 def search(
     self,
-    terms: list[str] = ParamInfo(required=True, description="Terms you think are relevant to the user's query. Be creative")
+    terms: list[str] = spec.Param(required=True, description="Terms you think are relevant to the user's query. Be creative")
 ) -> str:
     print(f"Searching terms: {terms}")
     found = []
@@ -156,91 +156,122 @@ def search(
 @tool("Add a new paper to the research collection")
 def add_paper(
     self,
-    paper_id: str = ParamInfo(required=True, description="ID of the paper from search results"),
-    topic: str = ParamInfo(
+    paper_id: str = spec.Param(required=True, description="ID of the paper from search results"),
+    topic: str = spec.Param(
         required=False,
         description="Research topic/area",
     )
 ) -> str:
     print(f"Adding {paper_id} to {topic}")
     paper = get_paper(paper_id)
-    self.context.papers[topic].append(paper)
+    self.state.papers[topic].append(paper)
     return f"Added paper '{paper.title}' by {paper.authors} to your collection under topic '{topic}'."
 ```
 
-Now our agent can perform actions! The `@tool` decorator exposes methods to the AI, and `ParamInfo` helps define parameter requirements and descriptions.
+Now our agent can perform actions! The `@tool` decorator exposes methods to the AI, and `spec.Param()` helps define parameter requirements and descriptions.
 
 A problem may arise here, asking the LLM to generate raw paper ids may lead to hallucination...
 
-## Step 4: Computed Context for Dynamic Values
+## Step 4: Pydantic Computed Fields for Dynamic Values
 
-This can be solved by passing over values to the param, ensuring the the LLM will only pick from that list.
+This can be solved by passing over values to the param, ensuring the LLM will only pick from that list.
 
-To do so, we need to combine the use of a `computed_context` and a `ContextRef`
+To do so, we need to create a Pydantic model with computed fields and use `ref` to reference them.
 
-`computed_context`s work a lot like python `property`s, each time it is accessed, it is recalculated. We are going to add two here:
-    - available_topics
-    - paper_ids
-
-Lastly, we can hook up these new context items using a `ContextRef`, ensuring that the string passed to the ref perfectly matches that of the context item name.
+Pydantic's `@computed_field` decorator works like Python `@property` - each time it's accessed, it's recalculated. Let's create a state model with computed fields:
 
 ``` py linenums="1"
-@computed_context
-def available_topics(self) -> List[str]:
-    """Extract unique topics from paper summaries and titles"""
+from pydantic import BaseModel, computed_field
 
-    return list(self.papers.keys())
+class ResearchState(BaseModel):
+    papers: Dict[str, List[Paper]] = defaultdict(list)
+    current_topic: str = "General Research"
 
-@computed_context
-def paper_ids(self) -> List[str]:
-    """Get list of all paper titles for reference"""
-    return [paper.get_short_id() for paper in self.papers[self.current_topic]]
+    @computed_field
+    @property
+    def available_topics(self) -> List[str]:
+        """Extract unique topics from paper summaries and titles"""
+        return list(self.papers.keys())
 
-@tool("Add a new paper to the research collection")
-def add_paper(
-    self,
-    paper_id: str = ParamInfo(
-        required=True, 
-        description="ID of the paper from search results",
-        values=ContextRef("paper_ids")
-    ),
-    topic: str = ParamInfo(
-        required=False,
-        description="Research topic/area",
-        values=ContextRef("available_topics")  # Dynamic options!
-    )
-) -> str:
-    print(f"Adding {paper_id} to {topic}")
-    paper = get_paper(paper_id)
-    self.context.papers[topic].append(paper)
-    return f"Added paper '{paper.title}' by {paper.authors} to your collection under topic '{topic}'."
+    @computed_field
+    @property
+    def paper_ids(self) -> List[str]:
+        """Get list of all paper titles for reference"""
+        return [paper.get_short_id() for paper in self.papers.get(self.current_topic, [])]
+
+class ResearchAgent(BaseAgent):
+    # ... system message ...
+
+    state: State[ResearchState] = spec.State(default_factory=ResearchState)
+
+    @tool("Add a new paper to the research collection")
+    def add_paper(
+        self,
+        paper_id: str = spec.Param(
+            required=True,
+            description="ID of the paper from search results",
+            values=ref.state.paper_ids  # Reference computed field!
+        ),
+        topic: str = spec.Param(
+            required=False,
+            description="Research topic/area",
+            values=ref.state.available_topics  # Dynamic options!
+        )
+    ) -> str:
+        print(f"Adding {paper_id} to {topic}")
+        paper = get_paper(paper_id)
+        self.state.papers[topic].append(paper)
+        return f"Added paper '{paper.title}' by {paper.authors} to your collection under topic '{topic}'."
 ```
 
-This will ensure that the LLM choices specific values when calling the tool.
+This will ensure that the LLM chooses specific values when calling the tool. The `ref.state.available_topics` creates a reference that's resolved at runtime.
 
-## Step 5: Advanced Tool Parameters with ContextRef
+## Step 5: Complete Agent with ref
 
 Let's put it all together while adding a couple more features to make it more complete, like:
     - Setting the focus
     - Read a paper
 
 ``` py linenums="1"
-from pyagentic import Agent, ContextItem, tool, ParamInfo, computed_context, ContextRef
+from pyagentic import BaseAgent, State, spec, tool, ref
+from pydantic import BaseModel, computed_field
 from typing import List, Dict
 from collections import defaultdict
 
 from utils import read_paper, get_paper, search_arxiv
 from arxiv import Result as Paper
 
-class ResearchAgent(Agent):
+class ResearchState(BaseModel):
+    papers: Dict[str, List[Paper]] = defaultdict(list)
+    current_topic: str = "General Research"
+
+    @computed_field
+    @property
+    def available_topics(self) -> List[str]:
+        """Extract unique topics from paper summaries and titles"""
+        return list(self.papers.keys())
+
+    @computed_field
+    @property
+    def paper_titles(self) -> List[str]:
+        """Get list of all paper titles for reference"""
+        return [paper.title for paper in self.papers.get(self.current_topic, [])]
+
+    @computed_field
+    @property
+    def paper_ids(self) -> List[str]:
+        """Get list of all paper IDs for reference"""
+        return [paper.get_short_id() for paper in self.papers.get(self.current_topic, [])]
+
+class ResearchAgent(BaseAgent):
     """An AI assistant for managing and analyzing research papers."""
-    
+
     __system_message__ = """
     You are a research assistant that helps organize and analyze academic papers.
     You have full access to the Arxiv
 
     Available topics: {available_topics}
-    
+
     Use your tools to help users manage and analyze their research collection.
     Feel free to use many tools at once
     """
@@ -250,32 +281,13 @@ class ResearchAgent(Agent):
 
     User Message: {user_message}
     """
-    
-    papers: Dict[str, List[Paper]] = ContextItem(default_factory=lambda: defaultdict(list))
-    current_topic: str = ContextItem(default="General Research")
-    
-    
-    @computed_context
-    def available_topics(self) -> List[str]:
-        """Extract unique topics from paper summaries and titles"""
 
-        return list(self.papers.keys())
-    
-    @computed_context
-    def paper_titles(self) -> List[str]:
-        """Get list of all paper titles for reference"""
-        return [paper.title for paper in self.papers[self.current_topic]]
+    state: State[ResearchState] = spec.State(default_factory=ResearchState)
 
-    @computed_context
-    def paper_ids(self) -> List[str]:
-        """Get list of all paper titles for reference"""
-        return [paper.get_short_id() for paper in self.papers[self.current_topic]]
-
-    
     @tool("Search the Arxiv for relevant papers")
     def search(
         self,
-        terms: list[str] = ParamInfo(required=True, description="Terms you think are relevant to the user's query. Be creative")
+        terms: list[str] = spec.Param(required=True, description="Terms you think are relevant to the user's query. Be creative")
     ) -> str:
         print(f"Searching terms: {terms}")
         found = []
@@ -287,52 +299,52 @@ class ResearchAgent(Agent):
     @tool("Add a new paper to the research collection")
     def add_paper(
         self,
-        paper_id: str = ParamInfo(
-            required=True, 
+        paper_id: str = spec.Param(
+            required=True,
             description="ID of the paper from search results",
-            values=ContextRef("paper_ids")
+            values=ref.paper_ids
         ),
-        topic: str = ParamInfo(
+        topic: str = spec.Param(
             required=False,
             description="Research topic/area",
-            values=ContextRef("available_topics")  # Dynamic options!
+            values=ref.available_topics  # Dynamic options!
         )
     ) -> str:
         print(f"Adding {paper_id} to {topic}")
         paper = get_paper(paper_id)
-        self.context.papers[topic].append(paper)
+        self.papers[topic].append(paper)
         return f"Added paper '{paper.title}' by {paper.authors} to your collection under topic '{topic}'."
-    
+
     @tool("Read the entire content of a paper")
     def read_paper(
         self,
-        title: str = ParamInfo(
+        title: str = spec.Param(
             required=True,
             description="Exact title of the paper to get details for",
-            values=ContextRef("paper_titles")  # Only allow existing paper titles!
+            values=ref.paper_titles  # Only allow existing paper titles!
         )
     ) -> str:
         print(f"Reading {title}")
-        current_topic = self.context.current_topic
-        for paper in self.context.papers[current_topic]:
+        current_topic = self.current_topic
+        for paper in self.papers[current_topic]:
             if title in paper.title:
                 return read_paper(paper)
         return f"Paper '{title}' not found in collection."
-    
+
     @tool("Update research focus topic, call this whenever you feel the subject has changed. Always call this before other tools if the subject has changed")
     def set_focus_topic(
         self,
-        topic: str = ParamInfo(
+        topic: str = spec.Param(
             required=True,
             description="New research focus topic",
         )
     ) -> str:
         print(f"New focus: {topic}")
-        self.context.current_topic = topic
+        self.current_topic = topic
         return f"Research focus updated to: {topic}"
 ```
 
-Now our tools are much smarter! The `ContextRef` creates dynamic constraints:
+Now our tools are much smarter! The `ref` system creates dynamic constraints:
 - When adding papers, the `topic` parameter will only suggest topics that already exist in our collection
 - When getting paper details, the agent can only choose from actual paper titles
 - The available options update automatically as we add more papers
@@ -497,10 +509,11 @@ If you want further analysis or details on specific papers, feel free to let me 
 Our research assistant demonstrates all of PyAgentic's key strengths:
 
 1. **Declarative Design**: We define what the agent should do, not how
-2. **Persistent Context**: The agent remembers papers across conversations
-3. **Dynamic Intelligence**: Tools adapt their constraints based on current data  
+2. **Persistent State**: The agent remembers papers across conversations via State fields
+3. **Dynamic Intelligence**: Tools adapt their constraints based on current data using `ref`
 4. **Type Safety**: All parameters are properly typed and validated
-5. **Natural Evolution**: Easy to add new capabilities without breaking existing functionality
+5. **Pydantic Integration**: Leverage Pydantic's computed fields for reactive state
+6. **Natural Evolution**: Easy to add new capabilities without breaking existing functionality
 
 ## Controlling Tool Usage with max_call_depth
 
@@ -555,12 +568,13 @@ This allows your agent to perform sophisticated multi-step workflows while preve
 
 ## Key Concepts Summary
 
-- **`Agent`**: Base class that handles LLM provider integration and orchestration
-- **`ContextItem`**: Persistent state that survives between conversations
+- **`BaseAgent`**: Base class that handles LLM provider integration and orchestration
+- **`State[T]`**: Persistent state fields that survive between conversations, typed with Pydantic models
+- **`spec.State()`**: Factory for creating state fields with defaults and configuration
 - **`@tool`**: Decorator that exposes methods as callable functions to the AI
-- **`ParamInfo`**: Metadata for tool parameters (descriptions, requirements, defaults)  
-- **`@computed_context`**: Dynamic properties that recalculate on each access
-- **`ContextRef`**: Links tool parameters to live context data for smart constraints
+- **`spec.Param()`**: Metadata for tool parameters (descriptions, requirements, defaults, values)
+- **`@computed_field`**: Pydantic decorator for dynamic properties that recalculate on each access
+- **`ref`**: Reference system that links tool parameters to live state data for smart constraints
 - **`max_call_depth`**: Controls how many rounds of tool calling are allowed per turn
 
 ## Next Steps

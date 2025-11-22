@@ -7,12 +7,13 @@ from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
 
-from pyagentic._base._info import _SpecInfo, ParamInfo
+from pyagentic._base._info import _SpecInfo, ParamInfo, AgentInfo
 from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import State, StateInfo, _StateDefinition
+from pyagentic._base._agent._agent_linking import Link, _LinkedAgentDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
 
@@ -223,31 +224,58 @@ class AgentMeta(type):
         return MappingProxyType(state_tool_defs)
 
     @staticmethod
-    def _extract_linked_agents(annotations, Agent) -> Mapping[str, "Agent"]:
+    def _extract_linked_agents(
+        annotations, namespace, Agent
+    ) -> Mapping[str, _LinkedAgentDefinition]:
         """
-        Extracts linked agent fields from annotations.
+        Extracts linked agent fields from annotations and pairs with AgentInfo.
 
-        Looks for annotations where the type is a subclass of Agent (or Link[Agent]).
-        These will be available as callable tools to the LLM.
+        Looks for annotations where the type is a subclass of Agent or Link[Agent].
+        Pairs each linked agent with its AgentInfo descriptor if present.
 
         Args:
             annotations (dict): Combined annotations from the class hierarchy
+            namespace (dict): The class namespace
             Agent (type): The base Agent class to check against
 
         Returns:
-            Mapping[str, Agent]: Immutable mapping of agent field names to agent types
+            Mapping[str, _LinkedAgentDefinition]: Immutable mapping of agent field names to definitions
         """
-        linked_agents: dict[str, "Agent"] = {}
+        linked_agents: dict[str, _LinkedAgentDefinition] = {}
+
         for attr_name, attr_type in annotations.items():
-            type_info = analyze_type(attr_type, Agent)
-            if type_info.has_forward_ref:
-                msg = (
-                    f"Forward reference for agents are unsupported: '{attr_name}': {attr_type!r}. "
-                    "Make sure the forward ref was not used for an agent, or a TypeError may occur"
+            agent_class = None
+
+            # Check if it's a Link[T] generic (similar to State[T])
+            if hasattr(attr_type, "__origin__") and attr_type.__origin__ is Link:
+                type_info = analyze_type(attr_type.__linked_agent__, Agent)
+                if type_info.is_subclass:
+                    agent_class = attr_type.__linked_agent__
+            else:
+                # Check if it's a direct agent type annotation
+                type_info = analyze_type(attr_type, Agent)
+                if type_info.has_forward_ref:
+                    msg = (
+                        f"Forward reference for agents are unsupported: '{attr_name}': {attr_type!r}. "
+                        "Make sure the forward ref was not used for an agent, or a TypeError may occur"
+                    )
+                    warnings.warn(msg, RuntimeWarning, stacklevel=2)
+                    raise TypeError(msg)
+                elif type_info.is_subclass:
+                    agent_class = attr_type
+
+            # If we found an agent class, pair it with AgentInfo
+            if agent_class is not None:
+                # Check if there's an AgentInfo descriptor in namespace
+                descriptor = namespace.get(attr_name)
+                if isinstance(descriptor, AgentInfo):
+                    agent_info = descriptor
+                else:
+                    agent_info = AgentInfo(default=None)
+
+                linked_agents[attr_name] = _LinkedAgentDefinition(
+                    agent=agent_class, info=agent_info
                 )
-                warnings.warn(msg, RuntimeWarning, stacklevel=2)
-            elif type_info.is_subclass:
-                linked_agents[attr_name] = attr_type
 
         return MappingProxyType(linked_agents)
 
@@ -282,10 +310,13 @@ class AgentMeta(type):
                 optional.append(param)
             # Linked agents are optional by default (can be None)
             elif field_name in agent_cls.__linked_agents__:
+                # Get default from AgentInfo if available
+                linked_def = agent_cls.__linked_agents__[field_name]
+                default = linked_def.info.get_default() if linked_def.info else None
                 param = inspect.Parameter(
                     field_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=None,
+                    default=default,
                     annotation=field_type,
                 )
                 agents.append(param)
@@ -344,9 +375,13 @@ class AgentMeta(type):
                 **compiled,
             )
 
-            # Collect linked agent instances from kwargs
-            for agent_name in self.__linked_agents__.keys():
-                agent_instance = kwargs.get(agent_name, None)
+            # Collect linked agent instances from kwargs or use defaults
+            for agent_name, linked_def in self.__linked_agents__.items():
+                if agent_name in kwargs:
+                    agent_instance = kwargs[agent_name]
+                else:
+                    # Use default or default_factory from AgentInfo
+                    agent_instance = linked_def.info.get_default() if linked_def.info else None
                 compiled[agent_name] = agent_instance
 
             # Bind all arguments to signature and set as instance attributes
@@ -434,7 +469,9 @@ class AgentMeta(type):
         state_defs = mcs._extract_state_defs(annotations, inherited_namespace | namespace)
         state_tool_defs = mcs._generate_state_tools(cls, state_defs)
         tool_defs = MappingProxyType({**tool_defs, **state_tool_defs})
-        linked_agents = mcs._extract_linked_agents(annotations, mcs.__BaseAgent__)
+        linked_agents = mcs._extract_linked_agents(
+            annotations, inherited_namespace | namespace, mcs.__BaseAgent__
+        )
         with mcs._lock:
             cls.__tool_defs__ = tool_defs
             cls.__annotations__ = annotations
@@ -458,7 +495,7 @@ class AgentMeta(type):
         }
         tool_response_model_list = list(tool_response_models.values())
         linked_agent_response_model_list = [
-            agent.__response_model__ for agent in cls.__linked_agents__.values()
+            linked_def.agent.__response_model__ for linked_def in cls.__linked_agents__.values()
         ]
 
         # Create a Pydantic model for the agent's state
