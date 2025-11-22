@@ -89,7 +89,8 @@ prerelease = false
 # (must manually bump dev to next major once)
 [tool.semantic_release.branches.dev]
 match = "^dev$"
-prerelease = false
+prerelease = true
+prerelease_token = "b"
 
 # prerelease branches off BOTH main & dev
 [tool.semantic_release.branches.feature_fix]
