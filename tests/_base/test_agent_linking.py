@@ -7,7 +7,6 @@ from pyagentic import BaseAgent, Link, tool, spec, State
 class TestBasicAgentLinking:
     """Test basic agent linking functionality."""
 
-    @pytest.mark.skip(reason="Link[] type detection not yet implemented in metaclass")
     def test_linked_agent_declaration(self):
         """Test that linked agents are properly declared."""
 
@@ -27,7 +26,6 @@ class TestBasicAgentLinking:
         assert hasattr(linked_def, "agent")
         assert linked_def.agent == HelperAgent
 
-    @pytest.mark.skip(reason="Link[] type detection not yet implemented in metaclass")
     def test_multiple_linked_agents(self):
         """Test declaring multiple linked agents."""
 
@@ -50,7 +48,6 @@ class TestBasicAgentLinking:
         assert "database" in MainAgent.__linked_agents__
         assert "cache" in MainAgent.__linked_agents__
 
-    @pytest.mark.skip(reason="Link[] type detection not yet implemented in metaclass")
     def test_linked_agent_with_spec(self):
         """Test linked agent with spec.AgentLink configuration."""
 
@@ -69,7 +66,6 @@ class TestBasicAgentLinking:
 class TestAgentLinkingInheritance:
     """Test inheritance behavior with linked agents."""
 
-    @pytest.mark.skip(reason="Link[] type detection not yet implemented in metaclass")
     def test_inherit_linked_agents(self):
         """Test that linked agents are inherited from parent classes."""
 
@@ -88,7 +84,6 @@ class TestAgentLinkingInheritance:
         # Child should inherit linked agent
         assert "helper" in ChildAgent.__linked_agents__
 
-    @pytest.mark.skip(reason="Link[] type detection not yet implemented in metaclass")
     def test_add_linked_agents_to_inheritance(self):
         """Test adding additional linked agents in child classes."""
 
