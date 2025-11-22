@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.0.0-b.1 (2025-11-22)
+
+### Refactoring
+
+- Major State Update
+  ([`7078e07`](https://github.com/rmikulec/pyAgentic/commit/7078e07d8aa9220f36807f1f17bc29c274e793f3))
+
+
 ## v1.8.0 (2025-11-22)
 
 
