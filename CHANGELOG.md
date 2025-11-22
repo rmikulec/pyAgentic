@@ -2,7 +2,12 @@
 
 <!-- version list -->
 
-## v2.0.1 (2025-11-22)
+## v2.0.1-a.2 (2025-11-22)
+
+### Bug Fixes
+
+- Added an install D2 step to docs workflow
+  ([`11064f4`](https://github.com/rmikulec/pyAgentic/commit/11064f4f7104d5297d871cf7af685df8fd35922c))
 
 
 ## v2.0.1-a.1 (2025-11-22)
