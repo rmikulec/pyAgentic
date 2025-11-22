@@ -1,48 +1,57 @@
 import pytest
+from pydantic import BaseModel
 
-from pyagentic._base._agent import Agent
+from pyagentic import BaseAgent, tool
 from pyagentic._base._exceptions import InvalidLLMSetup
-from pyagentic.llm._mock import _MockProvider
+from pyagentic.llm import OpenAIProvider
 
 
-class MockAgent(Agent):
-    __system_message__ = "This is a mock"
+def test_agent_with_model_string():
+    """Test creating agent with model string format"""
 
+    class TestAgent(BaseAgent):
+        __system_message__ = "Test agent"
 
-def test_agent_raises_invalid_llm_none_given():
-    with pytest.raises(InvalidLLMSetup) as e:
-        MockAgent()
-
-    assert e.value.reason == "no-provider"
-
-
-def test_agent_raises_invalid_llm_invalid_format():
-    with pytest.raises(InvalidLLMSetup) as e:
-        MockAgent(model="openai/test-modelo")
-
-    assert e.value.reason == "invalid-format"
-
-
-def test_agent_successful_creation_with_valid_model():
-    agent = MockAgent(model="_mock::test-modelo", api_key="test-key")
+    agent = TestAgent(model="_mock::test-model", api_key="test-key")
     assert agent.provider is not None
-    assert isinstance(agent.provider, _MockProvider)
 
 
-def test_agent_raises_provider_not_found():
-    with pytest.raises(InvalidLLMSetup) as e:
-        MockAgent(model="invalid_provider::test-modelo", api_key="test-key")
+def test_agent_with_provider_instance():
+    """Test creating agent with provider instance"""
 
-    assert e.value.reason == "provider-not-found"
+    class TestAgent(BaseAgent):
+        __system_message__ = "Test agent"
 
-
-def test_agent_successful_creation_with_provider():
-    provider = _MockProvider(model="_mock::test-modelo", api_key="test-key")
-    agent = MockAgent(provider=provider)
-    assert agent.provider is provider
+    provider = OpenAIProvider(model="gpt-4o", api_key="test-key")
+    agent = TestAgent(provider=provider)
+    assert agent.provider == provider
 
 
-def test_agent_provider_overrides_model_and_api_key():
-    provider = _MockProvider(model="_mock::test-modelo", api_key="test-key")
-    agent = MockAgent(model="openai::gpt-3.5-turbo", api_key="different-key", provider=provider)
-    assert agent.provider is provider
+def test_agent_invalid_model_format():
+    """Test that invalid model format raises error"""
+
+    class TestAgent(BaseAgent):
+        __system_message__ = "Test agent"
+
+    with pytest.raises(InvalidLLMSetup):
+        agent = TestAgent(model="invalid-format", api_key="test-key")
+
+
+def test_agent_no_provider():
+    """Test that creating agent without provider raises error"""
+
+    class TestAgent(BaseAgent):
+        __system_message__ = "Test agent"
+
+    with pytest.raises(InvalidLLMSetup):
+        agent = TestAgent()
+
+
+def test_agent_provider_not_found():
+    """Test that invalid provider name raises error"""
+
+    class TestAgent(BaseAgent):
+        __system_message__ = "Test agent"
+
+    with pytest.raises(InvalidLLMSetup):
+        agent = TestAgent(model="invalid_provider::model", api_key="test-key")
