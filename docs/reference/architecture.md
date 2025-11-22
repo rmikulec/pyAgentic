@@ -23,8 +23,8 @@ The declaration phase occurs when you define an agent class. The `AgentMetaclass
 **User Declarations:**
 - **BaseAgent** - Your agent class inherits from this
 - **System Message** - The agent's core instructions
-- **State Fields** - `State[T]` annotations for persistent state
-- **Linked Agents** - Type annotations for other agents
+- **State Fields** - `State[T]` annotations with optional `spec.State()` configuration
+- **Linked Agents** - `Link[AgentClass]` or direct type annotations with optional `spec.AgentLink()` configuration
 - **Tools** - Methods decorated with `@tool`
 
 **Metaclass Processing:**
@@ -32,9 +32,9 @@ The declaration phase occurs when you define an agent class. The `AgentMetaclass
 2. **C3 Linearize** - Resolves inheritance from parent classes and mixins
 3. **Validate Definitions** - Ensures all definitions are valid
 4. **Generate Definitions** - Creates internal definition objects:
-   - `_StateDefinition` - Type and configuration for each state field
+   - `_StateDefinition` - Pairs `State[T]` type with `StateInfo` descriptor (from `spec.State()`)
    - `_ToolDefinition` - Schema and metadata for each tool
-   - `_LinkedAgentDefinition` - References to linked agents
+   - `_LinkedAgentDefinition` - Pairs `Link[T]` type with `AgentInfo` descriptor (from `spec.AgentLink()`)
 5. **Build Init** - Dynamically generates `__init__` signature and function
 6. **Build Response Model** - Creates Pydantic response model from tool definitions
 
@@ -47,10 +47,10 @@ The declaration phase occurs when you define an agent class. The `AgentMetaclass
 
 ### Supporting Utilities
 
-The `spec` object provides configuration helpers:
-- `spec.State()` - Configure state fields (persist, default, access control)
-- `spec.Param()` - Configure tool parameters (description, default, values)
-- `spec.AgentLink()` - Configure linked agent behavior
+The `spec` object provides configuration helpers using a descriptor pattern:
+- `spec.State()` - Returns `StateInfo` descriptor for state fields (default, default_factory, access control, policies)
+- `spec.Param()` - Returns `ParamInfo` descriptor for tool parameters (description, default, values)
+- `spec.AgentLink()` - Returns `AgentInfo` descriptor for linked agents (default, default_factory, condition)
 
 The `ref` object creates lazy references to state for use in tool parameters:
 - `ref.field.subfield` creates a `RefNode` that resolves at runtime
@@ -80,7 +80,9 @@ The instantiation phase occurs when you create an instance of your agent class (
    - Includes system message and templates
 
 4. **Set Linked Agents**
-   - Attaches provided agent instances to the parent
+   - Processes `AgentInfo` from `spec.AgentLink()` for each linked agent
+   - Applies `default` or calls `default_factory` if agent not provided
+   - Attaches agent instances to the parent
    - Creates tool definitions from linked agents
    - Validates linked agent types
 
