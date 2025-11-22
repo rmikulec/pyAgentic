@@ -90,7 +90,11 @@ prerelease_token = "a"
 [tool.semantic_release.branches.dev]
 match = "^dev$"
 prerelease = false
-increment = "major"
+
+[tool.semantic_release.branches.dev.commit_parser_options]
+major_tags = ["feat", "bug", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
+minor_tags = []
+patch_tags = []
 
 [tool.setuptools.packages.find]
 where = ["."]
