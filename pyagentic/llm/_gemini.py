@@ -10,8 +10,8 @@ import json
 
 from typing import List, Optional, Type
 from pydantic import BaseModel
-from pyagentic._base._context import _AgentContext
 from pyagentic._base._tool import _ToolDefinition
+from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
 
@@ -100,7 +100,9 @@ class GeminiProvider(LLMProvider):
             },
         )
 
-    def _convert_messages_to_gemini_format(self, messages: List[Message]) -> tuple[Optional[str], List[dict]]:
+    def _convert_messages_to_gemini_format(
+        self, messages: List[Message]
+    ) -> tuple[Optional[str], List[dict]]:
         """
         Convert pyagentic messages to Gemini's content format.
 
@@ -123,16 +125,17 @@ class GeminiProvider(LLMProvider):
 
             # Handle function calls
             if hasattr(message, "function_call") and message.function_call:
-                gemini_messages.append({
-                    "role": "model",
-                    "parts": [{"function_call": message.function_call}]
-                })
+                gemini_messages.append(
+                    {"role": "model", "parts": [{"function_call": message.function_call}]}
+                )
             # Handle function responses
             elif hasattr(message, "function_response") and message.function_response:
-                gemini_messages.append({
-                    "role": "function",
-                    "parts": [{"function_response": message.function_response}]
-                })
+                gemini_messages.append(
+                    {
+                        "role": "function",
+                        "parts": [{"function_response": message.function_response}],
+                    }
+                )
             # Handle regular messages
             else:
                 role = msg_dict.get("role", "user")
@@ -142,14 +145,11 @@ class GeminiProvider(LLMProvider):
 
                 content = msg_dict.get("content")
                 if content:
-                    gemini_messages.append({
-                        "role": role,
-                        "parts": [{"text": content}]
-                    })
+                    gemini_messages.append({"role": role, "parts": [{"text": content}]})
 
         return system_instruction, gemini_messages
 
-    def _tool_defs_to_gemini_format(self, tool_defs: List[_ToolDefinition], context: _AgentContext) -> List[dict]:
+    def _tool_defs_to_gemini_format(self, tool_defs: List[_ToolDefinition]) -> List[dict]:
         """
         Convert tool definitions to Gemini's function declaration format.
 
@@ -163,7 +163,7 @@ class GeminiProvider(LLMProvider):
         gemini_tools = []
 
         for tool_def in tool_defs:
-            openai_spec = tool_def.to_openai_spec(context)
+            openai_spec = tool_def.to_openai_spec()
 
             # Convert OpenAI spec to Gemini format
             gemini_func = {
@@ -178,7 +178,7 @@ class GeminiProvider(LLMProvider):
 
     async def generate(
         self,
-        context: _AgentContext,
+        state: _AgentState,
         *,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
@@ -204,7 +204,9 @@ class GeminiProvider(LLMProvider):
             tool_defs = []
 
         # Convert messages to Gemini format
-        system_instruction, gemini_messages = self._convert_messages_to_gemini_format(context.messages)
+        system_instruction, gemini_messages = self._convert_messages_to_gemini_format(
+            state._messages
+        )
 
         # Update model configuration if system instruction exists
         if system_instruction:
@@ -213,7 +215,7 @@ class GeminiProvider(LLMProvider):
         # Prepare tools if provided
         tools = None
         if tool_defs:
-            gemini_funcs = self._tool_defs_to_gemini_format(tool_defs, context)
+            gemini_funcs = self._tool_defs_to_gemini_format(tool_defs)
             tools = [{"function_declarations": gemini_funcs}]
 
         # Handle structured output request
@@ -227,14 +229,18 @@ class GeminiProvider(LLMProvider):
         # Generate response using the model directly
         # If we have message history, use chat mode
         if gemini_messages:
-            chat = self.client.start_chat(history=gemini_messages[:-1] if len(gemini_messages) > 1 else [])
-            last_message = gemini_messages[-1]["parts"][0]["text"] if gemini_messages[-1].get("parts") else ""
+            chat = self.client.start_chat(
+                history=gemini_messages[:-1] if len(gemini_messages) > 1 else []
+            )
+            last_message = (
+                gemini_messages[-1]["parts"][0]["text"] if gemini_messages[-1].get("parts") else ""
+            )
 
             response = await chat.send_message_async(
                 last_message,
                 tools=tools,
                 generation_config=generation_config if generation_config else None,
-                **kwargs
+                **kwargs,
             )
         else:
             # No message history, use direct generation
@@ -242,7 +248,7 @@ class GeminiProvider(LLMProvider):
                 "",
                 tools=tools,
                 generation_config=generation_config if generation_config else None,
-                **kwargs
+                **kwargs,
             )
 
         # Parse response
