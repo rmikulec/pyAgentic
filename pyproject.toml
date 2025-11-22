@@ -74,9 +74,6 @@ build_command = """
 """
 
 [tool.semantic_release.commit_parser_options]
-major_tags = ["major"]
-minor_tags = ["feat"]
-patch_tags = ["bug", "fix"]
 parse_squash_commits = true
 ignore_merge_commits = true
 
