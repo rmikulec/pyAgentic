@@ -89,8 +89,7 @@ prerelease_token = "a"
 
 [tool.semantic_release.branches.dev]
 match = "^dev$"
-prerelease = true
-prerelease_token = "b"
+prerelease = false
 increment = "major"
 
 [tool.setuptools.packages.find]
