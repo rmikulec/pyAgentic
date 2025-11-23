@@ -4,13 +4,13 @@ from functools import wraps
 from typing import (
     Callable,
     Any,
-    TypeVar,
+    AsyncGenerator,
     ClassVar,
     Type,
-    Self,
     dataclass_transform,
     Optional,
     TYPE_CHECKING,
+    Union,
 )
 
 from pydantic import BaseModel, ValidationError
@@ -359,8 +359,13 @@ class BaseAgent(metaclass=AgentMeta):
             response = AgentResponse(final_output=result, provider_info=agent.provider._info)
 
         # Add agent result to conversation history
+        stringified_result = (
+            result.model_dump_json(indent=2)
+            if issubclass(result.__class__, BaseModel)
+            else str(result)
+        )
         self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
+            self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
         )
         return response
 
@@ -419,7 +424,6 @@ class BaseAgent(metaclass=AgentMeta):
                 )
             if compiled_args:
                 result = await _safe_run(handler, **compiled_args)
-                result = str(result)
                 self.tracer.set_attributes(result=result)
         except TypeError as e:
             self.tracer.record_exception(str(e))
@@ -444,9 +448,14 @@ class BaseAgent(metaclass=AgentMeta):
                     ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
                 )
 
+        stringified_result = (
+            result.model_dump_json(indent=2)
+            if issubclass(result.__class__, BaseModel)
+            else str(result)
+        )
         # Add tool result to conversation history for LLM
         self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
+            self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
         )
 
         # Build and return the structured tool response
@@ -479,7 +488,9 @@ class BaseAgent(metaclass=AgentMeta):
 
         return tool_defs
 
-    async def run(self, input_: str) -> BaseModel:
+    async def run(
+        self, input_: str
+    ) -> AsyncGenerator[Union[ToolResponse, AgentResponse, LLMResponse]]:
         """
         Main execution loop for the agent. Processes user input through multiple rounds
         of LLM inference and tool/agent calls until completion or max_call_depth reached.
@@ -538,6 +549,7 @@ class BaseAgent(metaclass=AgentMeta):
             while depth < self.max_call_depth:
                 # Ask the LLM what to do next (may return tool calls or final text)
                 response = await self._process_llm_inference(tool_defs=tool_defs)
+                yield response
 
                 # If the model produced final text without tool calls, we're done
                 if not response.tool_calls:
@@ -557,10 +569,12 @@ class BaseAgent(metaclass=AgentMeta):
                     if tool_call.name in self.__tool_defs__:
                         result = await self._process_tool_call(tool_call, call_depth=depth)
                         tool_responses.append(result)
+                        yield result
 
                     elif tool_call.name in self.__linked_agents__:
                         result = await self._process_agent_call(tool_call)
                         agent_responses.append(result)
+                        yield result
 
                 # Increment depth and continue loop (LLM will see tool results next iteration)
                 depth += 1
@@ -590,7 +604,7 @@ class BaseAgent(metaclass=AgentMeta):
 
             response = self.__response_model__(**response_fields)
             self.tracer.set_attributes(output=response)
-            return response
+            yield response
 
     async def __call__(self, user_input: str) -> BaseModel:
         """
