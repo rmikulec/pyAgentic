@@ -7,7 +7,7 @@ nav:
   - Home: index.md
   - User Guide:
     - Getting Started: getting-started.md
-    - Execution Modes: execution_modes.md
+    - Execution Modes: execution-modes.md
     - Tools: tools.md
     - State Management: states.md
     - Policies: policies.md
