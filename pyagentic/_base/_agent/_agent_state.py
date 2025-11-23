@@ -1,7 +1,7 @@
 import asyncio
 import threading
 from typing import Any, Type, Self, Optional, ClassVar
-from pydantic import BaseModel, create_model, Field, PrivateAttr, ConfigDict
+from pydantic import BaseModel, create_model, Field, PrivateAttr, computed_field
 from jinja2 import Template
 from typing import Optional, Literal, Callable
 from transitions import Machine
@@ -252,6 +252,10 @@ class _AgentState(BaseModel):
         return create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
 
     @property
+    def phase(self) -> str:
+        return self._machine.state
+
+    @property
     def recent_message(self) -> Message:
         """
         Returns the most recent message in the message history.
@@ -272,7 +276,7 @@ class _AgentState(BaseModel):
         # start with all the normal dataclass fields
 
         # now format your instruction template
-        return self._instructions_template.render(**self.model_dump())
+        return self._instructions_template.render(phase=self.phase, **self.model_dump())
 
     @property
     def messages(self) -> list[Message]:
