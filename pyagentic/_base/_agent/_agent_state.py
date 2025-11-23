@@ -32,7 +32,9 @@ class _AgentState(BaseModel):
     input_template: Optional[str] = "{{ user_message }}"
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
-    _input_template: Template = PrivateAttr(default_factory=lambda: Template(source="{{ user_message }}"))
+    _input_template: Template = PrivateAttr(
+        default_factory=lambda: Template(source="{{ user_message }}")
+    )
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
