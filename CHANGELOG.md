@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.2.1-a.1 (2025-11-23)
+
+### Bug Fixes
+
+- Updated tool defs to get based on phase and given condition for tools and linked agents
+  ([`8280669`](https://github.com/rmikulec/pyAgentic/commit/82806698c70313331719504578513c30e9fcf7d7))
+
+
 ## v2.2.0 (2025-11-23)
 
 
