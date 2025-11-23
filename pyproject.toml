@@ -23,6 +23,7 @@ dependencies = [
     "c3linearize>=0.1.0",
     "anthropic>=0.62.0",
     "google-generativeai>=0.8.0",
+    "transitions>=0.9.3",
 ]
 
 [dependency-groups]

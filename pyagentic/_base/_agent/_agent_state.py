@@ -1,9 +1,10 @@
 import asyncio
 import threading
 from typing import Any, Type, Self, Optional, ClassVar
-from pydantic import BaseModel, create_model, Field, PrivateAttr
+from pydantic import BaseModel, create_model, Field, PrivateAttr, ConfigDict
 from jinja2 import Template
-from typing import Optional, Literal
+from typing import Optional, Literal, Callable
+from transitions import Machine
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
