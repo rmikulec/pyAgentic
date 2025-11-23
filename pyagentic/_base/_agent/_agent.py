@@ -657,8 +657,7 @@ class BaseAgent(metaclass=AgentMeta):
             # Otherwise, set as normal instance attribute
             super().__setattr__(name, value)
 
-    @classmethod
-    def get_tool_definition(cls, name: str) -> _ToolDefinition:
+    def get_tool_definition(self, name: str) -> _ToolDefinition:
         """
         Creates a tool definition for this agent class to be used as a linked agent.
 
@@ -673,15 +672,14 @@ class BaseAgent(metaclass=AgentMeta):
         Returns:
             _ToolDefinition: A tool definition that can be sent to the LLM
         """
-        desc = getattr(cls, "__description__", "") or ""
 
         # Create a fresh async wrapper function for this agent class
         # Each class needs its own function object for the @tool decorator
-        @wraps(cls.__call__)
+        @wraps(self.__call__)
         async def _invoke(self, *args, **kwargs):
-            return await cls.__call__(self, *args, **kwargs)
+            return await self.__call__(self, *args, **kwargs)
 
         # Apply @tool decorator to extract parameter info and create definition
-        td = tool(desc)(_invoke).__tool_def__
+        td = tool(self.state.description)(_invoke).__tool_def__
         td.name = name
         return td

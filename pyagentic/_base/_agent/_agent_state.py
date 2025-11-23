@@ -30,14 +30,20 @@ class _AgentState(BaseModel):
 
     instructions: str
     input_template: Optional[str] = "{{ user_message }}"
+    description_template: Optional[str] = None
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
-    _input_template: Template = PrivateAttr(default_factory=lambda: Template(source="{{ user_message }}"))
+    _input_template: Template = PrivateAttr(
+        default_factory=lambda: Template(source="{{ user_message }}")
+    )
+    _description_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
         if self.input_template:
             self._input_template = Template(source=self.input_template)
+        if self.description_template:
+            self._description_template = Template(source=self.description_template)
         return super().model_post_init(state)
 
     def get_policies(self, state_name: str) -> list[Policy]:
@@ -253,6 +259,10 @@ class _AgentState(BaseModel):
         messages = self._messages.copy()
         messages.insert(0, Message(role="system", content=self.system_message))
         return messages
+
+    @property
+    def description(self) -> str:
+        return self._description_template.render(**self.model_dump())
 
     def add_user_message(self, message: str):
         """

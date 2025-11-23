@@ -372,6 +372,7 @@ class AgentMeta(type):
             self.state = self.__state_class__(
                 instructions=self.__system_message__,
                 input_template=self.__input_template__,
+                description_template=self.__description__,
                 **compiled,
             )
 

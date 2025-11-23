@@ -54,7 +54,7 @@ class StateInfo(_SpecInfo):
     """
 
     policies: list[Policy] | None = None
-    access: Literal["read", "write", "readwrite", "hidden"] = field(default="read")
+    access: Literal["read", "write", "readwrite", "hidden"] = field(default="hidden")
     get_description: str | None = None
     set_description: str | None = None
 
