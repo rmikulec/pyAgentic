@@ -1,0 +1,1639 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../../observability/">
+      
+      
+        <link rel="next" href="../modules/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+    
+    
+      
+        <title>Architecture - PyAgentic Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.618322db.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PyAgentic Documentation" class="md-header__button md-logo" aria-label="PyAgentic Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PyAgentic Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rmikulec/pyagentic" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rmikulec/pyAgentic
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PyAgentic Documentation" class="md-nav__button md-logo" aria-label="PyAgentic Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PyAgentic Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rmikulec/pyagentic" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rmikulec/pyAgentic
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../execution-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../states/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../phases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Phases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../agent-linking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Linking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../responses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Responses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structured-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Outputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#declaration-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declaration Phase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Declaration Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Components
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supporting-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supporting Utilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#instantiation-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instantiation Phase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Instantiation Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initialization-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initialization Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#instance-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instance Attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Phase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Runtime Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#execution-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#response-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Object
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-design-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Design Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Design Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metaclass-based-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metaclass-Based Construction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dynamic-state-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dynamic State Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reference-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tool-as-universal-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool as Universal Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-diagrams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Diagrams
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#declaration-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declaration Phase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Declaration Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Components
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supporting-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supporting Utilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#instantiation-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instantiation Phase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Instantiation Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initialization-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initialization Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#instance-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instance Attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Phase
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Runtime Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#execution-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#response-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Object
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-design-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Design Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Design Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metaclass-based-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metaclass-Based Construction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dynamic-state-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dynamic State Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reference-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tool-as-universal-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool as Universal Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-diagrams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Diagrams
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="architecture">Architecture</h1>
+<p>This page documents the internal architecture of PyAgentic, showing how agents are constructed from declaration through instantiation to runtime execution.</p>
+<h2 id="overview">Overview</h2>
+<p>PyAgentic's architecture is built around three distinct phases:</p>
+<ol>
+<li><strong>Declaration Phase</strong> - User writes agent class code, metaclass processes it</li>
+<li><strong>Instantiation Phase</strong> - Agent class is instantiated with dynamic state and initialization</li>
+<li><strong>Runtime Phase</strong> - Agent executes, calling tools and linked agents in an agentic loop</li>
+</ol>
+<p>Each phase builds upon the previous one, transforming user-friendly declarations into sophisticated runtime behavior.</p>
+<h2 id="declaration-phase">Declaration Phase</h2>
+<p>The declaration phase occurs when you define an agent class. The <code>AgentMetaclass</code> intercepts the class definition and generates all the internal structures needed for the agent to function.</p>
+<p><img alt="Declaration Phase Architecture" src="../../diagrams/declaration.svg" /></p>
+<h3 id="key-components">Key Components</h3>
+<p><strong>User Declarations:</strong>
+- <strong>BaseAgent</strong> - Your agent class inherits from this
+- <strong>System Message</strong> - The agent's core instructions
+- <strong>State Fields</strong> - <code>State[T]</code> annotations with optional <code>spec.State()</code> configuration
+- <strong>Linked Agents</strong> - <code>Link[AgentClass]</code> or direct type annotations with optional <code>spec.AgentLink()</code> configuration
+- <strong>Tools</strong> - Methods decorated with <code>@tool</code></p>
+<p><strong>Metaclass Processing:</strong>
+1. <strong>Extract Attributes</strong> - Pulls state, tools, and linked agents from the class
+2. <strong>C3 Linearize</strong> - Resolves inheritance from parent classes and mixins
+3. <strong>Validate Definitions</strong> - Ensures all definitions are valid
+4. <strong>Generate Definitions</strong> - Creates internal definition objects:
+   - <code>_StateDefinition</code> - Pairs <code>State[T]</code> type with <code>StateInfo</code> descriptor (from <code>spec.State()</code>)
+   - <code>_ToolDefinition</code> - Schema and metadata for each tool
+   - <code>_LinkedAgentDefinition</code> - Pairs <code>Link[T]</code> type with <code>AgentInfo</code> descriptor (from <code>spec.AgentLink()</code>)
+5. <strong>Build Init</strong> - Dynamically generates <code>__init__</code> signature and function
+6. <strong>Build Response Model</strong> - Creates Pydantic response model from tool definitions</p>
+<p><strong>Generated Class Structure:</strong>
+- <code>__tool_defs__</code> - Registry of all tool definitions
+- <code>__state_defs__</code> - Registry of all state definitions
+- <code>__linked_agents__</code> - Registry of all linked agent types
+- <code>__response_model__</code> - Pydantic model for agent responses
+- <code>__init__()</code> - Dynamically generated constructor</p>
+<h3 id="supporting-utilities">Supporting Utilities</h3>
+<p>The <code>spec</code> object provides configuration helpers using a descriptor pattern:
+- <code>spec.State()</code> - Returns <code>StateInfo</code> descriptor for state fields (default, default_factory, access control, policies)
+- <code>spec.Param()</code> - Returns <code>ParamInfo</code> descriptor for tool parameters (description, default, values)
+- <code>spec.AgentLink()</code> - Returns <code>AgentInfo</code> descriptor for linked agents (default, default_factory, condition)</p>
+<p>The <code>ref</code> object creates lazy references to state for use in tool parameters:
+- <code>ref.field.subfield</code> creates a <code>RefNode</code> that resolves at runtime
+- Used to constrain parameters to valid state values</p>
+<h2 id="instantiation-phase">Instantiation Phase</h2>
+<p>The instantiation phase occurs when you create an instance of your agent class (e.g., <code>agent = MyAgent(...)</code>). The dynamically generated <code>__init__</code> method creates the agent's runtime state and configuration.</p>
+<p><img alt="Instantiation Phase Architecture" src="../../diagrams/instantiation.svg" /></p>
+<h3 id="initialization-flow">Initialization Flow</h3>
+<ol>
+<li><strong>Make State Model</strong></li>
+<li>Creates a dynamic Pydantic model from <code>__state_defs__</code></li>
+<li>Each state field becomes a validated model field</li>
+<li>
+<p>Computed fields are included automatically</p>
+</li>
+<li>
+<p><strong>Compile State Values</strong></p>
+</li>
+<li>Processes initialization arguments</li>
+<li>Applies default values from <code>spec.State()</code></li>
+<li>
+<p>Type-checks all values</p>
+</li>
+<li>
+<p><strong>Create State Instance</strong></p>
+</li>
+<li>Instantiates the dynamic state model</li>
+<li>Stores as <code>agent.state</code></li>
+<li>
+<p>Includes system message and templates</p>
+</li>
+<li>
+<p><strong>Set Linked Agents</strong></p>
+</li>
+<li>Processes <code>AgentInfo</code> from <code>spec.AgentLink()</code> for each linked agent</li>
+<li>Applies <code>default</code> or calls <code>default_factory</code> if agent not provided</li>
+<li>Attaches agent instances to the parent</li>
+<li>Creates tool definitions from linked agents</li>
+<li>
+<p>Validates linked agent types</p>
+</li>
+<li>
+<p><strong>Set Attributes</strong></p>
+</li>
+<li>Attaches any additional instance attributes</li>
+<li>
+<p>Binds tools as instance methods</p>
+</li>
+<li>
+<p><strong>Post Initialization (<code>__post_init__</code>)</strong></p>
+</li>
+<li><strong>Check LLM Provider</strong> - Validates model string or provider instance</li>
+<li><strong>Setup Tracer</strong> - Initializes observability tracer (defaults to BasicTracer)</li>
+</ol>
+<h3 id="instance-attributes">Instance Attributes</h3>
+<p>After initialization, the agent instance has:
+- <code>state</code> - The <code>AgentState</code> instance with all state fields
+- Linked agents - References to other agent instances
+- <code>provider</code> - The configured LLM provider
+- <code>tracer</code> - The observability tracer
+- <code>model</code>, <code>api_key</code> - Provider configuration
+- <code>max_call_depth</code> - Maximum depth for the agentic loop</p>
+<h2 id="runtime-phase">Runtime Phase</h2>
+<p>The runtime phase occurs when you call <code>agent.run(input)</code> or <code>agent(input)</code>. The agent enters an agentic loop where it can call tools and linked agents multiple times before producing a final response.</p>
+<p><img alt="Runtime Phase Architecture" src="../../diagrams/runtime.svg" /></p>
+<h3 id="execution-flow">Execution Flow</h3>
+<ol>
+<li><strong>Add User Message</strong></li>
+<li>Input is added to <code>agent.state._messages</code></li>
+<li>
+<p>State is now primed for inference</p>
+</li>
+<li>
+<p><strong>Get Tool Definitions</strong></p>
+</li>
+<li>Collects all <code>@tool</code> methods from <code>__tool_defs__</code></li>
+<li>Generates tool definitions for linked agents via <code>agent.get_tool_definition()</code></li>
+<li>
+<p>Creates list of available tools for the LLM</p>
+</li>
+<li>
+<p><strong>Process LLM Inference</strong></p>
+</li>
+<li>Builds prompt with system message and user input</li>
+<li>Sends to provider with tool schemas</li>
+<li>
+<p>Returns LLM response (text and/or tool calls)</p>
+</li>
+<li>
+<p><strong>Tool Call Routing</strong></p>
+</li>
+<li>If no tool calls → Build final response</li>
+<li>If tool calls → Route to appropriate processor:</li>
+</ol>
+<p><strong>Process Tool Call:</strong>
+   - Looks up tool in <code>__tool_defs__</code>
+   - Compiles arguments (resolves refs, validates types)
+   - Executes tool method
+   - Returns <code>ToolResponse</code> with result</p>
+<p><strong>Process Agent Call:</strong>
+   - Looks up linked agent
+   - Calls <code>linked_agent.run()</code>
+   - Returns <code>AgentResponse</code> from linked agent</p>
+<ol>
+<li><strong>Increment Depth</strong></li>
+<li>Increases loop counter</li>
+<li>Checks against <code>max_call_depth</code></li>
+<li>If under limit → Loop back to inference</li>
+<li>
+<p>If at limit → Build final response</p>
+</li>
+<li>
+<p><strong>Build Response</strong></p>
+</li>
+<li>Combines final LLM output with all tool/agent responses</li>
+<li>Creates <code>AgentResponse</code> instance using <code>__response_model__</code></li>
+<li>Returns to caller</li>
+</ol>
+<h3 id="response-object">Response Object</h3>
+<p>The <code>AgentResponse</code> contains:
+- <code>final_output</code> - The LLM's final text response
+- <code>tool_responses</code> - List of <code>ToolResponse</code> objects (one per tool call)
+- <code>agent_responses</code> - List of nested <code>AgentResponse</code> objects (one per linked agent call)
+- <code>provider_info</code> - Metadata about the LLM provider and usage</p>
+<p>Each <code>ToolResponse</code> contains:
+- <code>output</code> - The string result from the tool
+- <code>call_depth</code> - Which loop iteration this was called in
+- <code>raw_kwargs</code> - Original arguments from the LLM
+- Compiled parameters specific to that tool</p>
+<h2 id="key-design-patterns">Key Design Patterns</h2>
+<h3 id="metaclass-based-construction">Metaclass-Based Construction</h3>
+<p>Using a metaclass allows PyAgentic to inspect and transform agent classes at definition time, generating optimal runtime structures before any instances are created. This enables:
+- Compile-time validation of agent definitions
+- Pre-generated response models for type safety
+- Efficient tool schema generation
+- Inheritance and mixin support via C3 linearization</p>
+<h3 id="dynamic-state-management">Dynamic State Management</h3>
+<p>State is defined declaratively at the class level but instantiated dynamically per agent instance. This provides:
+- Type-safe state access via Pydantic
+- Computed fields that update automatically
+- Access control (read/write/hidden)
+- Serialization support</p>
+<h3 id="reference-resolution">Reference Resolution</h3>
+<p>The <code>ref</code> system creates lazy references at declaration time that resolve at runtime:
+1. <strong>Declaration</strong>: <code>ref.field.subfield</code> creates <code>RefNode(['field', 'subfield'])</code>
+2. <strong>Storage</strong>: <code>RefNode</code> stored in tool parameter definition
+3. <strong>Runtime</strong>: When generating tool schema, <code>RefNode.resolve(agent_reference)</code> walks the path to get current value</p>
+<p>This keeps tool parameters synchronized with live state values.</p>
+<h3 id="tool-as-universal-interface">Tool as Universal Interface</h3>
+<p>Both custom <code>@tool</code> methods and linked agents use the same <code>_ToolDefinition</code> interface. This allows:
+- Uniform handling by the LLM
+- Consistent parameter validation
+- Seamless composition of agents</p>
+<h2 id="source-diagrams">Source Diagrams</h2>
+<p>These architecture diagrams were created using <a href="https://d2lang.com/">D2</a>. The source <code>.d2</code> files are available in <code>docs/diagrams/source/</code>:</p>
+<ul>
+<li><code>docs/diagrams/source/declaration.d2</code> - Declaration phase diagram</li>
+<li><code>docs/diagrams/source/instantiation.d2</code> - Instantiation phase diagram</li>
+<li><code>docs/diagrams/source/runtime.d2</code> - Runtime phase diagram</li>
+</ul>
+<p>The diagrams are automatically compiled to SVG when building or deploying the documentation. To manually regenerate:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Compile all diagrams (uses elk layout engine)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>task<span class="w"> </span>compile-diagrams
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Or compile individually with elk layout</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>d2<span class="w"> </span>--layout<span class="w"> </span>elk<span class="w"> </span>docs/diagrams/source/declaration.d2<span class="w"> </span>docs/diagrams/declaration.svg
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>d2<span class="w"> </span>--layout<span class="w"> </span>elk<span class="w"> </span>docs/diagrams/source/instantiation.d2<span class="w"> </span>docs/diagrams/instantiation.svg
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>d2<span class="w"> </span>--layout<span class="w"> </span>elk<span class="w"> </span>docs/diagrams/source/runtime.d2<span class="w"> </span>docs/diagrams/runtime.svg
+</span></code></pre></div>
+<p><strong>Note</strong>: The <code>.d2</code> source files specify the <code>tala</code> layout engine, but the build process overrides this with <code>elk</code> since <code>tala</code> requires a separate installation. If you have <code>tala</code> installed locally, you can compile without the <code>--layout elk</code> flag for potentially better layouts.</p>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li>Learn about the <a href="../modules/">public API</a> you should use</li>
+<li>Read the <a href="../../getting-started/">user guide</a> for practical examples</li>
+<li>Explore <a href="../../states/">state management</a> for persistent agents</li>
+<li>See <a href="../../tools/">tools</a> for extending agent capabilities</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share"], "search": "../../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      
+    
+  </body>
+</html>
