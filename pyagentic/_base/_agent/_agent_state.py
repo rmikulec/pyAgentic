@@ -26,7 +26,6 @@ class _AgentState(BaseModel):
         ("on", EventKind.SET): "on_set",
         ("background", EventKind.SET): "background_set",
     }
-    _state_lock: ClassVar[threading.Lock] = PrivateAttr(default_factory=threading.Lock)
     __policies__: ClassVar[dict[str, list[Policy]]]
 
     instructions: str
@@ -61,15 +60,18 @@ class _AgentState(BaseModel):
         self._machine = machine
 
     def _update_state_machine(self, phases):
-        for to_, from_, condition in phases:
-            if condition(self):
-                trigger = f"{to_}_to_{from_}"
-                getattr(self._machine, trigger)()
+        for source, dest, condition in phases:
+            with self._state_lock:
+                if condition(self) and self.phase == source:
+                    trigger = f"{source}_to_{dest}"
+                    getattr(self._machine, trigger)()
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
         if self.input_template:
             self._input_template = Template(source=self.input_template)
+
+        self._state_lock = threading.Lock()
         return super().model_post_init(state)
 
     def get_policies(self, state_name: str) -> list[Policy]:
@@ -208,7 +210,8 @@ class _AgentState(BaseModel):
         event = SetEvent(name=name, previous=previous, value=value)
         final_value = self._run_policies(event, "on")
 
-        setattr(self, name, final_value)
+        with self._state_lock:
+            setattr(self, name, final_value)
         asyncio.create_task(self._dispatch_policies(event, "background"))
 
     @classmethod

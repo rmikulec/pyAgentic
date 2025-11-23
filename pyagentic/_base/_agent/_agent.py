@@ -1,5 +1,6 @@
 import inspect
 import json
+import asyncio
 from functools import wraps
 from typing import (
     Callable,
@@ -560,24 +561,43 @@ class BaseAgent(metaclass=AgentMeta):
                     self.state._messages.append(Message(role="assistant", content=response.text))
                     break
 
-                # Execute all tool/agent calls from this response
+                tasks = []
+
+                async def wrap(kind: str, tool_call, coro):
+                    """Run the coroutine and attach metadata."""
+                    result = await coro
+                    return kind, tool_call, result
+
                 for tool_call in response.tool_calls:
-                    # Skip if we've already processed this call (prevents duplicates)
                     if tool_call.id and tool_call.id in processed_call_ids:
                         continue
 
                     processed_call_ids.add(tool_call.id)
 
-                    # Route to either @tool methods or linked agents
                     if tool_call.name in self.__tool_defs__:
-                        result = await self._process_tool_call(tool_call, call_depth=depth)
-                        tool_responses.append(result)
-                        yield result
+                        coro = self._process_tool_call(tool_call, call_depth=depth)
+                        kind = "tool"
 
                     elif tool_call.name in self.__linked_agents__:
-                        result = await self._process_agent_call(tool_call)
+                        coro = self._process_agent_call(tool_call)
+                        kind = "agent"
+
+                    else:
+                        continue
+
+                    task = asyncio.create_task(wrap(kind, tool_call, coro))
+                    tasks.append(task)
+
+                # Process tasks as they *finish*, not in original order
+                for task in asyncio.as_completed(tasks):
+                    kind, tool_call, result = await task
+
+                    if kind == "tool":
+                        tool_responses.append(result)
+                    else:
                         agent_responses.append(result)
-                        yield result
+
+                    yield result
 
                 # Increment depth and continue loop (LLM will see tool results next iteration)
                 depth += 1
