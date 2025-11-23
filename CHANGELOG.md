@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.2.0-a.1 (2025-11-23)
+
+### Features
+
+- Added new phase machine FSM system
+  ([`9046d25`](https://github.com/rmikulec/pyAgentic/commit/9046d258e0e66a4ca32e74eda4428a826fab20c5))
+
+
 ## v2.1.0 (2025-11-23)
 
 
