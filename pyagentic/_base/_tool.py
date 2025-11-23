@@ -43,12 +43,14 @@ class _ToolDefinition:
         parameters: dict[str, tuple[TypeVar, ParamInfo]],
         return_type: Type[Any],
         condition: Callable[[Any], bool] = None,
+        phases: list[str] = None,
     ):
         self.name: str = name
         self.description: str = description
         self.parameters: dict[str, tuple[TypeVar, ParamInfo]] = parameters
         self.condition = condition
         self.return_type = return_type
+        self.phases = phases if phases else []
 
     def resolve(self, agent_reference: dict) -> Self:
         new_parameters = {}
@@ -210,10 +212,7 @@ class _ToolDefinition:
         return compiled_args
 
 
-def tool(
-    description: str,
-    condition: Callable[[Any], bool] = None,
-):
+def tool(description: str, condition: Callable[[Any], bool] = None, phases: list[str] = None):
     """
     Decorator to mark an agent method as a tool that the LLM can call.
 
@@ -281,6 +280,7 @@ def tool(
             parameters=params,
             condition=condition,
             return_type=return_type,
+            phases=phases,
         )
         return fn
 

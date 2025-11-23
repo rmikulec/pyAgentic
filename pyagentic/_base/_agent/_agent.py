@@ -463,7 +463,12 @@ class BaseAgent(metaclass=AgentMeta):
         # Add all @tool decorated methods
         for tool_def in self.__tool_defs__.values():
             # Resolve StateRefs in parameters (e.g., ref.self.user_name -> actual value)
-            tool_defs.append(tool_def.resolve(self.agent_reference))
+
+            if self.phases and tool_def.phases:
+                if self.state.phase in tool_def.phases:
+                    tool_defs.append(tool_def.resolve(self.agent_reference))
+            else:
+                tool_defs.append(tool_def.resolve(self.agent_reference))
 
         # Add linked agents as tools
         for name, linked_def in self.__linked_agents__.items():
