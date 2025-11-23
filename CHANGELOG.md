@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v2.1.0-a.1 (2025-11-23)
+
+### Bug Fixes
+
+- Updated ToolReponse to respect the specified return type of the tool
+  ([`5b87c5c`](https://github.com/rmikulec/pyAgentic/commit/5b87c5c67a1f23ef644e6122363c074590cd4178))
+
+### Features
+
+- Updated `run` to yield responses -> ToolResponse, LLMResponse, AgentResponse
+  ([`7499b39`](https://github.com/rmikulec/pyAgentic/commit/7499b390e29b4aca1c9bf740545e428caa54285d))
+
+
 ## v2.0.2 (2025-11-22)
 
 
