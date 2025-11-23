@@ -56,6 +56,14 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Learn about responses](responses.md)
 
+- :material-play-circle: **[Execution Modes](execution-modes.md)**
+
+    ---
+
+    Three ways to run agents: simple calls, run(), and step() for streaming responses.
+
+    [:octicons-arrow-right-24: Learn about execution modes](execution-modes.md)
+
 - :material-format-list-numbered: **[Structured Outputs](structured-output.md)**
 
     ---
