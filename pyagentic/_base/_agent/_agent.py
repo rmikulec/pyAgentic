@@ -492,10 +492,12 @@ class BaseAgent(metaclass=AgentMeta):
         self, input_: str
     ) -> AsyncGenerator[Union[ToolResponse, AgentResponse, LLMResponse]]:
         """
-        Main execution loop for the agent. Processes user input through multiple rounds
-        of LLM inference and tool/agent calls until completion or max_call_depth reached.
+        Streams all intermediate responses as the agent executes. Yields LLMResponse for each
+        inference, ToolResponse for each tool execution, and finally AgentResponse with the
+        complete result.
 
-        The agent follows an agentic loop pattern:
+        This is the core execution method that enables real-time streaming and fine-grained
+        control over agent execution. The agent follows an agentic loop pattern:
         1. Send user input and conversation history to the LLM
         2. LLM decides to either call tools or respond with final output
         3. If tools are called, execute them and feed results back to LLM
@@ -504,19 +506,23 @@ class BaseAgent(metaclass=AgentMeta):
         Args:
             input_ (str): The user input/query for the agent to process
 
-        Returns:
-            AgentResponse: Structured response containing:
-                - final_output: The final text or structured output from the LLM
-                - state: Current agent state after execution
-                - tool_responses: List of all tool calls and their outputs
-                - provider_info: Information about the LLM provider used
+        Yields:
+            Union[LLMResponse, ToolResponse, AgentResponse]: Responses in sequence:
+                - LLMResponse: Yielded each time the LLM is called (may happen multiple times)
+                - ToolResponse: Yielded for each tool execution
+                - AgentResponse: Final response with complete execution summary
 
         Example:
             ```python
             agent = MyAgent(model="openai::gpt-4o", api_key=API_KEY)
-            response = await agent.run("What's the weather in San Francisco?")
-            print(response.final_output)  # LLM's final answer
-            print(response.tool_responses)  # Tools that were called
+
+            async for response in agent.step("Analyze this data"):
+                if isinstance(response, LLMResponse):
+                    print(f"LLM thinking: {response.text}")
+                elif isinstance(response, ToolResponse):
+                    print(f"Tool executed: {response.output}")
+                elif isinstance(response, AgentResponse):
+                    print(f"Final: {response.final_output}")
             ```
         """
         async with self.tracer.agent(
@@ -607,6 +613,32 @@ class BaseAgent(metaclass=AgentMeta):
             yield response
 
     async def run(self, input_: str) -> AgentResponse:
+        """
+        Executes the agent with a message string and returns the final result.
+
+        This method consumes the entire step() generator and returns only the final
+        AgentResponse. Use this when you don't need intermediate streaming responses
+        and just want the final output.
+
+        Args:
+            input_ (str): The user input/query for the agent to process
+
+        Returns:
+            AgentResponse: Structured response containing:
+                - final_output: The final text or structured output from the LLM
+                - state: Current agent state after execution
+                - tool_responses: List of all tool calls and their outputs
+                - agent_responses: List of linked agent calls (if any)
+                - provider_info: Information about the LLM provider used
+
+        Example:
+            ```python
+            agent = MyAgent(model="openai::gpt-4o", api_key=API_KEY)
+            response = await agent.run("What's the weather in San Francisco?")
+            print(response.final_output)  # LLM's final answer
+            print(response.tool_responses)  # Tools that were called
+            ```
+        """
         final_response = None
         async for res in self.step(input_):
             final_response = res
@@ -614,13 +646,57 @@ class BaseAgent(metaclass=AgentMeta):
 
     async def __call__(self, user_input: str) -> BaseModel:
         """
-        Allows the agent to be called directly as a function.
+        Customizable callable interface for the agent. Override this method to accept
+        structured, typed parameters that match your agent's purpose.
+
+        When this agent is linked to another agent, the parameters of this method become
+        the tool parameters that the LLM sees. This enables type-safe, structured agent
+        composition in multi-agent systems.
+
+        The default implementation accepts a single user_input string and forwards it to
+        run(). Override to provide a custom interface:
 
         Args:
-            user_input (str): The user input to process
+            user_input (str): The user input to process (default implementation)
 
         Returns:
             AgentResponse: The agent's response
+
+        Example (Default Usage):
+            ```python
+            agent = MyAgent(model="openai::gpt-4o", api_key=API_KEY)
+            response = await agent("What's the weather?")
+            ```
+
+        Example (Custom Implementation):
+            ```python
+            class CoursePlannerAgent(BaseAgent):
+                __system_message__ = "You design course curricula"
+                __description__ = "Creates structured course plans"
+
+                async def __call__(
+                    self,
+                    goal: str,
+                    experience: str,
+                    context: Optional[str] = None
+                ) -> CoursePlan:
+                    # Build structured prompt from parameters
+                    prompt = f"Goal: {goal}\\nExperience: {experience}"
+                    if context:
+                        prompt += f"\\nContext: {context}"
+                    return await self.run(prompt)
+
+            # Call with structured parameters
+            planner = CoursePlannerAgent(model="openai::gpt-4o", api_key=API_KEY)
+            course = await planner(
+                goal="Learn ML",
+                experience="Python beginner",
+                context="Prefer hands-on projects"
+            )
+
+            # When linked to another agent, the LLM sees:
+            # Tool: planner(goal: str, experience: str, context: Optional[str])
+            ```
         """
         return await self.run(input_=user_input)
 
