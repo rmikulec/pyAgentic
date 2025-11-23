@@ -169,7 +169,6 @@ class BaseAgent(metaclass=AgentMeta):
     phases: ClassVar[list[tuple[str, str, Callable]]] = None
 
     # Generated Class Attributes (built by metaclass)
-    __machine__: Machine | None = None
     __response_model__: ClassVar[Type[AgentResponse]] = None  # Pydantic response model
     __state_class__: ClassVar[Type[_AgentState]] = None  # Generated state class
     __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]  # Tool response models
@@ -232,34 +231,6 @@ class BaseAgent(metaclass=AgentMeta):
         if self.__tool_defs__ and not self.provider.__supports_tool_calls__:
             raise Exception("Tools are not supported with this provider")
 
-    def _build_phase_machine(self) -> Machine:
-        if not self.phases:
-            return None
-
-        states = []
-        for to_, from_, _ in self.phases:
-            if to_ not in states:
-                states.append(to_)
-            if from_ not in states:
-                states.append(from_)
-
-        machine = Machine(states=states, initial=states[0])
-
-        for to_, from_, _ in self.phases:
-            machine.add_transition(
-                trigger=f"{to_}_to_{from_}",
-                source=to_,
-                dest=from_,
-            )
-
-        return machine
-
-    def _update_state_machine(self):
-        for to_, from_, condition in self.phases:
-            if condition(self.state):
-                trigger = f"{to_}_to_{from_}"
-                getattr(self.__machine__, trigger)()
-
     def __post_init__(self):
         """
         Post-initialization hook called after agent instance is created.
@@ -281,7 +252,9 @@ class BaseAgent(metaclass=AgentMeta):
             ```
         """
         self._check_llm_provider()
-        self.__machine__ = self._build_phase_machine()
+
+        if self.phases:
+            self.state._build_phase_machine(self.phases)
 
         # Use BasicTracer as default if no tracer provided
         if not self.tracer:
@@ -347,7 +320,14 @@ class BaseAgent(metaclass=AgentMeta):
             self.state._messages.append(
                 Message(role="assistant", content="Failed to generate a response")
             )
-            return LLMResponse(text=f"The LLM failed to generate a response: {e}", tool_calls=[])
+            response = LLMResponse(
+                text=f"The LLM failed to generate a response: {e}", tool_calls=[]
+            )
+
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
+
+        return response
 
     @traced(SpanKind.AGENT)
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
@@ -394,6 +374,8 @@ class BaseAgent(metaclass=AgentMeta):
         self.state._messages.append(
             self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
         )
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
         return response
 
     @traced(SpanKind.TOOL)
@@ -458,6 +440,8 @@ class BaseAgent(metaclass=AgentMeta):
             self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
         )
 
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
         # Build and return the structured tool response
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(
@@ -579,7 +563,6 @@ class BaseAgent(metaclass=AgentMeta):
                         yield result
 
                 # Increment depth and continue loop (LLM will see tool results next iteration)
-                self._update_state_machine()
                 depth += 1
 
             # If we exhausted max_call_depth without final text, get one more response

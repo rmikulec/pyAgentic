@@ -31,11 +31,40 @@ class _AgentState(BaseModel):
 
     instructions: str
     input_template: Optional[str] = "{{ user_message }}"
+    _machine: Machine = PrivateAttr(default=None)
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
     _input_template: Template = PrivateAttr(
         default_factory=lambda: Template(source="{{ user_message }}")
     )
+
+    def _build_phase_machine(self, phases: list[tuple[str, str, Callable]]) -> Machine:
+        if not phases:
+            return None
+
+        states = []
+        for to_, from_, _ in phases:
+            if to_ not in states:
+                states.append(to_)
+            if from_ not in states:
+                states.append(from_)
+
+        machine = Machine(states=states, initial=states[0])
+
+        for to_, from_, _ in phases:
+            machine.add_transition(
+                trigger=f"{to_}_to_{from_}",
+                source=to_,
+                dest=from_,
+            )
+
+        self._machine = machine
+
+    def _update_state_machine(self, phases):
+        for to_, from_, condition in phases:
+            if condition(self):
+                trigger = f"{to_}_to_{from_}"
+                getattr(self._machine, trigger)()
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
