@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.1.0-a.3 (2025-11-23)
+
+### Bug Fixes
+
+- Removed old emitter in replace for .step
+  ([`02d004d`](https://github.com/rmikulec/pyAgentic/commit/02d004d4fc54f6ffd11318cc0174ff56faa84fef))
+
+
 ## v2.1.0-a.2 (2025-11-23)
 
 
