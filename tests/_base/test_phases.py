@@ -536,3 +536,189 @@ def test_phases_with_single_transition():
     agent.state._update_state_machine(phases=agent.phases)
 
     assert agent.state.phase == "done"
+
+
+def test_phase_aware_linked_agents_filtering():
+    """Test that linked agents are filtered based on current phase"""
+    from pyagentic import Link
+
+    class PlannerAgent(BaseAgent):
+        __system_message__ = "I create plans"
+        __description__ = "Planning specialist"
+
+    class ExecutorAgent(BaseAgent):
+        __system_message__ = "I execute plans"
+        __description__ = "Execution specialist"
+
+    class ReviewerAgent(BaseAgent):
+        __system_message__ = "I review work"
+        __description__ = "Review specialist"
+
+    class ProjectAgent(BaseAgent):
+        __system_message__ = "I manage projects"
+
+        step: State[int] = spec.State(default=0)
+
+        phases = [
+            ("planning", "execution", lambda self: self.step == 1),
+            ("execution", "review", lambda self: self.step == 2),
+        ]
+
+        planner: Link[PlannerAgent] = spec.AgentLink(phases=["planning"])
+        executor: Link[ExecutorAgent] = spec.AgentLink(phases=["execution"])
+        reviewer: Link[ReviewerAgent] = spec.AgentLink(phases=["review"])
+
+    agent = ProjectAgent(
+        model="_mock::test-model",
+        api_key="test",
+        planner=PlannerAgent(model="_mock::test-model", api_key="test"),
+        executor=ExecutorAgent(model="_mock::test-model", api_key="test"),
+        reviewer=ReviewerAgent(model="_mock::test-model", api_key="test"),
+    )
+
+    # In planning phase
+    assert agent.state.phase == "planning"
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+
+    # Should only have planner
+    assert "planner" in tool_names
+    assert "executor" not in tool_names
+    assert "reviewer" not in tool_names
+
+    # Transition to execution phase
+    agent.state.step = 1
+    agent.state._update_state_machine(phases=agent.phases)
+    assert agent.state.phase == "execution"
+
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+
+    # Should only have executor
+    assert "planner" not in tool_names
+    assert "executor" in tool_names
+    assert "reviewer" not in tool_names
+
+    # Transition to review phase
+    agent.state.step = 2
+    agent.state._update_state_machine(phases=agent.phases)
+    assert agent.state.phase == "review"
+
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+
+    # Should only have reviewer
+    assert "planner" not in tool_names
+    assert "executor" not in tool_names
+    assert "reviewer" in tool_names
+
+
+def test_linked_agent_multiple_phases():
+    """Test that linked agents with multiple phases are available in all specified phases"""
+    from pyagentic import Link
+
+    class MultiPhaseAgent(BaseAgent):
+        __system_message__ = "I work in multiple phases"
+        __description__ = "Multi-phase specialist"
+
+    class UniversalAgent(BaseAgent):
+        __system_message__ = "I work in all phases"
+        __description__ = "Universal helper"
+
+    class MainAgent(BaseAgent):
+        __system_message__ = "I manage workflows"
+
+        step: State[int] = spec.State(default=0)
+
+        phases = [
+            ("phase1", "phase2", lambda self: self.step == 1),
+            ("phase2", "phase3", lambda self: self.step == 2),
+        ]
+
+        multi_phase: Link[MultiPhaseAgent] = spec.AgentLink(phases=["phase1", "phase3"])
+        universal: Link[UniversalAgent] = spec.AgentLink()  # No phases = all phases
+
+    agent = MainAgent(
+        model="_mock::test-model",
+        api_key="test",
+        multi_phase=MultiPhaseAgent(model="_mock::test-model", api_key="test"),
+        universal=UniversalAgent(model="_mock::test-model", api_key="test"),
+    )
+
+    # In phase1
+    assert agent.state.phase == "phase1"
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+    assert "multi_phase" in tool_names  # Available in phase1
+    assert "universal" in tool_names  # Available in all phases
+
+    # Transition to phase2
+    agent.state.step = 1
+    agent.state._update_state_machine(phases=agent.phases)
+    assert agent.state.phase == "phase2"
+
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+    assert "multi_phase" not in tool_names  # Not available in phase2
+    assert "universal" in tool_names  # Available in all phases
+
+    # Transition to phase3
+    agent.state.step = 2
+    agent.state._update_state_machine(phases=agent.phases)
+    assert agent.state.phase == "phase3"
+
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+    assert "multi_phase" in tool_names  # Available in phase3
+    assert "universal" in tool_names  # Available in all phases
+
+
+def test_linked_agent_phases_with_condition():
+    """Test that linked agents can have both phases and condition restrictions"""
+    from pyagentic import Link
+
+    class ConditionalAgent(BaseAgent):
+        __system_message__ = "I am conditional"
+        __description__ = "Conditional helper"
+
+    class MainAgent(BaseAgent):
+        __system_message__ = "I manage workflows"
+
+        step: State[int] = spec.State(default=0)
+        enabled: State[bool] = spec.State(default=False)
+
+        phases = [
+            ("phase1", "phase2", lambda self: self.step == 1),
+        ]
+
+        conditional_agent: Link[ConditionalAgent] = spec.AgentLink(
+            phases=["phase2"],
+            condition=lambda self: self.enabled
+        )
+
+    agent = MainAgent(
+        model="_mock::test-model",
+        api_key="test",
+        conditional_agent=ConditionalAgent(model="_mock::test-model", api_key="test"),
+    )
+
+    # In phase1, should not be available (wrong phase)
+    assert agent.state.phase == "phase1"
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+    assert "conditional_agent" not in tool_names
+
+    # Transition to phase2, but condition is False
+    agent.state.step = 1
+    agent.state._update_state_machine(phases=agent.phases)
+    assert agent.state.phase == "phase2"
+
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+    assert "conditional_agent" not in tool_names  # Condition not met
+
+    # Enable the condition
+    agent.state.enabled = True
+    tool_defs = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tool_defs]
+    assert "conditional_agent" in tool_names  # Both phase and condition met
