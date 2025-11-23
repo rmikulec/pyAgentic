@@ -43,19 +43,19 @@ class _AgentState(BaseModel):
             return None
 
         states = []
-        for to_, from_, _ in phases:
-            if to_ not in states:
-                states.append(to_)
-            if from_ not in states:
-                states.append(from_)
+        for source, dest, _ in phases:
+            if source not in states:
+                states.append(source)
+            if dest not in states:
+                states.append(dest)
 
         machine = Machine(states=states, initial=states[0])
 
-        for to_, from_, _ in phases:
+        for source, dest, _ in phases:
             machine.add_transition(
-                trigger=f"{to_}_to_{from_}",
-                source=to_,
-                dest=from_,
+                trigger=f"{source}_to_{dest}",
+                source=source,
+                dest=dest,
             )
 
         self._machine = machine
@@ -253,7 +253,7 @@ class _AgentState(BaseModel):
 
     @property
     def phase(self) -> str:
-        return self._machine.state
+        return self._machine.state if self._machine else None
 
     @property
     def recent_message(self) -> Message:
@@ -276,7 +276,10 @@ class _AgentState(BaseModel):
         # start with all the normal dataclass fields
 
         # now format your instruction template
-        return self._instructions_template.render(phase=self.phase, **self.model_dump())
+        if self.phase:
+            return self._instructions_template.render(phase=self.phase, **self.model_dump())
+        else:
+            return self._instructions_template.render(**self.model_dump())
 
     @property
     def messages(self) -> list[Message]:
@@ -304,7 +307,10 @@ class _AgentState(BaseModel):
         if self.input_template:
             data = self.model_dump()
             data["user_message"] = message
-            content = self._input_template.render(**data)
+            if self.phase:
+                content = self._input_template.render(phase=self.phase, **self.model_dump())
+            else:
+                content = self._input_template.render(**self.model_dump())
         else:
             content = message
         self._messages.append(Message(role="user", content=content))

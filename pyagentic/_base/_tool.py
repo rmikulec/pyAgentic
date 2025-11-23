@@ -69,6 +69,7 @@ class _ToolDefinition:
             parameters=new_parameters,
             condition=self.condition,
             return_type=self.return_type,
+            phases=self.phases,
         )
 
     def to_openai_spec(self) -> dict:
