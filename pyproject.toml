@@ -1,6 +1,6 @@
 [project]
 name = "pyagentic-core"
-version = "2.1.0"
+version = "2.2.0-a.1"
 description = "Build LLM Agents in a Pythonic way"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -23,6 +23,7 @@ dependencies = [
     "c3linearize>=0.1.0",
     "anthropic>=0.62.0",
     "google-generativeai>=0.8.0",
+    "transitions>=0.9.3",
 ]
 
 [dependency-groups]

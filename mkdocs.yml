@@ -10,6 +10,7 @@ nav:
     - Execution Modes: execution-modes.md
     - Tools: tools.md
     - State Management: states.md
+    - Phases: phases.md
     - Policies: policies.md
     - Agent Linking: agent-linking.md
     - Responses: responses.md

@@ -40,6 +40,14 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Learn about states](states.md)
 
+- :material-state-machine: **[Phases](phases.md)**
+
+    ---
+
+    Structure agent workflows with finite state machines, phase-based tool filtering, and conditional transitions.
+
+    [:octicons-arrow-right-24: Learn about phases](phases.md)
+
 - :material-shield-check: **[Policies](policies.md)**
 
     ---

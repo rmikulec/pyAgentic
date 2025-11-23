@@ -13,6 +13,7 @@ from typing import (
     Union,
 )
 
+from transitions import Machine
 from pydantic import BaseModel, ValidationError
 
 from pyagentic.logging import get_logger
@@ -165,6 +166,7 @@ class BaseAgent(metaclass=AgentMeta):
     __description__: ClassVar[str]  # Optional: description for linked agents
     __input_template__: ClassVar[str] = None  # Optional: template for user input
     __response_format__: ClassVar[Type[BaseModel]] = None  # Optional: structured output format
+    phases: ClassVar[list[tuple[str, str, Callable]]] = None
 
     # Generated Class Attributes (built by metaclass)
     __response_model__: ClassVar[Type[AgentResponse]] = None  # Pydantic response model
@@ -251,6 +253,9 @@ class BaseAgent(metaclass=AgentMeta):
         """
         self._check_llm_provider()
 
+        if self.phases:
+            self.state._build_phase_machine(self.phases)
+
         # Use BasicTracer as default if no tracer provided
         if not self.tracer:
             self.tracer = BasicTracer()
@@ -315,7 +320,14 @@ class BaseAgent(metaclass=AgentMeta):
             self.state._messages.append(
                 Message(role="assistant", content="Failed to generate a response")
             )
-            return LLMResponse(text=f"The LLM failed to generate a response: {e}", tool_calls=[])
+            response = LLMResponse(
+                text=f"The LLM failed to generate a response: {e}", tool_calls=[]
+            )
+
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
+
+        return response
 
     @traced(SpanKind.AGENT)
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
@@ -362,6 +374,8 @@ class BaseAgent(metaclass=AgentMeta):
         self.state._messages.append(
             self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
         )
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
         return response
 
     @traced(SpanKind.TOOL)
@@ -426,6 +440,8 @@ class BaseAgent(metaclass=AgentMeta):
             self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
         )
 
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
         # Build and return the structured tool response
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(
@@ -447,7 +463,12 @@ class BaseAgent(metaclass=AgentMeta):
         # Add all @tool decorated methods
         for tool_def in self.__tool_defs__.values():
             # Resolve StateRefs in parameters (e.g., ref.self.user_name -> actual value)
-            tool_defs.append(tool_def.resolve(self.agent_reference))
+
+            if self.phases and tool_def.phases:
+                if self.state.phase in tool_def.phases:
+                    tool_defs.append(tool_def.resolve(self.agent_reference))
+            else:
+                tool_defs.append(tool_def.resolve(self.agent_reference))
 
         # Add linked agents as tools
         for name, linked_def in self.__linked_agents__.items():

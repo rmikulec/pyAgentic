@@ -1,9 +1,10 @@
 import asyncio
 import threading
 from typing import Any, Type, Self, Optional, ClassVar
-from pydantic import BaseModel, create_model, Field, PrivateAttr
+from pydantic import BaseModel, create_model, Field, PrivateAttr, computed_field
 from jinja2 import Template
-from typing import Optional, Literal
+from typing import Optional, Literal, Callable
+from transitions import Machine
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
@@ -30,11 +31,40 @@ class _AgentState(BaseModel):
 
     instructions: str
     input_template: Optional[str] = "{{ user_message }}"
+    _machine: Machine = PrivateAttr(default=None)
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
     _input_template: Template = PrivateAttr(
         default_factory=lambda: Template(source="{{ user_message }}")
     )
+
+    def _build_phase_machine(self, phases: list[tuple[str, str, Callable]]) -> Machine:
+        if not phases:
+            return None
+
+        states = []
+        for source, dest, _ in phases:
+            if source not in states:
+                states.append(source)
+            if dest not in states:
+                states.append(dest)
+
+        machine = Machine(states=states, initial=states[0])
+
+        for source, dest, _ in phases:
+            machine.add_transition(
+                trigger=f"{source}_to_{dest}",
+                source=source,
+                dest=dest,
+            )
+
+        self._machine = machine
+
+    def _update_state_machine(self, phases):
+        for to_, from_, condition in phases:
+            if condition(self):
+                trigger = f"{to_}_to_{from_}"
+                getattr(self._machine, trigger)()
 
     def model_post_init(self, state):
         self._instructions_template = Template(source=self.instructions)
@@ -222,6 +252,10 @@ class _AgentState(BaseModel):
         return create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
 
     @property
+    def phase(self) -> str:
+        return self._machine.state if self._machine else None
+
+    @property
     def recent_message(self) -> Message:
         """
         Returns the most recent message in the message history.
@@ -242,7 +276,10 @@ class _AgentState(BaseModel):
         # start with all the normal dataclass fields
 
         # now format your instruction template
-        return self._instructions_template.render(**self.model_dump())
+        if self.phase:
+            return self._instructions_template.render(phase=self.phase, **self.model_dump())
+        else:
+            return self._instructions_template.render(**self.model_dump())
 
     @property
     def messages(self) -> list[Message]:
@@ -270,7 +307,10 @@ class _AgentState(BaseModel):
         if self.input_template:
             data = self.model_dump()
             data["user_message"] = message
-            content = self._input_template.render(**data)
+            if self.phase:
+                content = self._input_template.render(phase=self.phase, **self.model_dump())
+            else:
+                content = self._input_template.render(**self.model_dump())
         else:
             content = message
         self._messages.append(Message(role="user", content=content))
