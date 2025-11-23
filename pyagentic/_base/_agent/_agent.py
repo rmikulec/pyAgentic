@@ -488,7 +488,7 @@ class BaseAgent(metaclass=AgentMeta):
 
         return tool_defs
 
-    async def run(
+    async def step(
         self, input_: str
     ) -> AsyncGenerator[Union[ToolResponse, AgentResponse, LLMResponse]]:
         """
@@ -605,6 +605,12 @@ class BaseAgent(metaclass=AgentMeta):
             response = self.__response_model__(**response_fields)
             self.tracer.set_attributes(output=response)
             yield response
+
+    async def run(self, input_: str) -> AgentResponse:
+        final_response = None
+        async for res in self.step(input_):
+            final_response = res
+        return final_response
 
     async def __call__(self, user_input: str) -> BaseModel:
         """
