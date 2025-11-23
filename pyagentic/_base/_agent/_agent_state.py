@@ -60,10 +60,10 @@ class _AgentState(BaseModel):
         self._machine = machine
 
     def _update_state_machine(self, phases):
-        for to_, from_, condition in phases:
+        for source, dest, condition in phases:
             with self._state_lock:
-                if condition(self) and self.phase == from_:
-                    trigger = f"{to_}_to_{from_}"
+                if condition(self) and self.phase == source:
+                    trigger = f"{source}_to_{dest}"
                     getattr(self._machine, trigger)()
 
     def model_post_init(self, state):
