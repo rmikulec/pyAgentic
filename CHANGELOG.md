@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.0.3-a.1 (2025-11-23)
+
+### Bug Fixes
+
+- Description is now a template like input and system message
+  ([`90e7d85`](https://github.com/rmikulec/pyAgentic/commit/90e7d85ffd9906f387fc6b645a964b3d33edac93))
+
+
 ## v2.0.2 (2025-11-22)
 
 
