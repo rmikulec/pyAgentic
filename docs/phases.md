@@ -112,6 +112,63 @@ When an agent is in a specific phase, only tools that:
 
 will be exposed to the LLM.
 
+## Phases with Linked Agents
+
+Linked agents can be restricted to specific phases using the `phases` parameter in `spec.AgentLink()`, similar to how tools can be phase-restricted. This allows you to compose multi-agent systems where different agents are available at different stages of the workflow:
+
+```python
+from pyagentic import BaseAgent, tool, spec, Link
+
+class PlannerAgent(BaseAgent):
+    __system_message__ = "I create detailed plans"
+    __description__ = "Planning specialist for strategy development"
+
+class ExecutorAgent(BaseAgent):
+    __system_message__ = "I execute plans"
+    __description__ = "Execution specialist for implementing plans"
+
+class ReviewerAgent(BaseAgent):
+    __system_message__ = "I review completed work"
+    __description__ = "Quality assurance and review specialist"
+
+class ProjectAgent(BaseAgent):
+    __system_message__ = """
+    You manage projects through phases: {{ phase }}
+    """
+
+    plan: spec.State[str] = spec.State(default="")
+    execution_complete: spec.State[bool] = spec.State(default=False)
+
+    # Define phase transitions
+    phases = [
+        ("planning", "execution", lambda self: bool(self.plan)),
+        ("execution", "review", lambda self: self.execution_complete),
+    ]
+
+    # Each linked agent is only available during specific phases
+    planner: Link[PlannerAgent] = spec.AgentLink(phases=["planning"])
+    executor: Link[ExecutorAgent] = spec.AgentLink(phases=["execution"])
+    reviewer: Link[ReviewerAgent] = spec.AgentLink(phases=["review"])
+
+    @tool("Save the project plan", phases=["planning"])
+    def save_plan(self, plan_text: str) -> str:
+        self.plan = plan_text
+        return "Plan saved"
+
+    @tool("Mark execution complete", phases=["execution"])
+    def complete_execution(self) -> str:
+        self.execution_complete = True
+        return "Execution marked complete"
+```
+
+When using phase-restricted linked agents:
+- Linked agents only appear as available tools during their specified phases
+- Omitting the `phases` parameter makes the agent available in all phases
+- Multiple phases can be specified: `phases=["planning", "review"]`
+- Phase restrictions work alongside the `condition` parameter for fine-grained control
+
+For more details on linked agents, see the [Agent Linking documentation](agent-linking.md).
+
 ## Accessing Current Phase
 
 You can access the current phase in several ways:
@@ -172,67 +229,3 @@ Phase transitions are evaluated automatically:
 - **After agent calls**: When linked agents finish execution
 
 The transition evaluation checks each condition function in order and triggers the first transition whose condition returns `True`.
-
-### Manual Transitions
-
-While transitions typically happen automatically, you can also trigger them manually if needed:
-
-```python
-# The machine creates transition methods automatically
-self.state._machine.planning_to_research()
-```
-
-## Complete Example
-
-Here's a comprehensive example showing a multi-phase document writing agent:
-
-```python
-from pyagentic import BaseAgent, tool, spec
-
-class DocumentWriterAgent(BaseAgent):
-    __system_message__ = """
-    You are a document writer in {{ phase }} phase.
-
-    {% if phase == "outline" %}
-    Create a detailed outline for the document.
-    {% elif phase == "drafting" %}
-    Write the content based on the outline.
-    {% elif phase == "review" %}
-    Review and polish the draft.
-    {% elif phase == "final" %}
-    The document is complete.
-    {% endif %}
-    """
-
-    outline: spec.State[str] = spec.State(default="")
-    draft: spec.State[str] = spec.State(default="")
-    final_doc: spec.State[str] = spec.State(default="")
-
-    phases = [
-        ("outline", "drafting", lambda self: len(self.state.outline) > 100),
-        ("drafting", "review", lambda self: len(self.state.draft) > 500),
-        ("review", "final", lambda self: bool(self.state.final_doc)),
-    ]
-
-    @tool("Create document outline", phases=["outline"])
-    def create_outline(self, topic: str, sections: list[str]) -> str:
-        outline = f"# {topic}\n\n"
-        for section in sections:
-            outline += f"## {section}\n"
-        self.outline = outline
-        return f"Outline created with {len(sections)} sections"
-
-    @tool("Write draft content", phases=["drafting"])
-    def write_draft(self, section: str, content: str) -> str:
-        self.draft += f"\n\n## {section}\n\n{content}"
-        return f"Added content to section: {section}"
-
-    @tool("Review and finalize", phases=["review"])
-    def finalize_document(self, revisions: str) -> str:
-        self.final_doc = self.draft + f"\n\n---\nRevisions: {revisions}"
-        return "Document finalized"
-
-    @tool("Export document", phases=["final"])
-    def export(self, format: str) -> str:
-        return f"Exported document in {format} format"
-```
