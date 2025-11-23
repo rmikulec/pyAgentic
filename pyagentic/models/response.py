@@ -60,7 +60,9 @@ class ToolResponse(BaseModel):
                 case _:
                     raise Exception(f"Unsupported type: {param_type}")
 
-        return create_model(f"ToolResponse[{tool_def.name}]", __base__=cls, **fields)
+        return create_model(
+            f"ToolResponse[{tool_def.name}]", __base__=cls, output=tool_def.return_type, **fields
+        )
 
 
 class AgentResponse(BaseModel):
