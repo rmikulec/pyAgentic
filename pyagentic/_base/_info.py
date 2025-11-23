@@ -45,6 +45,7 @@ class AgentInfo(_SpecInfo):
     """
 
     condition: MaybeRef[Callable] | None = None
+    phases: list[str] | None = None
 
 
 @dataclass
