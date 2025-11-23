@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.2.0-a.2 (2025-11-23)
+
+### Bug Fixes
+
+- Update agent to run parallel tool calls actually in parallel
+  ([`693b321`](https://github.com/rmikulec/pyAgentic/commit/693b321383af0945d16a1961d0da5ebfc23b0b7a))
+
+
 ## v2.2.0-a.1 (2025-11-23)
 
 ### Features
