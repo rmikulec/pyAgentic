@@ -126,8 +126,6 @@ class BaseAgent(metaclass=AgentMeta):
         api_key (str, optional): API key matching the model provider
         provider (LLMProvider, optional): Pre-configured provider instance. Overrides
             `model` and `api_key` if provided.
-        emitter (Callable, optional): Callback function to receive real-time updates
-            about the agent's execution (useful for WebSocket streaming)
         tracer (AgentTracer, optional): Tracer instance for observability. Defaults
             to BasicTracer if not provided.
         max_call_depth (int): Maximum number of tool calling loops per run. Defaults to 1.
@@ -177,7 +175,6 @@ class BaseAgent(metaclass=AgentMeta):
     model: str = None
     api_key: str = None
     provider: LLMProvider = None
-    emitter: Callable[[Any], str] = None
     tracer: AgentTracer = None
     max_call_depth: int = 1
 
@@ -314,8 +311,6 @@ class BaseAgent(metaclass=AgentMeta):
         except Exception as e:
             # Handle inference errors gracefully
             logger.exception(e)
-            if self.emitter:
-                await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
             # Add error message to conversation history
             self.state._messages.append(
                 Message(role="assistant", content="Failed to generate a response")
@@ -402,37 +397,15 @@ class BaseAgent(metaclass=AgentMeta):
             # Handle validation errors for tool arguments
             result = f"Function Args were invalid: {str(e)}"
             compiled_args = {}
-            if self.emitter:
-                self.tracer.record_exception(str(e))
-                logger.exception(e)
-                if self.emitter:
-                    await _safe_run(
-                        self.emitter,
-                        ToolUpdate(
-                            status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs
-                        ),
-                    )
-
-        # Execute the tool, emitting status updates
+            self.tracer.record_exception(str(e))
+            logger.exception(e)
         try:
-            if self.emitter:
-                await _safe_run(
-                    self.emitter,
-                    ToolUpdate(
-                        status=Status.PROCESSING, tool_call=tool_call.name, tool_args=kwargs
-                    ),
-                )
             if compiled_args:
                 result = await _safe_run(handler, **compiled_args)
                 self.tracer.set_attributes(result=result)
         except TypeError as e:
             self.tracer.record_exception(str(e))
             logger.exception(e)
-            if self.emitter:
-                await _safe_run(
-                    self.emitter,
-                    ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
-                )
             raise InvalidToolDefinition(
                 tool_name=tool_call.name,
                 message=f"Tool must have a serializable return type; {tool_def.return_type} failed to be casted to a string.",
@@ -442,11 +415,6 @@ class BaseAgent(metaclass=AgentMeta):
             self.tracer.record_exception(str(e))
             logger.exception(e)
             result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
-            if self.emitter:
-                await _safe_run(
-                    self.emitter,
-                    ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
-                )
 
         stringified_result = (
             result.model_dump_json(indent=2)
@@ -544,10 +512,6 @@ class BaseAgent(metaclass=AgentMeta):
             agent_responses: list = []
             processed_call_ids: set[str] = set()
 
-            # Emit initial status
-            if self.emitter:
-                await _safe_run(self.emitter, EmitUpdate(status=Status.GENERATING))
-
             # Main agentic loop: LLM -> Tools -> LLM -> ...
             depth = 0
             final_ai_output: str | None = None
@@ -589,12 +553,6 @@ class BaseAgent(metaclass=AgentMeta):
             if final_ai_output is None:
                 response = await self._process_llm_inference()
                 final_ai_output = response.parsed if response.parsed else response.text
-
-            # Emit final success status
-            if self.emitter:
-                await _safe_run(
-                    self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
-                )
 
             # Build the structured response
             response_fields = {
