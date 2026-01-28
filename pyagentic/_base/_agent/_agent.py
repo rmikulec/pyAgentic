@@ -16,6 +16,7 @@ from typing import (
 
 from transitions import Machine
 from pydantic import BaseModel, ValidationError
+from PIL.Image import Image
 
 from pyagentic.logging import get_logger
 from pyagentic._base._tool import _ToolDefinition, tool
@@ -431,15 +432,27 @@ class BaseAgent(metaclass=AgentMeta):
             logger.exception(e)
             result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
 
-        stringified_result = (
-            result.model_dump_json(indent=2)
-            if issubclass(result.__class__, BaseModel)
-            else str(result)
-        )
-        # Add tool result to conversation history for LLM
-        self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
-        )
+        # Handle image results - create a message with the image attached
+        if isinstance(result, Image):
+            stringified_result = f"[Image returned by {tool_call.name}]"
+            # Add tool result message
+            self.state._messages.append(
+                self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
+            )
+            # Add the image as a user message so the LLM can see it
+            self.state._messages.append(
+                Message(role="user", content=f"Image from {tool_call.name}:", image=result)
+            )
+        else:
+            stringified_result = (
+                result.model_dump_json(indent=2)
+                if issubclass(result.__class__, BaseModel)
+                else str(result)
+            )
+            # Add tool result to conversation history for LLM
+            self.state._messages.append(
+                self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
+            )
 
         if self.phases:
             self.state._update_state_machine(phases=self.phases)

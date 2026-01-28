@@ -81,13 +81,15 @@ class LLMProvider(ABC):
         self,
         state: _AgentState,
         *,
-        images: Optional[Image] = None,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
     ) -> LLMResponse:
         """
         Generate a response from the language model.
+
+        Images can be included by adding them to messages in the agent state.
+        Each provider handles image conversion to their API format.
 
         Args:
             state: The agent state containing conversation history and system messages

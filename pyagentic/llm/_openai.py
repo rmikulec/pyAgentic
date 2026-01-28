@@ -9,8 +9,6 @@ import openai
 from openai.types.responses import Response as OpenAIResponse
 from openai.types.responses import ParsedResponse as OpenAIParsedResponse
 
-import base64
-import io
 from typing import List, Optional, Type
 from pydantic import BaseModel
 from PIL.Image import Image
@@ -89,11 +87,45 @@ class OpenAIProvider(LLMProvider):
         """
         return OpenAIMessage(type="function_call_output", call_id=id_, output=result)
 
+    def _convert_messages_to_openai_format(self, messages: List[Message]) -> List[dict]:
+        """
+        Convert pyagentic messages to OpenAI's API format.
+
+        Handles messages with images by converting them to OpenAI's content array format.
+
+        Args:
+            messages: List of Message objects from the agent state
+
+        Returns:
+            List of message dictionaries in OpenAI API format
+        """
+        openai_messages = []
+
+        for message in messages:
+            msg_dict = message.to_dict()
+
+            # If message has an image, convert to OpenAI's content array format
+            if message.image is not None:
+                image_url = _encode_image(message.image)
+
+                # Build content array with text and image
+                content = []
+                if message.content:
+                    content.append({"type": "text", "text": message.content})
+                content.append({"type": "image_url", "image_url": {"url": image_url}})
+
+                msg_dict["content"] = content
+                # Remove the image field as it's now in content
+                msg_dict.pop("image", None)
+
+            openai_messages.append(msg_dict)
+
+        return openai_messages
+
     async def generate(
         self,
         state: _AgentState,
         *,
-        images: Optional[Image] = None,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
@@ -107,7 +139,6 @@ class OpenAIProvider(LLMProvider):
 
         Args:
             state: Agent state containing conversation history and system messages
-            images: Optional PIL Image to include in the request
             tool_defs: List of available tools the model can call
             response_format: Optional Pydantic model for structured output
             **kwargs: Additional parameters for the OpenAI API call
@@ -119,18 +150,8 @@ class OpenAIProvider(LLMProvider):
         if tool_defs is None:
             tool_defs = []
 
-        # Prepare input messages
-        input_messages = [message.to_dict() for message in state._messages]
-
-        # Add image if provided
-        if images:
-            image_url = _encode_image(images)
-            # Add image as a user message with image content
-            image_message = {
-                "role": "user",
-                "content": [{"type": "image_url", "image_url": {"url": image_url}}],
-            }
-            input_messages.append(image_message)
+        # Convert messages to OpenAI format (handles images in messages)
+        input_messages = self._convert_messages_to_openai_format(state._messages)
 
         if response_format:
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(

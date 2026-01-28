@@ -1,5 +1,8 @@
-from typing import Any, List, Optional
-from pydantic import BaseModel
+from typing import Any, List, Optional, TYPE_CHECKING
+from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    from PIL.Image import Image
 
 
 class Message(BaseModel):
@@ -10,9 +13,12 @@ class Message(BaseModel):
     to a dictionary format for API communication.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     type: Optional[str] = None
     role: Optional[str] = None
     content: Optional[str] = None
+    image: Optional["Image"] = None
 
     def to_dict(self, exclude_none: bool = True):
         """
