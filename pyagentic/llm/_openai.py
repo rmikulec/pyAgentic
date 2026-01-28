@@ -19,6 +19,7 @@ from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
 from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
+from pyagentic._utils._image import _encode_image
 
 
 class OpenAIMessage(Message):
@@ -88,22 +89,6 @@ class OpenAIProvider(LLMProvider):
         """
         return OpenAIMessage(type="function_call_output", call_id=id_, output=result)
 
-    def _encode_image(self, image: Image) -> str:
-        """
-        Convert a PIL Image to a base64-encoded data URL.
-
-        Args:
-            image: PIL Image object to encode
-
-        Returns:
-            Base64-encoded data URL string
-        """
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        image_bytes = buffer.getvalue()
-        base64_image = base64.b64encode(image_bytes).decode("utf-8")
-        return f"data:image/png;base64,{base64_image}"
-
     async def generate(
         self,
         state: _AgentState,
@@ -139,7 +124,7 @@ class OpenAIProvider(LLMProvider):
 
         # Add image if provided
         if images:
-            image_url = self._encode_image(images)
+            image_url = _encode_image(images)
             # Add image as a user message with image content
             image_message = {
                 "role": "user",

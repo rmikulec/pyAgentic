@@ -1,10 +1,12 @@
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, Field, create_model, field_serializer
 from typing import Type, Self, Union, Any
+from PIL.Image import Image
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._agent._agent_state import _AgentState
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
+from pyagentic._utils._image import _encode_image
 from pyagentic.models.llm import ProviderInfo
 
 
@@ -19,6 +21,13 @@ class ToolResponse(BaseModel):
     raw_kwargs: str
     call_depth: int
     output: Any
+
+    @field_serializer("output")
+    def serialize_output(self, value: Any, _info) -> Any:
+        """Serialize Pillow images to base64-encoded data URLs."""
+        if isinstance(value, Image):
+            return _encode_image(value)
+        return value
 
     @classmethod
     def from_tool_def(cls, tool_def: _ToolDefinition) -> Type[Self]:
@@ -76,6 +85,13 @@ class AgentResponse(BaseModel):
 
     final_output: Union[str, Type[BaseModel]]
     provider_info: ProviderInfo
+
+    @field_serializer("final_output")
+    def serialize_final_output(self, value: Any, _info) -> Any:
+        """Serialize Pillow images to base64-encoded data URLs."""
+        if isinstance(value, Image):
+            return _encode_image(value)
+        return value
 
     @classmethod
     def from_agent_class(
