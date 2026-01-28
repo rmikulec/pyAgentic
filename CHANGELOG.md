@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.3.0-a.1 (2026-01-28)
+
+### Features
+
+- Added support for images in openai provider
+  ([`f9fc541`](https://github.com/rmikulec/pyAgentic/commit/f9fc5419f77173871fb785c1decd2ec6cd8fdadf))
+
+
 ## v2.2.2 (2025-11-23)
 
 
