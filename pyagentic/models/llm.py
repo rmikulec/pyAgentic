@@ -1,8 +1,7 @@
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import Any, List, Optional
 from pydantic import BaseModel, ConfigDict
 
-if TYPE_CHECKING:
-    from PIL.Image import Image
+from PIL.Image import Image
 
 
 class Message(BaseModel):
@@ -18,7 +17,7 @@ class Message(BaseModel):
     type: Optional[str] = None
     role: Optional[str] = None
     content: Optional[str] = None
-    image: Optional["Image"] = None
+    image: Optional[Image] = None
 
     def to_dict(self, exclude_none: bool = True):
         """

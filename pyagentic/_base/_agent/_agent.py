@@ -437,7 +437,9 @@ class BaseAgent(metaclass=AgentMeta):
             stringified_result = f"[Image returned by {tool_call.name}]"
             # Add tool result message
             self.state._messages.append(
-                self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
+                self.provider.to_tool_call_result_message(
+                    result=stringified_result, id_=tool_call.id
+                )
             )
             # Add the image as a user message so the LLM can see it
             self.state._messages.append(
@@ -451,7 +453,9 @@ class BaseAgent(metaclass=AgentMeta):
             )
             # Add tool result to conversation history for LLM
             self.state._messages.append(
-                self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
+                self.provider.to_tool_call_result_message(
+                    result=stringified_result, id_=tool_call.id
+                )
             )
 
         if self.phases:
