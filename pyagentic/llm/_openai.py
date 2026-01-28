@@ -9,8 +9,11 @@ import openai
 from openai.types.responses import Response as OpenAIResponse
 from openai.types.responses import ParsedResponse as OpenAIParsedResponse
 
+import base64
+import io
 from typing import List, Optional, Type
 from pydantic import BaseModel
+from PIL.Image import Image
 
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
@@ -85,10 +88,27 @@ class OpenAIProvider(LLMProvider):
         """
         return OpenAIMessage(type="function_call_output", call_id=id_, output=result)
 
+    def _encode_image(self, image: Image) -> str:
+        """
+        Convert a PIL Image to a base64-encoded data URL.
+
+        Args:
+            image: PIL Image object to encode
+
+        Returns:
+            Base64-encoded data URL string
+        """
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        image_bytes = buffer.getvalue()
+        base64_image = base64.b64encode(image_bytes).decode("utf-8")
+        return f"data:image/png;base64,{base64_image}"
+
     async def generate(
         self,
         state: _AgentState,
         *,
+        images: Optional[Image] = None,
         tool_defs: Optional[List[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,
@@ -102,6 +122,7 @@ class OpenAIProvider(LLMProvider):
 
         Args:
             state: Agent state containing conversation history and system messages
+            images: Optional PIL Image to include in the request
             tool_defs: List of available tools the model can call
             response_format: Optional Pydantic model for structured output
             **kwargs: Additional parameters for the OpenAI API call
@@ -113,11 +134,24 @@ class OpenAIProvider(LLMProvider):
         if tool_defs is None:
             tool_defs = []
 
+        # Prepare input messages
+        input_messages = [message.to_dict() for message in state._messages]
+
+        # Add image if provided
+        if images:
+            image_url = self._encode_image(images)
+            # Add image as a user message with image content
+            image_message = {
+                "role": "user",
+                "content": [{"type": "image_url", "image_url": {"url": image_url}}],
+            }
+            input_messages.append(image_message)
+
         if response_format:
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
                 model=self._model,
                 instructions=state.system_message,
-                input=[message.to_dict() for message in state._messages],
+                input=input_messages,
                 tools=[tool.to_openai_spec() for tool in tool_defs],
                 text_format=response_format,
                 **kwargs,
@@ -142,7 +176,7 @@ class OpenAIProvider(LLMProvider):
             response: OpenAIResponse = await self.client.responses.create(
                 model=self._model,
                 instructions=state.system_message,
-                input=[message.to_dict() for message in state._messages],
+                input=input_messages,
                 tools=[tool.to_openai_spec() for tool in tool_defs],
                 **kwargs,
             )

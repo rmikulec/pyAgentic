@@ -8,6 +8,7 @@ compatible with the pyagentic framework.
 from typing import Optional, Type
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
+from PIL.Image import Image
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._agent._agent_state import _AgentState
@@ -80,6 +81,7 @@ class LLMProvider(ABC):
         self,
         state: _AgentState,
         *,
+        images: Optional[Image] = None,
         tool_defs: Optional[list[_ToolDefinition]] = None,
         response_format: Optional[Type[BaseModel]] = None,
         **kwargs,

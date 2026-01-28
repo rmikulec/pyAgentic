@@ -24,6 +24,7 @@ dependencies = [
     "anthropic>=0.62.0",
     "google-generativeai>=0.8.0",
     "transitions>=0.9.3",
+    "pillow>=12.1.0",
 ]
 
 [dependency-groups]
