@@ -38,7 +38,7 @@ from pyagentic.llm._provider import LLMProvider
 from pyagentic.llm import LLMProviders
 from pyagentic.tracing._tracer import AgentTracer, traced
 from pyagentic.tracing import BasicTracer
-
+from pyagentic._utils._image import _encode_image
 
 logger = get_logger(__name__)
 
@@ -445,6 +445,7 @@ class BaseAgent(metaclass=AgentMeta):
             self.state._messages.append(
                 Message(role="user", content=f"Image from {tool_call.name}:", image=result)
             )
+            result = _encode_image(result)
         else:
             stringified_result = (
                 result.model_dump_json(indent=2)

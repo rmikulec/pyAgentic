@@ -106,13 +106,18 @@ class OpenAIProvider(LLMProvider):
 
             # If message has an image, convert to OpenAI's content array format
             if message.image is not None:
-                image_url = _encode_image(message.image)
+                base64_image = _encode_image(message.image)
 
                 # Build content array with text and image
                 content = []
                 if message.content:
                     content.append({"type": "text", "text": message.content})
-                content.append({"type": "image_url", "image_url": {"url": image_url}})
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+                    }
+                )
 
                 msg_dict["content"] = content
                 # Remove the image field as it's now in content
