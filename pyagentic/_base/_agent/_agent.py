@@ -441,11 +441,11 @@ class BaseAgent(metaclass=AgentMeta):
                     result=stringified_result, id_=tool_call.id
                 )
             )
+            result = _encode_image(result)
             # Add the image as a user message so the LLM can see it
             self.state._messages.append(
                 Message(role="user", content=f"Image from {tool_call.name}:", image=result)
             )
-            result = _encode_image(result)
         else:
             stringified_result = (
                 result.model_dump_json(indent=2)

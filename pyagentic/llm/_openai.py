@@ -106,8 +106,6 @@ class OpenAIProvider(LLMProvider):
 
             # If message has an image, convert to OpenAI's content array format
             if message.image is not None:
-                base64_image = _encode_image(message.image)
-
                 # Build content array with text and image
                 content = []
                 if message.content:
@@ -115,7 +113,7 @@ class OpenAIProvider(LLMProvider):
                 content.append(
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+                        "image_url": {"url": f"data:image/png;base64,{message.image}"},
                     }
                 )
 

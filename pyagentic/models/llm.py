@@ -17,7 +17,7 @@ class Message(BaseModel):
     type: Optional[str] = None
     role: Optional[str] = None
     content: Optional[str] = None
-    image: Optional[Image] = None
+    image: Optional[str] = None
 
     def to_dict(self, exclude_none: bool = True):
         """
