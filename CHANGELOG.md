@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.3.0-a.2 (2026-01-28)
+
+### Features
+
+- Rewrote the image support so that tools can return images and be read
+  ([`84e3626`](https://github.com/rmikulec/pyAgentic/commit/84e362685aa33b4332fbe0a6ff9246f77db1b06b))
+
+
 ## v2.3.0-a.1 (2026-01-28)
 
 ### Features
