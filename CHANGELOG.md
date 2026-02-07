@@ -2,6 +2,83 @@
 
 <!-- version list -->
 
+## v2.2.2 (2025-11-23)
+
+
+## v2.2.1 (2025-11-23)
+
+
+## v2.2.1-a.1 (2025-11-23)
+
+### Bug Fixes
+
+- Updated tool defs to get based on phase and given condition for tools and linked agents
+  ([`8280669`](https://github.com/rmikulec/pyAgentic/commit/82806698c70313331719504578513c30e9fcf7d7))
+
+
+## v2.2.0 (2025-11-23)
+## v2.2.0-a.2 (2025-11-23)
+
+### Bug Fixes
+
+- Update agent to run parallel tool calls actually in parallel
+  ([`693b321`](https://github.com/rmikulec/pyAgentic/commit/693b321383af0945d16a1961d0da5ebfc23b0b7a))
+
+
+## v2.2.0-a.1 (2025-11-23)
+
+### Features
+
+- Added new phase machine FSM system
+  ([`9046d25`](https://github.com/rmikulec/pyAgentic/commit/9046d258e0e66a4ca32e74eda4428a826fab20c5))
+
+
+## v2.1.0 (2025-11-23)
+
+
+## v2.1.0-a.3 (2025-11-23)
+
+### Bug Fixes
+
+- Removed old emitter in replace for .step
+  ([`02d004d`](https://github.com/rmikulec/pyAgentic/commit/02d004d4fc54f6ffd11318cc0174ff56faa84fef))
+
+
+## v2.1.0-a.2 (2025-11-23)
+
+
+## v2.1.0-a.1 (2025-11-23)
+
+### Bug Fixes
+
+- Updated ToolReponse to respect the specified return type of the tool
+  ([`5b87c5c`](https://github.com/rmikulec/pyAgentic/commit/5b87c5c67a1f23ef644e6122363c074590cd4178))
+
+### Features
+
+- Updated `run` to yield responses -> ToolResponse, LLMResponse, AgentResponse
+  ([`7499b39`](https://github.com/rmikulec/pyAgentic/commit/7499b390e29b4aca1c9bf740545e428caa54285d))
+
+
+## v2.0.2 (2025-11-22)
+
+
+## v2.0.1-a.2 (2025-11-22)
+
+### Bug Fixes
+
+- Added an install D2 step to docs workflow
+  ([`11064f4`](https://github.com/rmikulec/pyAgentic/commit/11064f4f7104d5297d871cf7af685df8fd35922c))
+
+
+## v2.0.1-a.1 (2025-11-22)
+
+### Bug Fixes
+
+- Quick change to force version bump
+  ([`c6f92a8`](https://github.com/rmikulec/pyAgentic/commit/c6f92a89c580ca58b926ea67b4d792a5106588e0))
+
+
 ## v2.0.0-b.1 (2025-11-22)
 
 ### Refactoring

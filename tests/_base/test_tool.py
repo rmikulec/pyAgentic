@@ -348,3 +348,136 @@ def test_tool_openai_export_ref_resolve(mock_state):
         f"Expected: test\n"
         f"Received: {export_description}\n"
     )
+
+
+def test_tool_condition_true():
+    """Test that tools with condition=True are included in tool definitions"""
+
+    class ConditionalAgent(BaseAgent):
+        __system_message__ = "Agent with conditional tools"
+
+        enabled: State[bool] = spec.State(default=True)
+
+        @tool("Always available tool", condition=lambda self: True)
+        def always_tool(self) -> str:
+            return "always"
+
+        @tool("Conditionally available tool", condition=lambda self: self.enabled)
+        def conditional_tool(self) -> str:
+            return "conditional"
+
+    agent = ConditionalAgent(model="_mock::test-model", api_key="test")
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+
+    # Both tools should be available when condition is True
+    assert "always_tool" in tool_names
+    assert "conditional_tool" in tool_names
+
+
+def test_tool_condition_false():
+    """Test that tools with condition=False are not included in tool definitions"""
+
+    class ConditionalAgent(BaseAgent):
+        __system_message__ = "Agent with conditional tools"
+
+        enabled: State[bool] = spec.State(default=False)
+
+        @tool("Always available tool", condition=lambda self: True)
+        def always_tool(self) -> str:
+            return "always"
+
+        @tool("Conditionally available tool", condition=lambda self: self.enabled)
+        def conditional_tool(self) -> str:
+            return "conditional"
+
+    agent = ConditionalAgent(model="_mock::test-model", api_key="test")
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+
+    # Only always_tool should be available when enabled=False
+    assert "always_tool" in tool_names
+    assert "conditional_tool" not in tool_names
+
+
+def test_tool_condition_state_access():
+    """Test that tool conditions have access to agent state"""
+
+    class StatefulAgent(BaseAgent):
+        __system_message__ = "Agent with stateful conditional tools"
+
+        workflow_stage: State[str] = spec.State(default="initial")
+        count: State[int] = spec.State(default=1)
+
+        @tool("Tool for ready stage", condition=lambda self: self.workflow_stage == "ready")
+        def ready_tool(self) -> str:
+            return "ready"
+
+        @tool("Tool for processing stage", condition=lambda self: self.workflow_stage == "processing")
+        def processing_tool(self) -> str:
+            return "processing"
+
+        @tool("Tool when count > 5", condition=lambda self: self.count and self.count > 5)
+        def count_tool(self) -> str:
+            return "count"
+
+    agent = StatefulAgent(model="_mock::test-model", api_key="test")
+
+    # Initial state - no conditional tools should be available
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+    assert "ready_tool" not in tool_names
+    assert "processing_tool" not in tool_names
+    assert "count_tool" not in tool_names
+
+    # Change workflow_stage to "ready"
+    agent.state.workflow_stage = "ready"
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+    assert "ready_tool" in tool_names
+    assert "processing_tool" not in tool_names
+
+    # Change workflow_stage to "processing" and count to 10
+    agent.state.workflow_stage = "processing"
+    agent.state.count = 10
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+    assert "ready_tool" not in tool_names
+    assert "processing_tool" in tool_names
+    assert "count_tool" in tool_names
+
+
+def test_tool_condition_complex_logic():
+    """Test that tool conditions can use complex logic"""
+
+    class ComplexAgent(BaseAgent):
+        __system_message__ = "Agent with complex conditional logic"
+
+        tasks_completed: State[int] = spec.State(default=1)
+        quality_check: State[bool] = spec.State(default=False)
+
+        @tool(
+            "Complex condition tool",
+            condition=lambda self: self.tasks_completed and self.tasks_completed >= 3 and self.quality_check
+        )
+        def complex_tool(self) -> str:
+            return "complex"
+
+    agent = ComplexAgent(model="_mock::test-model", api_key="test")
+
+    # Neither condition met
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+    assert "complex_tool" not in tool_names
+
+    # Only tasks_completed condition met
+    agent.state.tasks_completed = 5
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+    assert "complex_tool" not in tool_names
+
+    # Both conditions met
+    agent.state.quality_check = True
+    tools = asyncio.run(agent._get_tool_defs())
+    tool_names = [tool.name for tool in tools]
+    assert "complex_tool" in tool_names

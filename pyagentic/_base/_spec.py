@@ -117,7 +117,10 @@ class spec:
 
     @staticmethod
     def AgentLink(
-        default: Any = None, default_factory: Callable = None, condition: Callable = None
+        default: Any = None,
+        default_factory: Callable = None,
+        condition: Callable = None,
+        phases: list[str] | None = None,
     ) -> AgentInfo:
         """
         Creates an AgentInfo descriptor for configuring linked agent fields.
@@ -126,8 +129,12 @@ class spec:
             default (Any, optional): The default agent instance
             default_factory (Callable, optional): A factory function to generate the default agent
             condition (Callable, optional): A callable determining when this agent link is active
+            phases (list[str], optional): A list of phases of when this agent will be available.
+                When None, will show for all phases. Defaults to None.
 
         Returns:
             AgentInfo: A configured AgentInfo descriptor
         """
-        return AgentInfo(default=default, default_factory=default_factory, condition=condition)
+        return AgentInfo(
+            default=default, default_factory=default_factory, condition=condition, phases=phases
+        )

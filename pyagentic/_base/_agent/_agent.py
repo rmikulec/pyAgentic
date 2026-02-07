@@ -1,18 +1,20 @@
 import inspect
 import json
+import asyncio
 from functools import wraps
 from typing import (
     Callable,
     Any,
-    TypeVar,
+    AsyncGenerator,
     ClassVar,
     Type,
-    Self,
     dataclass_transform,
     Optional,
     TYPE_CHECKING,
+    Union,
 )
 
+from transitions import Machine
 from pydantic import BaseModel, ValidationError
 
 from pyagentic.logging import get_logger
@@ -126,8 +128,6 @@ class BaseAgent(metaclass=AgentMeta):
         api_key (str, optional): API key matching the model provider
         provider (LLMProvider, optional): Pre-configured provider instance. Overrides
             `model` and `api_key` if provided.
-        emitter (Callable, optional): Callback function to receive real-time updates
-            about the agent's execution (useful for WebSocket streaming)
         tracer (AgentTracer, optional): Tracer instance for observability. Defaults
             to BasicTracer if not provided.
         max_call_depth (int): Maximum number of tool calling loops per run. Defaults to 1.
@@ -167,6 +167,7 @@ class BaseAgent(metaclass=AgentMeta):
     __description__: ClassVar[str]  # Optional: description for linked agents
     __input_template__: ClassVar[str] = None  # Optional: template for user input
     __response_format__: ClassVar[Type[BaseModel]] = None  # Optional: structured output format
+    phases: ClassVar[list[tuple[str, str, Callable]]] = None
 
     # Generated Class Attributes (built by metaclass)
     __response_model__: ClassVar[Type[AgentResponse]] = None  # Pydantic response model
@@ -177,7 +178,6 @@ class BaseAgent(metaclass=AgentMeta):
     model: str = None
     api_key: str = None
     provider: LLMProvider = None
-    emitter: Callable[[Any], str] = None
     tracer: AgentTracer = None
     max_call_depth: int = 1
 
@@ -254,6 +254,9 @@ class BaseAgent(metaclass=AgentMeta):
         """
         self._check_llm_provider()
 
+        if self.phases:
+            self.state._build_phase_machine(self.phases)
+
         # Use BasicTracer as default if no tracer provided
         if not self.tracer:
             self.tracer = BasicTracer()
@@ -314,13 +317,18 @@ class BaseAgent(metaclass=AgentMeta):
         except Exception as e:
             # Handle inference errors gracefully
             logger.exception(e)
-            if self.emitter:
-                await _safe_run(self.emitter, EmitUpdate(status=Status.ERROR))
             # Add error message to conversation history
             self.state._messages.append(
                 Message(role="assistant", content="Failed to generate a response")
             )
-            return LLMResponse(text=f"The LLM failed to generate a response: {e}", tool_calls=[])
+            response = LLMResponse(
+                text=f"The LLM failed to generate a response: {e}", tool_calls=[]
+            )
+
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
+
+        return response
 
     @traced(SpanKind.AGENT)
     async def _process_agent_call(self, tool_call: ToolCall) -> AgentResponse:
@@ -359,9 +367,16 @@ class BaseAgent(metaclass=AgentMeta):
             response = AgentResponse(final_output=result, provider_info=agent.provider._info)
 
         # Add agent result to conversation history
-        self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
+        stringified_result = (
+            result.model_dump_json(indent=2)
+            if issubclass(result.__class__, BaseModel)
+            else str(result)
         )
+        self.state._messages.append(
+            self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
+        )
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
         return response
 
     @traced(SpanKind.TOOL)
@@ -397,38 +412,15 @@ class BaseAgent(metaclass=AgentMeta):
             # Handle validation errors for tool arguments
             result = f"Function Args were invalid: {str(e)}"
             compiled_args = {}
-            if self.emitter:
-                self.tracer.record_exception(str(e))
-                logger.exception(e)
-                if self.emitter:
-                    await _safe_run(
-                        self.emitter,
-                        ToolUpdate(
-                            status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs
-                        ),
-                    )
-
-        # Execute the tool, emitting status updates
+            self.tracer.record_exception(str(e))
+            logger.exception(e)
         try:
-            if self.emitter:
-                await _safe_run(
-                    self.emitter,
-                    ToolUpdate(
-                        status=Status.PROCESSING, tool_call=tool_call.name, tool_args=kwargs
-                    ),
-                )
             if compiled_args:
                 result = await _safe_run(handler, **compiled_args)
-                result = str(result)
                 self.tracer.set_attributes(result=result)
         except TypeError as e:
             self.tracer.record_exception(str(e))
             logger.exception(e)
-            if self.emitter:
-                await _safe_run(
-                    self.emitter,
-                    ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
-                )
             raise InvalidToolDefinition(
                 tool_name=tool_call.name,
                 message=f"Tool must have a serializable return type; {tool_def.return_type} failed to be casted to a string.",
@@ -438,17 +430,19 @@ class BaseAgent(metaclass=AgentMeta):
             self.tracer.record_exception(str(e))
             logger.exception(e)
             result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
-            if self.emitter:
-                await _safe_run(
-                    self.emitter,
-                    ToolUpdate(status=Status.ERROR, tool_call=tool_call.name, tool_args=kwargs),
-                )
 
+        stringified_result = (
+            result.model_dump_json(indent=2)
+            if issubclass(result.__class__, BaseModel)
+            else str(result)
+        )
         # Add tool result to conversation history for LLM
         self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
+            self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
         )
 
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
         # Build and return the structured tool response
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(
@@ -469,22 +463,43 @@ class BaseAgent(metaclass=AgentMeta):
 
         # Add all @tool decorated methods
         for tool_def in self.__tool_defs__.values():
+            if tool_def.condition:
+                if not tool_def.condition(self.state):
+                    continue
             # Resolve StateRefs in parameters (e.g., ref.self.user_name -> actual value)
-            tool_defs.append(tool_def.resolve(self.agent_reference))
+            if self.phases and tool_def.phases:
+                if self.state.phase in tool_def.phases:
+                    tool_defs.append(tool_def.resolve(self.agent_reference))
+            else:
+                tool_defs.append(tool_def.resolve(self.agent_reference))
 
         # Add linked agents as tools
         for name, linked_def in self.__linked_agents__.items():
-            tool_def = linked_def.agent.get_tool_definition(name)
-            tool_defs.append(tool_def.resolve(self.agent_reference))
+
+            if linked_def.info.condition:
+                if not linked_def.info.condition(self.state):
+                    continue
+
+            if self.phases and linked_def.info.phases:
+                if self.state.phase in linked_def.info.phases:
+                    tool_def = linked_def.agent.get_tool_definition(name)
+                    tool_defs.append(tool_def.resolve(self.agent_reference))
+            else:
+                tool_def = linked_def.agent.get_tool_definition(name)
+                tool_defs.append(tool_def.resolve(self.agent_reference))
 
         return tool_defs
 
-    async def run(self, input_: str) -> BaseModel:
+    async def step(
+        self, input_: str
+    ) -> AsyncGenerator[Union[ToolResponse, AgentResponse, LLMResponse]]:
         """
-        Main execution loop for the agent. Processes user input through multiple rounds
-        of LLM inference and tool/agent calls until completion or max_call_depth reached.
+        Streams all intermediate responses as the agent executes. Yields LLMResponse for each
+        inference, ToolResponse for each tool execution, and finally AgentResponse with the
+        complete result.
 
-        The agent follows an agentic loop pattern:
+        This is the core execution method that enables real-time streaming and fine-grained
+        control over agent execution. The agent follows an agentic loop pattern:
         1. Send user input and conversation history to the LLM
         2. LLM decides to either call tools or respond with final output
         3. If tools are called, execute them and feed results back to LLM
@@ -493,19 +508,23 @@ class BaseAgent(metaclass=AgentMeta):
         Args:
             input_ (str): The user input/query for the agent to process
 
-        Returns:
-            AgentResponse: Structured response containing:
-                - final_output: The final text or structured output from the LLM
-                - state: Current agent state after execution
-                - tool_responses: List of all tool calls and their outputs
-                - provider_info: Information about the LLM provider used
+        Yields:
+            Union[LLMResponse, ToolResponse, AgentResponse]: Responses in sequence:
+                - LLMResponse: Yielded each time the LLM is called (may happen multiple times)
+                - ToolResponse: Yielded for each tool execution
+                - AgentResponse: Final response with complete execution summary
 
         Example:
             ```python
             agent = MyAgent(model="openai::gpt-4o", api_key=API_KEY)
-            response = await agent.run("What's the weather in San Francisco?")
-            print(response.final_output)  # LLM's final answer
-            print(response.tool_responses)  # Tools that were called
+
+            async for response in agent.step("Analyze this data"):
+                if isinstance(response, LLMResponse):
+                    print(f"LLM thinking: {response.text}")
+                elif isinstance(response, ToolResponse):
+                    print(f"Tool executed: {response.output}")
+                elif isinstance(response, AgentResponse):
+                    print(f"Final: {response.final_output}")
             ```
         """
         async with self.tracer.agent(
@@ -527,10 +546,6 @@ class BaseAgent(metaclass=AgentMeta):
             agent_responses: list = []
             processed_call_ids: set[str] = set()
 
-            # Emit initial status
-            if self.emitter:
-                await _safe_run(self.emitter, EmitUpdate(status=Status.GENERATING))
-
             # Main agentic loop: LLM -> Tools -> LLM -> ...
             depth = 0
             final_ai_output: str | None = None
@@ -538,6 +553,7 @@ class BaseAgent(metaclass=AgentMeta):
             while depth < self.max_call_depth:
                 # Ask the LLM what to do next (may return tool calls or final text)
                 response = await self._process_llm_inference(tool_defs=tool_defs)
+                yield response
 
                 # If the model produced final text without tool calls, we're done
                 if not response.tool_calls:
@@ -545,22 +561,43 @@ class BaseAgent(metaclass=AgentMeta):
                     self.state._messages.append(Message(role="assistant", content=response.text))
                     break
 
-                # Execute all tool/agent calls from this response
+                tasks = []
+
+                async def wrap(kind: str, tool_call, coro):
+                    """Run the coroutine and attach metadata."""
+                    result = await coro
+                    return kind, tool_call, result
+
                 for tool_call in response.tool_calls:
-                    # Skip if we've already processed this call (prevents duplicates)
                     if tool_call.id and tool_call.id in processed_call_ids:
                         continue
 
                     processed_call_ids.add(tool_call.id)
 
-                    # Route to either @tool methods or linked agents
                     if tool_call.name in self.__tool_defs__:
-                        result = await self._process_tool_call(tool_call, call_depth=depth)
-                        tool_responses.append(result)
+                        coro = self._process_tool_call(tool_call, call_depth=depth)
+                        kind = "tool"
 
                     elif tool_call.name in self.__linked_agents__:
-                        result = await self._process_agent_call(tool_call)
+                        coro = self._process_agent_call(tool_call)
+                        kind = "agent"
+
+                    else:
+                        continue
+
+                    task = asyncio.create_task(wrap(kind, tool_call, coro))
+                    tasks.append(task)
+
+                # Process tasks as they *finish*, not in original order
+                for task in asyncio.as_completed(tasks):
+                    kind, tool_call, result = await task
+
+                    if kind == "tool":
+                        tool_responses.append(result)
+                    else:
                         agent_responses.append(result)
+
+                    yield result
 
                 # Increment depth and continue loop (LLM will see tool results next iteration)
                 depth += 1
@@ -569,12 +606,6 @@ class BaseAgent(metaclass=AgentMeta):
             if final_ai_output is None:
                 response = await self._process_llm_inference()
                 final_ai_output = response.parsed if response.parsed else response.text
-
-            # Emit final success status
-            if self.emitter:
-                await _safe_run(
-                    self.emitter, AiUpdate(status=Status.SUCCEDED, message=final_ai_output)
-                )
 
             # Build the structured response
             response_fields = {
@@ -590,17 +621,93 @@ class BaseAgent(metaclass=AgentMeta):
 
             response = self.__response_model__(**response_fields)
             self.tracer.set_attributes(output=response)
-            return response
+            yield response
+
+    async def run(self, input_: str) -> AgentResponse:
+        """
+        Executes the agent with a message string and returns the final result.
+
+        This method consumes the entire step() generator and returns only the final
+        AgentResponse. Use this when you don't need intermediate streaming responses
+        and just want the final output.
+
+        Args:
+            input_ (str): The user input/query for the agent to process
+
+        Returns:
+            AgentResponse: Structured response containing:
+                - final_output: The final text or structured output from the LLM
+                - state: Current agent state after execution
+                - tool_responses: List of all tool calls and their outputs
+                - agent_responses: List of linked agent calls (if any)
+                - provider_info: Information about the LLM provider used
+
+        Example:
+            ```python
+            agent = MyAgent(model="openai::gpt-4o", api_key=API_KEY)
+            response = await agent.run("What's the weather in San Francisco?")
+            print(response.final_output)  # LLM's final answer
+            print(response.tool_responses)  # Tools that were called
+            ```
+        """
+        final_response = None
+        async for res in self.step(input_):
+            final_response = res
+        return final_response
 
     async def __call__(self, user_input: str) -> BaseModel:
         """
-        Allows the agent to be called directly as a function.
+        Customizable callable interface for the agent. Override this method to accept
+        structured, typed parameters that match your agent's purpose.
+
+        When this agent is linked to another agent, the parameters of this method become
+        the tool parameters that the LLM sees. This enables type-safe, structured agent
+        composition in multi-agent systems.
+
+        The default implementation accepts a single user_input string and forwards it to
+        run(). Override to provide a custom interface:
 
         Args:
-            user_input (str): The user input to process
+            user_input (str): The user input to process (default implementation)
 
         Returns:
             AgentResponse: The agent's response
+
+        Example (Default Usage):
+            ```python
+            agent = MyAgent(model="openai::gpt-4o", api_key=API_KEY)
+            response = await agent("What's the weather?")
+            ```
+
+        Example (Custom Implementation):
+            ```python
+            class CoursePlannerAgent(BaseAgent):
+                __system_message__ = "You design course curricula"
+                __description__ = "Creates structured course plans"
+
+                async def __call__(
+                    self,
+                    goal: str,
+                    experience: str,
+                    context: Optional[str] = None
+                ) -> CoursePlan:
+                    # Build structured prompt from parameters
+                    prompt = f"Goal: {goal}\\nExperience: {experience}"
+                    if context:
+                        prompt += f"\\nContext: {context}"
+                    return await self.run(prompt)
+
+            # Call with structured parameters
+            planner = CoursePlannerAgent(model="openai::gpt-4o", api_key=API_KEY)
+            course = await planner(
+                goal="Learn ML",
+                experience="Python beginner",
+                context="Prefer hands-on projects"
+            )
+
+            # When linked to another agent, the LLM sees:
+            # Tool: planner(goal: str, experience: str, context: Optional[str])
+            ```
         """
         return await self.run(input_=user_input)
 

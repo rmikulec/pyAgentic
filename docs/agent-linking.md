@@ -165,52 +165,16 @@ class SmartAgent(BaseAgent):
         return "Expert help is now available"
 ```
 
-The `condition` parameter accepts a callable that receives `self` and returns a boolean. The linked agent will only appear as an available tool when the condition evaluates to `True`.
+#### How `condition` Works
 
-### Combining Configuration Options
+The `condition` parameter accepts a callable (typically a lambda function) that receives the agent instance (`self`) and returns a boolean:
 
-You can combine `default_factory` with `condition` for sophisticated agent composition:
+- **Evaluation Time**: Conditions are evaluated each time the tool schema is generated, which happens before every agent interaction
+- **Access to State**: The condition function has full access to the agent's state and methods via `self`
+- **Dynamic Agent Composition**: Only linked agents whose conditions evaluate to `True` appear as available tools in the parent agent's toolset
 
-```python
-class SpecialistAgent(BaseAgent):
-    __system_message__ = "I'm a specialist"
-    __description__ = "Specialist for complex tasks"
+This enables sophisticated agent workflows where the available linked agents adapt based on the current state and requirements.
 
-def create_specialist():
-    return SpecialistAgent(
-        model="gpt-4",
-        api_key=os.getenv("OPENAI_API_KEY")
-    )
-
-class OrchestratorAgent(BaseAgent):
-    __system_message__ = "I orchestrate workflows"
-
-    task_complexity: State[int] = spec.State(default=1)
-
-    # Specialist is auto-created when complexity is high
-    specialist: Link[SpecialistAgent] = spec.AgentLink(
-        default_factory=create_specialist,
-        condition=lambda self: self.task_complexity > 5
-    )
-```
-
-### Link Descriptor Pattern Summary
-
-The `Link` descriptor pattern mirrors the `State` descriptor pattern:
-
-| Feature | State Example | Link Example |
-|---------|---------------|--------------|
-| **Basic usage** | `user_name: State[str]` | `helper: Link[HelperAgent]` |
-| **With descriptor** | `logs: State[list] = spec.State(...)` | `analyzer: Link[AnalysisAgent] = spec.AgentLink(...)` |
-| **Default value** | `spec.State(default="Guest")` | `spec.AgentLink(default=agent_instance)` |
-| **Factory** | `spec.State(default_factory=list)` | `spec.AgentLink(default_factory=create_agent)` |
-| **Advanced config** | Access control, policies | Conditional linking |
-
-Both patterns:
-- Use marker types (`State[T]` and `Link[T]`)
-- Support `default` and `default_factory`
-- Are processed by the metaclass during class creation
-- Provide type safety and IDE autocomplete
 
 ## Custom Agent Parameters
 
@@ -267,92 +231,3 @@ result = await data_agent("Find customer records for 'John Smith'")
 ```
 
 When using Pydantic `BaseModel` classes, PyAgentic automatically generates the proper OpenAI tool schema, complete with parameter types, defaults, descriptions, and validation rules. This makes the linked agent's interface clear to the calling LLM and ensures type safety throughout the system.
-
-## Best Practices
-
-### Use `Link[T]` for Advanced Features
-
-While direct type annotations work for simple cases, prefer `Link[T]` when you need:
-- Default instances or factories
-- Conditional linking
-- Better documentation and IDE support
-
-```python
-# ✅ Good: Using Link[T] with advanced features
-class OrchestratorAgent(BaseAgent):
-    researcher: Link[ResearchAgent] = spec.AgentLink(
-        default_factory=create_researcher,
-        condition=lambda self: self.needs_research
-    )
-
-# ✅ Also good: Simple direct annotation for basic cases
-class SimpleAgent(BaseAgent):
-    helper: HelperAgent
-```
-
-### Clear Descriptions
-
-Since linked agents appear as tools to the parent agent, their `__description__` attribute becomes crucial. This description is what the LLM uses to decide when and how to use the linked agent:
-
-```python
-class DatabaseAgent(BaseAgent):
-    __system_message__ = "I query databases"
-    __description__ = "Retrieves and analyzes data from SQL databases"
-```
-
-A well-written description should be specific enough to guide the LLM's decision-making while being concise. Think of it as the "tool tooltip" that helps the parent agent understand the linked agent's capabilities and appropriate use cases.
-
-### Use Default Factories for Independent Instances
-
-When each parent agent should have its own child agent instance, use `default_factory`:
-
-```python
-# ✅ Good: Each parent gets its own searcher
-class DataAgent(BaseAgent):
-    searcher: Link[SearchAgent] = spec.AgentLink(
-        default_factory=lambda: SearchAgent(model="gpt-4", api_key="...")
-    )
-
-# ❌ Avoid: Sharing one instance across all parents (usually wrong)
-shared_searcher = SearchAgent(model="gpt-4", api_key="...")
-
-class DataAgent(BaseAgent):
-    searcher: Link[SearchAgent] = spec.AgentLink(default=shared_searcher)
-```
-
-### Leverage Conditional Linking
-
-Use conditional linking to make agent composition dynamic based on state:
-
-```python
-class AdaptiveAgent(BaseAgent):
-    difficulty: State[str] = spec.State(default="easy")
-
-    # Basic helper always available
-    helper: Link[HelperAgent]
-
-    # Expert only available for hard tasks
-    expert: Link[ExpertAgent] = spec.AgentLink(
-        condition=lambda self: self.difficulty == "hard"
-    )
-```
-
-This makes your agent's toolset adapt to the situation, improving efficiency and reducing hallucination.
-
-### Keep Agents Focused
-
-The single responsibility principle applies strongly to linked agents. Each agent should have a clear, focused purpose that makes it easy for other agents to understand when to use it:
-
-```python
-class EmailAgent(BaseAgent):
-    __description__ = "Sends and manages emails"
-
-class CalendarAgent(BaseAgent):
-    __description__ = "Manages calendar events and scheduling"
-
-class AssistantAgent(BaseAgent):
-    email: Link[EmailAgent]
-    calendar: Link[CalendarAgent]
-```
-
-Focused agents are easier to compose, test, and maintain. They also make the overall system behavior more predictable since each agent's role is clearly defined.

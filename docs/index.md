@@ -40,6 +40,14 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Learn about states](states.md)
 
+- :material-state-machine: **[Phases](phases.md)**
+
+    ---
+
+    Structure agent workflows with finite state machines, phase-based tool filtering, and conditional transitions.
+
+    [:octicons-arrow-right-24: Learn about phases](phases.md)
+
 - :material-shield-check: **[Policies](policies.md)**
 
     ---
@@ -55,6 +63,14 @@ Dive deeper into PyAgentic's powerful features:
     Understanding structured response objects with tool execution details and type safety.
 
     [:octicons-arrow-right-24: Learn about responses](responses.md)
+
+- :material-play-circle: **[Execution Modes](execution-modes.md)**
+
+    ---
+
+    Three ways to run agents: simple calls, run(), and step() for streaming responses.
+
+    [:octicons-arrow-right-24: Learn about execution modes](execution-modes.md)
 
 - :material-format-list-numbered: **[Structured Outputs](structured-output.md)**
 
