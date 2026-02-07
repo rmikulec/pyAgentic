@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.3.0-a.4 (2026-01-28)
+
+### Bug Fixes
+
+- Bug fixes for image support
+  ([`9d343f5`](https://github.com/rmikulec/pyAgentic/commit/9d343f50227bbeedc07c2436020fa925884b87ef))
+
+
 ## v2.3.0-a.3 (2026-01-28)
 
 
