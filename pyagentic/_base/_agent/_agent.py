@@ -418,7 +418,7 @@ class BaseAgent(metaclass=AgentMeta):
         try:
             if compiled_args:
                 result = await _safe_run(handler, **compiled_args)
-                self.tracer.set_attributes(result=result)
+                self.tracer.set_attributes(result=_encode_image(result))
         except TypeError as e:
             self.tracer.record_exception(str(e))
             logger.exception(e)
