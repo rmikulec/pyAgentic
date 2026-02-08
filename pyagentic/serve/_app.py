@@ -1,9 +1,18 @@
 """
 FastAPI app factory and routes for serving a PyAgentic agent over HTTP.
+
+The app leverages the metaclass-generated models on the agent class:
+  - __request_model__        →  request body on chat endpoints
+  - __response_model__       →  response_model on chat endpoint
+  - __stream_event_model__   →  typed SSE events on stream endpoint
+  - __state_class__          →  response_model on state endpoint
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -14,19 +23,26 @@ from pyagentic.serve._sessions import SessionManager
 from pyagentic.models.response import AgentResponse, ToolResponse
 from pyagentic.models.llm import LLMResponse
 
+
+class CreateSessionRequest(BaseModel):
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+
 if TYPE_CHECKING:
     from pyagentic._base._agent._agent import BaseAgent
 
 
-class ChatRequest(BaseModel):
-    message: str
-
-
 def create_app(
-    agent_class: "type[BaseAgent]",
+    agent_class: type[BaseAgent],
     manifest: Manifest,
 ) -> FastAPI:
     """Build a FastAPI application wired to the given agent class.
+
+    The generated API automatically reflects the agent's input/output schemas:
+      - Chat request body is derived from the agent's ``__call__`` signature
+      - Chat response body uses the agent's ``__response_model__``
+      - Stream events use the agent's ``__stream_event_model__``
+      - State endpoint uses the agent's ``__state_class__``
 
     Args:
         agent_class: The agent class to serve.
@@ -35,6 +51,11 @@ def create_app(
     Returns:
         A configured FastAPI app.
     """
+    RequestModel = agent_class.__request_model__
+    ResponseModel = agent_class.__response_model__
+    StreamEventModel = agent_class.__stream_event_model__
+    StateModel = agent_class.__state_class__
+
     app = FastAPI(
         title=manifest.project.name,
         version=manifest.project.version,
@@ -46,16 +67,13 @@ def create_app(
 
     @app.get("/")
     async def agent_info() -> dict:
-        tools = list(agent_class.__tool_defs__.keys())
-        state_fields = list(agent_class.__state_defs__.keys())
-        linked = list(agent_class.__linked_agents__.keys())
         return {
             "name": manifest.project.name,
             "version": manifest.project.version,
             "agent_class": agent_class.__name__,
-            "tools": tools,
-            "state_fields": state_fields,
-            "linked_agents": linked,
+            "tools": list(agent_class.__tool_defs__.keys()),
+            "state_fields": list(agent_class.__state_defs__.keys()),
+            "linked_agents": list(agent_class.__linked_agents__.keys()),
         }
 
     @app.get("/health")
@@ -64,7 +82,12 @@ def create_app(
 
     @app.get("/schema")
     async def schema() -> dict:
-        return agent_class.__response_model__.model_json_schema()
+        return {
+            "request": RequestModel.model_json_schema(),
+            "response": ResponseModel.model_json_schema(),
+            "stream_event": StreamEventModel.model_json_schema(),
+            "state": StateModel.model_json_schema(),
+        }
 
     # ---- session routes ----
 
@@ -87,40 +110,62 @@ def create_app(
 
     # ---- chat routes ----
 
-    @app.post("/sessions/{session_id}/chat")
-    async def chat(session_id: str, req: ChatRequest) -> dict:
+    @app.post("/sessions/{session_id}/chat", response_model=ResponseModel)
+    async def chat(session_id: str, req: RequestModel):  # type: ignore[valid-type]
         try:
             agent = sessions.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        response = await agent.run(req.message)
-        return response.model_dump()
+        kwargs = req.model_dump()
+        response = await agent(**kwargs)
+        return response
 
-    @app.post("/sessions/{session_id}/chat/stream")
-    async def chat_stream(session_id: str, req: ChatRequest):
+    @app.post(
+        "/sessions/{session_id}/chat/stream",
+        response_model=StreamEventModel,
+        responses={
+            200: {
+                "description": (
+                    "SSE stream. Each line is `event: <type>\\ndata: <json>`. "
+                    "Possible event types: llm_response, tool_response, agent_response."
+                ),
+            }
+        },
+    )
+    async def chat_stream(session_id: str, req: RequestModel):  # type: ignore[valid-type]
         try:
             agent = sessions.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="Session not found")
+
+        # Build a single prompt string from the request fields.
+        kwargs = req.model_dump()
+        if len(kwargs) == 1:
+            prompt = str(next(iter(kwargs.values())))
+        else:
+            prompt = "\n".join(f"{k}: {v}" for k, v in kwargs.items() if v is not None)
+
+        # Grab the typed event wrappers for constructing SSE payloads
+        LLMEvent = StreamEventModel.__llm_event__
+        ToolEvent = StreamEventModel.__tool_event__
+        AgentEvent = StreamEventModel.__agent_event__
 
         async def event_generator():
-            async for update in agent.step(req.message):
+            async for update in agent.step(prompt):
                 if isinstance(update, LLMResponse):
-                    event_type = "llm_response"
-                    data = update.model_dump()
-                elif isinstance(update, AgentResponse):
-                    event_type = "agent_response"
-                    data = update.model_dump()
+                    event = LLMEvent(data=update)
                 elif isinstance(update, ToolResponse):
-                    event_type = "tool_response"
-                    data = update.model_dump()
+                    event = ToolEvent(data=update)
+                elif isinstance(update, AgentResponse):
+                    event = AgentEvent(data=update)
                 else:
-                    event_type = "update"
-                    data = update.model_dump() if hasattr(update, "model_dump") else str(update)
+                    # Fallback for unexpected types
+                    payload = update.model_dump() if hasattr(update, "model_dump") else str(update)
+                    yield f"event: update\ndata: {json.dumps(payload, default=str)}\n\n"
+                    continue
 
-                payload = json.dumps(data, default=str)
-                yield f"event: {event_type}\ndata: {payload}\n\n"
+                yield f"event: {event.event}\ndata: {event.model_dump_json()}\n\n"
 
         return StreamingResponse(
             event_generator(),
@@ -133,12 +178,12 @@ def create_app(
 
     # ---- state route ----
 
-    @app.get("/sessions/{session_id}/state")
-    async def get_state(session_id: str) -> dict:
+    @app.get("/sessions/{session_id}/state", response_model=StateModel)
+    async def get_state(session_id: str):
         try:
             agent = sessions.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="Session not found")
-        return agent.state.model_dump()
+        return agent.state
 
     return app

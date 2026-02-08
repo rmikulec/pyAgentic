@@ -28,6 +28,7 @@ dependencies = [
     "anthropic>=0.62.0",
     "google-generativeai>=0.8.0",
     "transitions>=0.9.3",
+    "ty>=0.0.15",
 ]
 
 [project.scripts]

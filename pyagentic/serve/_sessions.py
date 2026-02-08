@@ -4,12 +4,13 @@ independent state and conversation history.
 """
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pyagentic.serve._manifest import Manifest
 
 if TYPE_CHECKING:
     from pyagentic._base._agent._agent import BaseAgent
+    from pyagentic.llm._provider import LLMProvider
 
 
 class SessionManager:
@@ -20,14 +21,34 @@ class SessionManager:
         self._manifest = manifest
         self._sessions: dict[str, "BaseAgent"] = {}
 
-    def create(self) -> str:
+    def create(
+        self,
+        *,
+        model: Optional[str] = None,
+        api_key: Optional[str] = None,
+        provider: Optional["LLMProvider"] = None,
+    ) -> str:
         """Create a new session with a fresh agent instance.
+
+        Args:
+            model: LLM model string (e.g. 'openai::gpt-4o'). Falls back to
+                the manifest default.
+            api_key: API key for the model provider.
+            provider: Pre-configured LLMProvider instance. Overrides model/api_key.
 
         Returns:
             The new session ID.
         """
         session_id = uuid.uuid4().hex[:12]
-        agent = self._agent_class(model=self._manifest.agent.model)
+
+        if provider is not None:
+            agent = self._agent_class(provider=provider)
+        else:
+            agent = self._agent_class(
+                model=model or self._manifest.agent.model,
+                api_key=api_key,
+            )
+
         self._sessions[session_id] = agent
         return session_id
 

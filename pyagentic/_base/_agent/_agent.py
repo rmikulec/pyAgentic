@@ -170,7 +170,9 @@ class BaseAgent(metaclass=AgentMeta):
     phases: ClassVar[list[tuple[str, str, Callable]]] = None
 
     # Generated Class Attributes (built by metaclass)
+    __request_model__: ClassVar[Type[BaseModel]] = None  # Pydantic request model from __call__
     __response_model__: ClassVar[Type[AgentResponse]] = None  # Pydantic response model
+    __stream_event_model__: ClassVar[Type[BaseModel]] = None  # Typed SSE stream event union
     __state_class__: ClassVar[Type[_AgentState]] = None  # Generated state class
     __tool_response_models__: ClassVar[dict[str, Type[ToolResponse]]]  # Tool response models
 

@@ -1,11 +1,12 @@
 import inspect
 import threading
 import warnings
-from typing import dataclass_transform, TypeVar, Mapping, Type, Any
+from typing import dataclass_transform, TypeVar, Mapping, Type, Any, get_type_hints
 from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
+from pydantic import BaseModel, Field, create_model
 
 from pyagentic._base._info import _SpecInfo, ParamInfo, AgentInfo
 from pyagentic._base._validation import _AgentConstructionValidator
@@ -16,6 +17,7 @@ from pyagentic._base._state import State, StateInfo, _StateDefinition
 from pyagentic._base._agent._agent_linking import Link, _LinkedAgentDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
+from pyagentic.models.llm import LLMResponse
 
 from pyagentic._utils._typing import analyze_type
 
@@ -280,6 +282,97 @@ class AgentMeta(type):
         return MappingProxyType(linked_agents)
 
     @staticmethod
+    def _build_request_model(cls) -> Type[BaseModel]:
+        """Build a Pydantic request model from the agent's __call__ signature.
+
+        Inspects the ``__call__`` method to determine the input contract.
+        For the default BaseAgent.__call__(user_input: str) this produces a
+        model with a single ``user_input`` field.  When a subclass overrides
+        ``__call__`` with structured parameters the model mirrors them exactly.
+
+        Args:
+            cls: The agent class whose __call__ to inspect.
+
+        Returns:
+            Type[BaseModel]: A dynamically created Pydantic model.
+        """
+        sig = inspect.signature(cls.__call__)
+        hints = get_type_hints(cls.__call__)
+        hints.pop("return", None)
+        hints.pop("self", None)
+
+        fields: dict[str, Any] = {}
+        for name, param in sig.parameters.items():
+            if name == "self":
+                continue
+            annotation = hints.get(name, str)
+            if param.default is inspect.Parameter.empty:
+                fields[name] = (annotation, Field(...))
+            else:
+                fields[name] = (annotation, Field(default=param.default))
+
+        return create_model(f"{cls.__name__}Request", **fields)
+
+    @staticmethod
+    def _build_stream_event_model(
+        agent_name: str,
+        tool_response_models: list[Type[ToolResponse]],
+        ResponseModel: Type[AgentResponse],
+    ) -> Type[BaseModel]:
+        """Build a discriminated-union model for SSE stream events.
+
+        Each event kind that ``step()`` can yield gets its own typed wrapper
+        with a ``Literal`` event discriminator, so the resulting union is
+        fully described in the JSON Schema.
+
+        Args:
+            agent_name: Name of the agent class (used for model naming).
+            tool_response_models: Per-tool response Pydantic models.
+            ResponseModel: The agent's predetermined response model.
+
+        Returns:
+            Type[BaseModel]: A Union model of all possible stream events.
+        """
+        from typing import Literal, Union
+
+        # LLM inference event
+        LLMEvent = create_model(
+            f"{agent_name}LLMEvent",
+            event=(Literal["llm_response"], "llm_response"),
+            data=(LLMResponse, ...),
+        )
+
+        # Tool response event — typed to the exact tool response variants
+        if tool_response_models:
+            ToolData = Union[tuple(tool_response_models)]
+        else:
+            ToolData = ToolResponse
+        ToolEvent = create_model(
+            f"{agent_name}ToolEvent",
+            event=(Literal["tool_response"], "tool_response"),
+            data=(ToolData, ...),
+        )
+
+        # Final agent response event
+        AgentEvent = create_model(
+            f"{agent_name}AgentEvent",
+            event=(Literal["agent_response"], "agent_response"),
+            data=(ResponseModel, ...),
+        )
+
+        StreamEvent = create_model(
+            f"{agent_name}StreamEvent",
+            __base__=BaseModel,
+            root=(Union[LLMEvent, ToolEvent, AgentEvent], ...),
+        )
+        # Store the individual event models for direct access
+        StreamEvent.__llm_event__ = LLMEvent
+        StreamEvent.__tool_event__ = ToolEvent
+        StreamEvent.__agent_event__ = AgentEvent
+
+        return StreamEvent
+
+    @staticmethod
     def _build_init_signature(agent_cls: Type[Agent]) -> inspect.Signature:
         """
         Builds __init__ signature with all non-default (required) params
@@ -515,9 +608,24 @@ class AgentMeta(type):
             ResponseFormat=cls.__response_format__,
             StateClass=StateClass,
         )
+        # Build a Pydantic request model from the agent's __call__ signature.
+        # This is the predetermined input contract for the agent, mirroring how
+        # __response_model__ is the predetermined output contract.
+        RequestModel = mcs._build_request_model(cls)
+
+        # Build a typed model describing all possible SSE stream events.
+        # This gives the streaming endpoint a fully described JSON Schema.
+        StreamEventModel = mcs._build_stream_event_model(
+            agent_name=cls.__name__,
+            tool_response_models=tool_response_model_list,
+            ResponseModel=ResponseModel,
+        )
+
         with mcs._lock:
             cls.__tool_response_models__ = MappingProxyType(tool_response_models)
             cls.__response_model__ = ResponseModel
+            cls.__request_model__ = RequestModel
+            cls.__stream_event_model__ = StreamEventModel
             cls.__state_class__ = StateClass
 
         # Build the custom __init__ method
