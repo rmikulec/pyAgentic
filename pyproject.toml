@@ -96,23 +96,32 @@ build_command = """
 parse_squash_commits = true
 ignore_merge_commits = true
 
-# main release line
+# main: stable releases (e.g. 2.3.1)
 [tool.semantic_release.branches.main]
 match = "^main$"
 prerelease = false
 
-# dev is its own stable release line
-# (must manually bump dev to next major once)
+# dev: beta prereleases, 1 major version ahead of main.
+# Seed once with a breaking change commit (feat!: ...) or manual tag
+# (git tag 3.0.0b0) to establish the major version offset.
+# Each subsequent push increments the beta: 3.0.0b1, 3.0.0b2, ...
 [tool.semantic_release.branches.dev]
 match = "^dev$"
 prerelease = true
 prerelease_token = "b"
 
-# prerelease branches off BOTH main & dev
-[tool.semantic_release.branches.feature_fix]
-match = "^(feat|bug|fix)/.*"
+# feat/*: alpha prereleases, minor bump (e.g. 2.4.0a1, 2.4.0a2, ...)
+[tool.semantic_release.branches.feat]
+match = "^feat/.*"
 prerelease = true
 prerelease_token = "a"
+
+# fix/* and bug/*: rc prereleases, patch bump (e.g. 2.3.2rc1, 2.3.2rc2, ...)
+# Uses "rc" token (not "a") to avoid version collisions with feat/* branches.
+[tool.semantic_release.branches.fix]
+match = "^(fix|bug)/.*"
+prerelease = true
+prerelease_token = "rc"
 
 
 [tool.setuptools.packages.find]
