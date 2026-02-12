@@ -45,7 +45,7 @@ def generate_dockerfile(manifest: Manifest) -> str:
     lines += [
         "COPY . .",
         f"EXPOSE {port}",
-        'CMD ["pyagentic", "run", "--host", "0.0.0.0"]',
+        'CMD ["python", "-m", "pyagentic.cli", "run", "--host", "0.0.0.0"]',
         "",
     ]
 

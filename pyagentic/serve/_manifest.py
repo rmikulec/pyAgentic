@@ -8,13 +8,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib  # type: ignore[no-redef]
+import tomllib
+
 
 
 class ProjectConfig(BaseModel):

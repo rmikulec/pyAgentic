@@ -29,6 +29,7 @@ dependencies = [
     "google-generativeai>=0.8.0",
     "transitions>=0.9.3",
     "ty>=0.0.15",
+    "jinja2>=3.1.6",
 ]
 
 [project.scripts]
@@ -40,6 +41,7 @@ deploy = [
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
     "sse-starlette>=2.0.0",
+    "httpx>=0.28.0",
 ]
 
 [dependency-groups]
