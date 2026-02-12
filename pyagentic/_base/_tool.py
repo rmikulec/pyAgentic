@@ -124,7 +124,11 @@ class _ToolDefinition:
                 if default.required:
                     required.append(name)
                 if default.values:
-                    params[name]["enum"] = default.values
+                    if type_info.is_list:
+                        params[name]['items']["enum"] = default.values
+                    else:
+                        params[name]["enum"] = default.values
+
 
         # Final structure
         parameters = {
