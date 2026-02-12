@@ -17,6 +17,11 @@ nav:
     - Structured Outputs: structured-output.md
     - Inheritance: inheritance.md
     - Observability: observability.md
+  - Deploy:
+    - Overview: deploy/index.md
+    - Create a Project: deploy/creating-a-project.md
+    - Run Your Project: deploy/running.md
+    - Build & Deploy: deploy/building.md
   - API Reference:
       - Architecture: reference/architecture.md
       - Modules: reference/modules.md
