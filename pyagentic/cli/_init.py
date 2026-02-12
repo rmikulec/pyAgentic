@@ -3,6 +3,8 @@
 """
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -30,6 +32,56 @@ def _to_class_name(project_name: str) -> str:
     return "".join(p.capitalize() for p in parts if p)
 
 
+def _setup_venv(project_dir: Path) -> bool:
+    """Create a venv and install dependencies. Returns True on success."""
+    has_uv = shutil.which("uv") is not None
+
+    if has_uv:
+        typer.echo("Setting up virtual environment with uv...")
+        venv = subprocess.run(
+            ["uv", "venv"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if venv.returncode != 0:
+            typer.echo(f"Warning: failed to create venv: {venv.stderr}", err=True)
+            return False
+
+        typer.echo("Installing dependencies...")
+        install = subprocess.run(
+            ["uv", "pip", "install", "-r", "requirements.txt"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if install.returncode != 0:
+            typer.echo(f"Warning: failed to install dependencies: {install.stderr}", err=True)
+            return False
+
+        return True
+
+    # Fallback: try python -m venv
+    typer.echo("Setting up virtual environment...")
+    venv = subprocess.run(
+        ["python3", "-m", "venv", ".venv"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    if venv.returncode != 0:
+        return False
+
+    pip = project_dir / ".venv" / "bin" / "pip"
+    install = subprocess.run(
+        [str(pip), "install", "-r", "requirements.txt"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    return install.returncode == 0
+
+
 def init(
     project_name: Optional[str] = typer.Argument(
         None,
@@ -42,8 +94,25 @@ def init(
         help="Project template to use.",
         show_choices=True,
     ),
+    no_venv: bool = typer.Option(
+        False,
+        "--no-venv",
+        help="Skip virtual environment creation and dependency installation.",
+    ),
 ) -> None:
-    """Scaffold a new PyAgentic agent project."""
+    """Scaffold a new PyAgentic agent project.
+
+    Args:
+        project_name (Optional[str]): Name of the project directory to create.
+            Defaults to the current directory name.
+        template (str): Project template to use. Must be ``'minimal'`` or
+            ``'full'``.
+        no_venv (bool): If True, skip virtual environment creation and
+            dependency installation.
+
+    Raises:
+        typer.Exit: If the template name is invalid.
+    """
     if template not in ("minimal", "full"):
         typer.echo(f"Unknown template: {template!r}. Choose 'minimal' or 'full'.", err=True)
         raise typer.Exit(1)
@@ -84,17 +153,24 @@ def init(
 
     # Write .env.example
     env_lines = "\n".join(f"# {var}=" for var in ["OPENAI_API_KEY"])
-    if template == "full":
-        env_lines = "\n".join(f"# {var}=" for var in ["OPENAI_API_KEY"])
     (project_dir / ".env.example").write_text(ENV_EXAMPLE.format(env_lines=env_lines))
 
     # Write .gitignore
     (project_dir / ".gitignore").write_text(GITIGNORE)
 
-    typer.echo(f"Created project '{short_name}' in {project_dir}")
+    # Set up venv and install deps
+    venv_ok = False
+    if not no_venv:
+        venv_ok = _setup_venv(project_dir)
+
+    typer.echo(f"\nCreated project '{short_name}' in {project_dir}")
     typer.echo("")
     typer.echo("Next steps:")
     typer.echo(f"  cd {short_name}")
-    typer.echo("  uv pip install pyagentic-core[deploy]")
-    typer.echo("  # Edit your agent, then:")
+    if venv_ok:
+        typer.echo("  # Activate the venv, then run your agent:")
+        typer.echo("  source .venv/bin/activate")
+    else:
+        typer.echo("  # Create a venv and install dependencies:")
+        typer.echo("  uv venv && uv pip install -r requirements.txt")
     typer.echo("  pyagentic run")

@@ -27,7 +27,23 @@ def publish(
         help="Image tag override.",
     ),
 ) -> None:
-    """Build (if needed) and push the agent image to a Docker registry."""
+    """Build (if needed) and push the agent image to a Docker registry.
+
+    If the image does not already exist locally it will be built first.
+    The image is tagged for the target registry and pushed via
+    ``docker push``.
+
+    Args:
+        registry (Optional[str]): Target registry prefix
+            (e.g. ``'ghcr.io/myorg'``). Defaults to Docker Hub when not
+            provided.
+        tag (Optional[str]): Image tag override. Defaults to
+            ``'<name>:<version>'`` from the manifest.
+
+    Raises:
+        typer.Exit: If Docker is not installed, the build fails, tagging
+            fails, or the push fails.
+    """
     if shutil.which("docker") is None:
         typer.echo("Docker is not installed or not on PATH.", err=True)
         raise typer.Exit(1)

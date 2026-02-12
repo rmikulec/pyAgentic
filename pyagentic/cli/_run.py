@@ -19,7 +19,20 @@ def run(
         False, "--repl", help="Start an interactive REPL instead of server."
     ),
 ) -> None:
-    """Start the agent as an HTTP server or interactive REPL."""
+    """Start the agent as an HTTP server or interactive REPL.
+
+    Loads the manifest and agent class, then delegates to either the
+    FastAPI/uvicorn server or an interactive REPL loop.
+
+    Args:
+        host (Optional[str]): Server bind host. Falls back to the manifest
+            value.
+        port (Optional[int]): Server bind port. Falls back to the manifest
+            value.
+        reload (bool): Enable uvicorn auto-reload for development.
+        repl (bool): If True, start an interactive REPL instead of the HTTP
+            server.
+    """
     manifest = load_manifest()
     agent_class = load_agent_class(manifest.agent.entry)
 
@@ -66,6 +79,7 @@ def _run_repl(agent_class, manifest) -> None:
     agent = agent_class(model=manifest.agent.model)
 
     async def _repl_loop():
+        """Read user input in a loop and print agent responses."""
         while True:
             try:
                 user_input = input(">>> ")

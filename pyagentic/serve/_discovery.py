@@ -18,11 +18,11 @@ def load_agent_class(entry: str) -> "type[BaseAgent]":
     so that local agent modules can be imported.
 
     Args:
-        entry: Entry point in 'module_path:ClassName' format.
+        entry (str): Entry point in 'module_path:ClassName' format.
             Example: 'my_agent:ResearchAgent'
 
     Returns:
-        The agent class (not an instance).
+        type[BaseAgent]: The agent class (not an instance).
 
     Raises:
         ValueError: If the entry point format is invalid.

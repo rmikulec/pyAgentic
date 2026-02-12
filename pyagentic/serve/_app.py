@@ -25,11 +25,18 @@ from pyagentic.models.llm import LLMResponse
 
 
 class CreateSessionRequest(BaseModel):
+    """Request body for creating a new agent session.
+
+    Attributes:
+        model (Optional[str]): LLM model string override
+            (e.g. ``'openai::gpt-4o'``).
+        api_key (Optional[str]): API key for the model provider.
+    """
+
     model: Optional[str] = None
     api_key: Optional[str] = None
 
-if TYPE_CHECKING:
-    from pyagentic._base._agent._agent import BaseAgent
+from pyagentic._base._agent._agent import BaseAgent
 
 
 def create_app(
@@ -45,11 +52,11 @@ def create_app(
       - State endpoint uses the agent's ``__state_class__``
 
     Args:
-        agent_class: The agent class to serve.
-        manifest: Parsed pyagentic.toml manifest.
+        agent_class (type[BaseAgent]): The agent class to serve.
+        manifest (Manifest): Parsed pyagentic.toml manifest.
 
     Returns:
-        A configured FastAPI app.
+        FastAPI: A configured FastAPI app.
     """
     RequestModel = agent_class.__request_model__
     ResponseModel = agent_class.__response_model__
@@ -67,6 +74,7 @@ def create_app(
 
     @app.get("/")
     async def agent_info() -> dict:
+        """Return basic agent metadata."""
         return {
             "name": manifest.project.name,
             "version": manifest.project.version,
@@ -78,10 +86,12 @@ def create_app(
 
     @app.get("/health")
     async def health() -> dict:
+        """Liveness probe endpoint."""
         return {"status": "ok"}
 
     @app.get("/schema")
     async def schema() -> dict:
+        """Return JSON schemas for request, response, stream event, and state models."""
         return {
             "request": RequestModel.model_json_schema(),
             "response": ResponseModel.model_json_schema(),
@@ -92,16 +102,21 @@ def create_app(
     # ---- session routes ----
 
     @app.post("/sessions", status_code=201)
-    async def create_session() -> dict:
-        session_id = sessions.create()
+    async def create_session(req: Optional[CreateSessionRequest] = None) -> dict:
+        """Create a new agent session."""
+        model = req.model if req else None
+        api_key = req.api_key if req else None
+        session_id = sessions.create(model=model, api_key=api_key)
         return {"session_id": session_id}
 
     @app.get("/sessions")
     async def list_sessions() -> dict:
+        """List all active session IDs."""
         return {"sessions": sessions.list_sessions()}
 
     @app.delete("/sessions/{session_id}")
     async def delete_session(session_id: str) -> dict:
+        """Delete an existing session."""
         try:
             sessions.delete(session_id)
         except KeyError:
@@ -112,12 +127,13 @@ def create_app(
 
     @app.post("/sessions/{session_id}/chat", response_model=ResponseModel)
     async def chat(session_id: str, req: RequestModel):  # type: ignore[valid-type]
+        """Send a message and receive a complete agent response."""
         try:
             agent = sessions.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        kwargs = req.model_dump()
+        kwargs = {field: getattr(req, field) for field in req.model_fields}
         response = await agent(**kwargs)
         return response
 
@@ -134,13 +150,14 @@ def create_app(
         },
     )
     async def chat_stream(session_id: str, req: RequestModel):  # type: ignore[valid-type]
+        """Send a message and receive agent responses as an SSE stream."""
         try:
             agent = sessions.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        # Build a single prompt string from the request fields.
-        kwargs = req.model_dump()
+        # Build a single prompt string from the request fields for step().
+        kwargs = {field: getattr(req, field) for field in req.model_fields}
         if len(kwargs) == 1:
             prompt = str(next(iter(kwargs.values())))
         else:
@@ -152,6 +169,7 @@ def create_app(
         AgentEvent = StreamEventModel.__agent_event__
 
         async def event_generator():
+            """Yield SSE-formatted events from the agent step iterator."""
             async for update in agent.step(prompt):
                 if isinstance(update, LLMResponse):
                     event = LLMEvent(data=update)
@@ -180,6 +198,7 @@ def create_app(
 
     @app.get("/sessions/{session_id}/state", response_model=StateModel)
     async def get_state(session_id: str):
+        """Return the current state of the agent for a session."""
         try:
             agent = sessions.get(session_id)
         except KeyError:

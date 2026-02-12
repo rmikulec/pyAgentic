@@ -24,7 +24,20 @@ def build(
         help="Build without Docker cache.",
     ),
 ) -> None:
-    """Build a Docker image for the agent project."""
+    """Build a Docker image for the agent project.
+
+    Reads the ``pyagentic.toml`` manifest from the current directory and
+    delegates to :func:`pyagentic.serve._docker.build_image`.
+
+    Args:
+        tag (Optional[str]): Docker image tag. Defaults to
+            ``'<name>:<version>'`` from the manifest.
+        no_cache (bool): If True, pass ``--no-cache`` to ``docker build``.
+
+    Raises:
+        typer.Exit: If the manifest is missing, Docker is not installed,
+            or the build fails.
+    """
     manifest = load_manifest()
     project_dir = Path.cwd()
 

@@ -17,10 +17,10 @@ def generate_dockerfile(manifest: Manifest) -> str:
     """Generate a Dockerfile string from a manifest.
 
     Args:
-        manifest: Parsed pyagentic.toml.
+        manifest (Manifest): Parsed pyagentic.toml.
 
     Returns:
-        Dockerfile contents as a string.
+        str: Dockerfile contents as a string.
     """
     python_version = manifest.build.python_version
     port = manifest.server.port
@@ -64,13 +64,15 @@ def build_image(
     generated Dockerfile, runs `docker build`, then cleans up.
 
     Args:
-        manifest: Parsed pyagentic.toml.
-        project_dir: Path to the project directory (where pyagentic.toml lives).
-        tag: Docker image tag. Defaults to '<name>:<version>' from manifest.
-        no_cache: Pass --no-cache to docker build.
+        manifest (Manifest): Parsed pyagentic.toml.
+        project_dir (Path): Path to the project directory (where
+            pyagentic.toml lives).
+        tag (str | None): Docker image tag. Defaults to
+            ``'<name>:<version>'`` from manifest.
+        no_cache (bool): Pass ``--no-cache`` to docker build.
 
     Returns:
-        The image tag that was built.
+        str: The image tag that was built.
 
     Raises:
         RuntimeError: If the docker build fails.

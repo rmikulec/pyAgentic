@@ -17,6 +17,14 @@ class SessionManager:
     """Manages agent sessions keyed by session ID."""
 
     def __init__(self, agent_class: "type[BaseAgent]", manifest: Manifest) -> None:
+        """Initialize the session manager.
+
+        Args:
+            agent_class (type[BaseAgent]): The agent class to instantiate for
+                each session.
+            manifest (Manifest): Parsed manifest used for default model
+                configuration.
+        """
         self._agent_class = agent_class
         self._manifest = manifest
         self._sessions: dict[str, "BaseAgent"] = {}
@@ -31,13 +39,14 @@ class SessionManager:
         """Create a new session with a fresh agent instance.
 
         Args:
-            model: LLM model string (e.g. 'openai::gpt-4o'). Falls back to
-                the manifest default.
-            api_key: API key for the model provider.
-            provider: Pre-configured LLMProvider instance. Overrides model/api_key.
+            model (Optional[str]): LLM model string (e.g. 'openai::gpt-4o').
+                Falls back to the manifest default.
+            api_key (Optional[str]): API key for the model provider.
+            provider (Optional[LLMProvider]): Pre-configured LLMProvider
+                instance. Overrides model/api_key.
 
         Returns:
-            The new session ID.
+            str: The new session ID.
         """
         session_id = uuid.uuid4().hex[:12]
 
@@ -55,6 +64,12 @@ class SessionManager:
     def get(self, session_id: str) -> "BaseAgent":
         """Get the agent instance for a session.
 
+        Args:
+            session_id (str): The session identifier.
+
+        Returns:
+            BaseAgent: The agent instance bound to the session.
+
         Raises:
             KeyError: If the session does not exist.
         """
@@ -64,7 +79,10 @@ class SessionManager:
             raise KeyError(f"Session not found: {session_id}")
 
     def delete(self, session_id: str) -> None:
-        """Delete a session.
+        """Delete a session and its agent instance.
+
+        Args:
+            session_id (str): The session identifier.
 
         Raises:
             KeyError: If the session does not exist.
@@ -74,5 +92,9 @@ class SessionManager:
         del self._sessions[session_id]
 
     def list_sessions(self) -> list[str]:
-        """Return all active session IDs."""
+        """Return all active session IDs.
+
+        Returns:
+            list[str]: List of session ID strings.
+        """
         return list(self._sessions.keys())
