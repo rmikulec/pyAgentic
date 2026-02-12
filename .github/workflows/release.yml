@@ -22,87 +22,72 @@ jobs:
       cancel-in-progress: false
 
     outputs:
-      released: ${{ steps.release.outputs.released }}
-      tag:      ${{ steps.release.outputs.tag }}
+      version:  ${{ steps.version.outputs.version }}
+      released: ${{ steps.tag_check.outputs.exists == 'false' }}
 
     permissions:
       contents: write
 
     steps:
-      # Note: We checkout the repository at the branch that triggered the workflow
-      # with the entire history to ensure to match PSR's release branch detection
-      # and history evaluation.
-      # However, we forcefully reset the branch to the workflow sha because it is
-      # possible that the branch was updated while the workflow was running. This
-      # prevents accidentally releasing un-evaluated changes.
-      - name: Setup | Checkout Repository on Release Branch
+      - name: Setup | Checkout Repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Setup | Force release branch to be at workflow sha
-        run: |
-          git reset --hard ${{ github.sha }}
+      - name: Setup | Force branch to workflow sha
+        run: git reset --hard ${{ github.sha }}
 
-      - name: Evaluate | Verify upstream has NOT changed
-        # Last chance to abort before causing an error as another PR/push was applied to
-        # the upstream branch while this workflow was running. This is important
-        # because we are committing a version change (--commit). You may omit this step
-        # if you have 'commit: false' in your configuration.
-        #
-        # You may consider moving this to a repo script and call it from this step instead
-        # of writing it in-line.
-        shell: bash
-        run: |
-          set +o pipefail
-
-          UPSTREAM_BRANCH_NAME="$(git status -sb | head -n 1 | cut -d' ' -f2 | grep -E '\.{3}' | cut -d'.' -f4)"
-          printf '%s\n' "Upstream branch name: $UPSTREAM_BRANCH_NAME"
-
-          set -o pipefail
-
-          if [ -z "$UPSTREAM_BRANCH_NAME" ]; then
-              printf >&2 '%s\n' "::error::Unable to determine upstream branch name!"
-              exit 1
-          fi
-
-          git fetch "${UPSTREAM_BRANCH_NAME%%/*}"
-
-          if ! UPSTREAM_SHA="$(git rev-parse "$UPSTREAM_BRANCH_NAME")"; then
-              printf >&2 '%s\n' "::error::Unable to determine upstream branch sha!"
-              exit 1
-          fi
-
-          HEAD_SHA="$(git rev-parse HEAD)"
-
-          if [ "$HEAD_SHA" != "$UPSTREAM_SHA" ]; then
-              printf >&2 '%s\n' "[HEAD SHA] $HEAD_SHA != $UPSTREAM_SHA [UPSTREAM SHA]"
-              printf >&2 '%s\n' "::error::Upstream has changed, aborting release..."
-              exit 1
-          fi
-
-          printf '%s\n' "Verified upstream branch has not changed, continuing with release..."
-
-      - name: Action | Semantic Version Release
-        id: release
-        # Adjust tag with desired version if applicable.
-        uses: python-semantic-release/python-semantic-release@v10.3.1
+      - name: Setup | Install Python
+        uses: actions/setup-python@v5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          git_committer_name: "github-actions"
-          git_committer_email: "actions@users.noreply.github.com"
+          python-version: '3.13'
 
-      - name: Publish | Upload to GitHub Release Assets
-        uses: python-semantic-release/publish-action@v10.3.1
-        if: steps.release.outputs.released == 'true'
+      - name: Setup | Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Setup | Install dependencies
+        run: uv sync --group dev
+
+      - name: Build | Create distribution
+        run: uv build
+
+      - name: Version | Extract version from build
+        id: version
+        run: |
+          VERSION=$(uv run python -c "from importlib.metadata import version; print(version('pyagentic-core'))")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Computed version: $VERSION"
+
+      - name: Tag | Check if tag exists
+        id: tag_check
+        run: |
+          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tag | Create and push git tag
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+
+      - name: Release | Create GitHub Release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.release.outputs.tag }}
+          tag_name: "${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          prerelease: ${{ github.ref_name != 'main' }}
+          files: dist/*
 
       - name: Upload | Distribution Artifacts
-        if: steps.release.outputs.released == 'true'
+        if: steps.tag_check.outputs.exists == 'false'
         uses: actions/upload-artifact@v4
         with:
           name: distribution-artifacts
@@ -110,10 +95,6 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    # 1. Separate out the deploy step from the publish step to run each step at
-    #    the least amount of token privilege
-    # 2. Also, deployments can fail, and its better to have a separate job if you need to retry
-    #    and it won't require reversing the release.
     runs-on: ubuntu-latest
     needs: release
     if: ${{ needs.release.outputs.released == 'true' }}
@@ -130,16 +111,8 @@ jobs:
           name: distribution-artifacts
           path: dist
 
-      # ------------------------------------------------------------------- #
-      # Python Semantic Release is not responsible for publishing your      #
-      # python artifacts to PyPI. Use the official PyPA publish action      #
-      # instead. The following steps are an example but is not guaranteed   #
-      # to work as the action is not maintained by the                      #
-      # python-semantic-release team.                                       #
-      # ------------------------------------------------------------------- #
-
       # see https://docs.pypi.org/trusted-publishers/
-      - name: Publish package distributions to PyPI
+      - name: Publish | Upload to PyPI
         uses: pypa/gh-action-pypi-publish@v1.12.4
         with:
           packages-dir: dist
