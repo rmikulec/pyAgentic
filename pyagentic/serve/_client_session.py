@@ -5,6 +5,7 @@ from typing import AsyncGenerator, Optional
 import httpx
 
 from pyagentic.serve._exceptions import AgentAPIError
+from pyagentic.serve._sse import parse_sse_async
 
 
 class Session:
@@ -106,7 +107,7 @@ class Session:
             if resp.status_code >= 400:
                 await resp.aread()
                 self._raise_for_status(resp, f"POST {endpoint}")
-            async for event in self._parse_sse(resp):
+            async for event in parse_sse_async(resp):
                 yield event
 
     async def state(self) -> dict:
@@ -175,24 +176,3 @@ class Session:
                 detail = resp.text
             raise AgentAPIError(resp.status_code, detail, endpoint)
 
-    @staticmethod
-    async def _parse_sse(resp: httpx.Response) -> AsyncGenerator[dict, None]:
-        """Parse SSE lines from an httpx streaming response."""
-        import json
-
-        event_type: Optional[str] = None
-        async for line in resp.aiter_lines():
-            line = line.strip()
-            if not line:
-                # Blank line resets for next event
-                event_type = None
-                continue
-            if line.startswith("event:"):
-                event_type = line[len("event:"):].strip()
-            elif line.startswith("data:"):
-                raw = line[len("data:"):].strip()
-                try:
-                    data = json.loads(raw)
-                except (json.JSONDecodeError, ValueError):
-                    data = raw
-                yield {"event": event_type or "message", "data": data}

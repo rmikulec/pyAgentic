@@ -2,13 +2,12 @@
 Pydantic models for parsing and validating pyagentic.toml manifest files.
 """
 
-import sys
+import re
+import tomllib
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field
-
-import tomllib
+from pydantic import BaseModel, Field, field_validator
 
 
 
@@ -43,6 +42,17 @@ class AgentConfig(BaseModel):
         description="Default LLM model in provider::model format",
     )
 
+    @field_validator("entry")
+    @classmethod
+    def _validate_entry(cls, v: str) -> str:
+        """Ensure entry follows ``module:ClassName`` format."""
+        if ":" not in v or not v.split(":", 1)[1].strip():
+            raise ValueError(
+                f"Invalid entry '{v}': must be in 'module:ClassName' format "
+                f"(e.g. 'my_agent:MyAgent')."
+            )
+        return v
+
 
 class ServerConfig(BaseModel):
     """HTTP server settings from the ``[server]`` section of ``pyagentic.toml``.
@@ -54,6 +64,14 @@ class ServerConfig(BaseModel):
 
     host: str = "0.0.0.0"
     port: int = 8000
+
+    @field_validator("port")
+    @classmethod
+    def _validate_port(cls, v: int) -> int:
+        """Ensure port is in the valid TCP range."""
+        if not (1 <= v <= 65535):
+            raise ValueError(f"Port must be between 1 and 65535, got {v}.")
+        return v
 
 
 class BuildConfig(BaseModel):
@@ -67,6 +85,17 @@ class BuildConfig(BaseModel):
 
     python_version: str = "3.13"
     dependencies: list[str] = Field(default_factory=list)
+
+    @field_validator("python_version")
+    @classmethod
+    def _validate_python_version(cls, v: str) -> str:
+        """Ensure python_version matches ``3.x`` or ``3.x.y`` pattern."""
+        if not re.match(r"^3\.\d+(\.\d+)?$", v):
+            raise ValueError(
+                f"Invalid python_version '{v}': must match '3.x' or '3.x.y' "
+                f"(e.g. '3.12', '3.13.1')."
+            )
+        return v
 
 
 class EnvConfig(BaseModel):

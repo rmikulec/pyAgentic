@@ -26,3 +26,5 @@ app.command()(init)
 app.command()(run)
 app.command()(build)
 app.command()(publish)
+
+__all__ = ["app", "init", "run", "build", "publish"]

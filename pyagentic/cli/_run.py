@@ -7,8 +7,13 @@ from typing import Optional
 
 import typer
 
+from typing import TYPE_CHECKING
+
 from pyagentic.serve._manifest import load_manifest
 from pyagentic.serve._discovery import load_agent_class
+
+if TYPE_CHECKING:
+    from pyagentic.serve._manifest import Manifest
 
 
 def run(
@@ -45,7 +50,7 @@ def run(
         _run_server(agent_class, manifest, server_host, server_port, reload)
 
 
-def _run_server(agent_class, manifest, host: str, port: int, reload: bool) -> None:
+def _run_server(agent_class: type, manifest: "Manifest", host: str, port: int, reload: bool) -> None:
     """Start the FastAPI server with uvicorn."""
     import uvicorn
 
@@ -70,7 +75,7 @@ def _run_server(agent_class, manifest, host: str, port: int, reload: bool) -> No
         uvicorn.run(app, host=host, port=port)
 
 
-def _run_repl(agent_class, manifest) -> None:
+def _run_repl(agent_class: type, manifest: "Manifest") -> None:
     """Run an interactive REPL session with the agent."""
     typer.echo(f"PyAgentic REPL — {manifest.project.name} v{manifest.project.version}")
     typer.echo(f"Agent: {agent_class.__name__}")

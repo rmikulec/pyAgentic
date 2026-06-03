@@ -98,7 +98,7 @@ class AgentMeta(type):
         return MappingProxyType(tools)
 
     @staticmethod
-    def _extract_annotations(namespace, bases) -> dict[str, TypeVar]:
+    def _extract_annotations(namespace, bases, cls=None) -> dict[str, TypeVar]:
         """
         Extracts all annotations from current class and all its parent classes. Combines them
             into one dictionary, with class order respected (subclasses override parent classes).
@@ -106,6 +106,8 @@ class AgentMeta(type):
         Args:
             namespace (dict): The class namespace containing __annotations__
             bases (tuple): The base classes
+            cls (type, optional): The created class object. In Python 3.14+, deferred
+                annotations may only be available on the class, not in the namespace.
 
         Returns:
             dict[str, TypeVar]: Combined annotations from all classes in hierarchy
@@ -119,6 +121,12 @@ class AgentMeta(type):
         for name, type_ in namespace.get("__annotations__", {}).items():
             if not name.startswith("__"):
                 annotations[name] = type_
+        # Python 3.14+ deferred annotations: annotations may not be in namespace
+        # but are available on the created class object
+        if cls is not None:
+            for name, type_ in getattr(cls, "__annotations__", {}).items():
+                if not name.startswith("__") and name not in annotations:
+                    annotations[name] = type_
         return annotations
 
     @staticmethod
@@ -557,7 +565,7 @@ class AgentMeta(type):
         # __linked_agents__: Linked agents extracted from annotations where the type is a
         #     subclass of Agent. These don't use namespace defaults, only annotations
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
-        annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
+        annotations = mcs._extract_annotations(inherited_namespace | namespace, bases, cls=cls)
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         state_defs = mcs._extract_state_defs(annotations, inherited_namespace | namespace)
         state_tool_defs = mcs._generate_state_tools(cls, state_defs)

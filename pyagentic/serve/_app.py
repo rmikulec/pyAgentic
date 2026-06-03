@@ -8,20 +8,19 @@ The app leverages the metaclass-generated models on the agent class:
   - __state_class__          →  response_model on state endpoint
 """
 
-from dotenv import load_dotenv
-load_dotenv()
-
 import json
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from pyagentic._base._agent._agent import BaseAgent
+from pyagentic.models.llm import LLMResponse
+from pyagentic.models.response import AgentResponse, ToolResponse
 from pyagentic.serve._manifest import Manifest
 from pyagentic.serve._sessions import SessionManager
-from pyagentic.models.response import AgentResponse, ToolResponse
-from pyagentic.models.llm import LLMResponse
 
 
 class CreateSessionRequest(BaseModel):
@@ -36,7 +35,34 @@ class CreateSessionRequest(BaseModel):
     model: Optional[str] = None
     api_key: Optional[str] = None
 
-from pyagentic._base._agent._agent import BaseAgent
+
+_REQUIRED_AGENT_ATTRS = (
+    "__request_model__",
+    "__response_model__",
+    "__stream_event_model__",
+    "__state_class__",
+    "__tool_defs__",
+    "__state_defs__",
+    "__linked_agents__",
+)
+
+
+def _validate_agent_class(cls: type) -> None:
+    """Verify that *cls* has the metaclass-generated attributes required by the server.
+
+    Args:
+        cls (type): The class to validate.
+
+    Raises:
+        TypeError: If *cls* is missing required metaclass attributes.
+    """
+    missing = [attr for attr in _REQUIRED_AGENT_ATTRS if not hasattr(cls, attr)]
+    if missing:
+        raise TypeError(
+            f"{cls.__name__} is not a valid PyAgentic agent class. "
+            f"Missing attributes: {', '.join(missing)}. "
+            f"Ensure it inherits from BaseAgent (which uses AgentMeta)."
+        )
 
 
 def create_app(
@@ -57,7 +83,13 @@ def create_app(
 
     Returns:
         FastAPI: A configured FastAPI app.
+
+    Raises:
+        TypeError: If agent_class is missing required metaclass attributes.
     """
+    load_dotenv()
+    _validate_agent_class(agent_class)
+
     RequestModel = agent_class.__request_model__
     ResponseModel = agent_class.__response_model__
     StreamEventModel = agent_class.__stream_event_model__
@@ -157,11 +189,15 @@ def create_app(
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Build a single prompt string from the request fields for step().
+        # NOTE: step() currently only accepts a string argument. For agents
+        # with multiple input fields, we serialize to JSON to preserve
+        # structure better than naive stringification.
         kwargs = {field: getattr(req, field) for field in req.model_fields}
-        if len(kwargs) == 1:
-            prompt = str(next(iter(kwargs.values())))
+        non_none = {k: v for k, v in kwargs.items() if v is not None}
+        if len(non_none) == 1:
+            prompt = str(next(iter(non_none.values())))
         else:
-            prompt = "\n".join(f"{k}: {v}" for k, v in kwargs.items() if v is not None)
+            prompt = json.dumps(non_none, default=str)
 
         # Grab the typed event wrappers for constructing SSE payloads
         LLMEvent = StreamEventModel.__llm_event__

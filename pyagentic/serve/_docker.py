@@ -5,12 +5,16 @@ The generated Dockerfile is written to a temp build context that is cleaned
 up after the build. The user's project directory is never modified.
 """
 
+import logging
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 from pyagentic.serve._manifest import Manifest
+
+logger = logging.getLogger(__name__)
 
 
 def generate_dockerfile(manifest: Manifest) -> str:
@@ -55,7 +59,7 @@ def generate_dockerfile(manifest: Manifest) -> str:
 def build_image(
     manifest: Manifest,
     project_dir: Path,
-    tag: str | None = None,
+    tag: Optional[str] = None,
     no_cache: bool = False,
 ) -> str:
     """Build a Docker image for the agent project.
