@@ -68,6 +68,7 @@ def _validate_agent_class(cls: type) -> None:
 def create_app(
     agent_class: type[BaseAgent],
     manifest: Manifest,
+    mcp: bool = False,
 ) -> FastAPI:
     """Build a FastAPI application wired to the given agent class.
 
@@ -80,6 +81,7 @@ def create_app(
     Args:
         agent_class (type[BaseAgent]): The agent class to serve.
         manifest (Manifest): Parsed pyagentic.toml manifest.
+        mcp (bool): If True, mount an MCP server endpoint at ``/mcp``.
 
     Returns:
         FastAPI: A configured FastAPI app.
@@ -240,5 +242,10 @@ def create_app(
         except KeyError:
             raise HTTPException(status_code=404, detail="Session not found")
         return agent.state
+
+    if mcp:
+        from pyagentic.serve._mcp_server import _mount_mcp
+
+        _mount_mcp(app, agent_class, sessions, manifest)
 
     return app

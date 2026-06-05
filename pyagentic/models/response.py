@@ -102,7 +102,8 @@ class AgentResponse(BaseModel):
         """
         fields = {}
         if tool_response_models:
-            ToolResult = Union[tuple(tool_response_models)]
+            # Include base ToolResponse so runtime-discovered tools (e.g. MCP) pass validation
+            ToolResult = Union[tuple([*tool_response_models, ToolResponse])]
             fields["tool_responses"] = (list[ToolResult], ...)
         if linked_agents_response_models:
             AgentResult = Union[tuple(linked_agents_response_models)]

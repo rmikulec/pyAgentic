@@ -8,13 +8,14 @@ from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
 from pydantic import BaseModel, Field, create_model
 
-from pyagentic._base._info import _SpecInfo, ParamInfo, AgentInfo
+from pyagentic._base._info import _SpecInfo, ParamInfo, AgentInfo, MCPInfo
 from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import State, StateInfo, _StateDefinition
 from pyagentic._base._agent._agent_linking import Link, _LinkedAgentDefinition
+from pyagentic._base._mcp import MCPLink, _MCPDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
 from pyagentic.models.llm import LLMResponse
@@ -208,7 +209,7 @@ class AgentMeta(type):
                     name=getter_name,
                     description=description,
                     parameters={},  # no parameters for getter
-                    return_type=state_def.model,
+                    return_type=str,  # getter returns str(value)
                 )
 
             # --- Setter ---
@@ -288,6 +289,39 @@ class AgentMeta(type):
                 )
 
         return MappingProxyType(linked_agents)
+
+    @staticmethod
+    def _extract_mcp_defs(
+        annotations, namespace
+    ) -> Mapping[str, _MCPDefinition]:
+        """Extracts MCP server definitions from annotations and namespace.
+
+        Looks for ``MCPLink`` type annotations and pairs them with ``MCPInfo``
+        descriptors from the namespace.
+
+        Args:
+            annotations (dict): Combined annotations from the class hierarchy.
+            namespace (dict): The class namespace.
+
+        Returns:
+            Mapping[str, _MCPDefinition]: Immutable mapping of field names to
+                MCP definitions.
+        """
+        mcp_defs: dict[str, _MCPDefinition] = {}
+
+        for attr_name, attr_type in annotations.items():
+            if attr_type is MCPLink:
+                descriptor = namespace.get(attr_name)
+                if isinstance(descriptor, MCPInfo):
+                    mcp_info = descriptor
+                else:
+                    mcp_info = MCPInfo()
+
+                mcp_defs[attr_name] = _MCPDefinition(
+                    field_name=attr_name, info=mcp_info
+                )
+
+        return MappingProxyType(mcp_defs)
 
     @staticmethod
     def _build_request_model(cls) -> Type[BaseModel]:
@@ -421,6 +455,9 @@ class AgentMeta(type):
                     annotation=field_type,
                 )
                 agents.append(param)
+            # MCP fields are config-only, not constructor args
+            elif field_name in agent_cls.__mcp_defs__:
+                continue
             # Other annotated fields (like model, api_key, tracer, etc.)
             else:
                 default = getattr(agent_cls, field_name, inspect._empty)
@@ -573,11 +610,13 @@ class AgentMeta(type):
         linked_agents = mcs._extract_linked_agents(
             annotations, inherited_namespace | namespace, mcs.__BaseAgent__
         )
+        mcp_defs = mcs._extract_mcp_defs(annotations, inherited_namespace | namespace)
         with mcs._lock:
             cls.__tool_defs__ = tool_defs
             cls.__annotations__ = annotations
             cls.__state_defs__ = state_defs
             cls.__linked_agents__ = linked_agents
+            cls.__mcp_defs__ = mcp_defs
 
         # Create response models at class declaration time, giving the agent a predetermined
         # output structure. This allows developers to know exactly what the output of the

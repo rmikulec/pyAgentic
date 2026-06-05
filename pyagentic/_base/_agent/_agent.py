@@ -27,6 +27,7 @@ from pyagentic._base._agent._agent_state import _AgentState
 
 if TYPE_CHECKING:
     from pyagentic._base._agent._agent_linking import _LinkedAgentDefinition
+    from pyagentic._base._mcp import _MCPDefinition
 
 from pyagentic.models.response import ToolResponse, AgentResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
@@ -161,6 +162,7 @@ class BaseAgent(metaclass=AgentMeta):
     __tool_defs__: ClassVar[dict[str, _ToolDefinition]]  # Registered @tool methods
     __state_defs__: ClassVar[dict[str, _StateDefinition]]  # State field definitions
     __linked_agents__: ClassVar[dict[str, "_LinkedAgentDefinition"]]  # Linked agent definitions
+    __mcp_defs__: ClassVar[dict[str, "_MCPDefinition"]]  # MCP server definitions
 
     # User-set Class Attributes (defined in subclass)
     __system_message__: ClassVar[str]  # Required: system prompt for the agent
@@ -233,6 +235,126 @@ class BaseAgent(metaclass=AgentMeta):
 
         if self.__tool_defs__ and not self.provider.__supports_tool_calls__:
             raise Exception("Tools are not supported with this provider")
+
+    async def _ensure_mcp_connected(self):
+        """Lazily connect to all configured MCP servers and merge their tools.
+
+        Called once at the top of ``_get_tool_defs()``.  On first invocation
+        it connects to each MCP server, fetches available tools, applies
+        whitelist/blacklist filtering, converts them to ``_MCPToolDefinition``
+        instances, and shadows the class-level ``__tool_defs__`` and
+        ``__tool_response_models__`` with instance-level merged dicts.
+
+        Populates ``_mcp_tool_routing`` for dispatching tool calls to the
+        correct MCP client.
+        """
+        if getattr(self, "_mcp_connected", False):
+            return
+
+        if not self.__mcp_defs__:
+            self._mcp_connected = True
+            self._mcp_clients = {}
+            self._mcp_tool_routing = {}
+            return
+
+        try:
+            from fastmcp import Client as MCPClient
+        except ImportError:
+            raise ImportError(
+                "fastmcp is required for MCP support. "
+                "Install it with: pip install pyagentic-core[mcp]"
+            )
+
+        from pyagentic._base._mcp import (
+            _MCPToolDefinition,
+            mcp_tool_to_tool_def,
+            _json_schema_to_parameters,
+        )
+        from pyagentic.models.response import ToolResponse
+
+        self._mcp_clients = {}
+        self._mcp_tool_routing = {}
+        mcp_tool_defs = {}
+        mcp_response_models = {}
+
+        for field_name, mcp_def in self.__mcp_defs__.items():
+            info = mcp_def.info
+            server = info.server
+
+            # Auto-detect transport
+            if isinstance(server, str) and server.startswith(("http://", "https://")):
+                client = MCPClient(server)
+            elif isinstance(server, str) and info.args is not None:
+                from fastmcp.client.transports import StdioTransport
+
+                transport = StdioTransport(command=server, args=info.args)
+                client = MCPClient(transport)
+            else:
+                # In-process FastMCP server object
+                client = MCPClient(server)
+
+            # Connect and fetch tools
+            await client.__aenter__()
+            self._mcp_clients[field_name] = client
+
+            tools = await client.list_tools()
+
+            # Apply whitelist/blacklist filtering
+            if info.tools is not None:
+                allowed = set(info.tools)
+                tools = [t for t in tools if t.name in allowed]
+            if info.exclude_tools is not None:
+                excluded = set(info.exclude_tools)
+                tools = [t for t in tools if t.name not in excluded]
+
+            # Convert to _MCPToolDefinition and register routing
+            for mcp_tool in tools:
+                tool_def = mcp_tool_to_tool_def(
+                    mcp_tool, field_name, info.prefix
+                )
+                # Apply phases from MCPInfo to each tool definition
+                if info.phases:
+                    tool_def.phases = info.phases
+                mcp_tool_defs[tool_def.name] = tool_def
+                self._mcp_tool_routing[tool_def.name] = (
+                    client,
+                    tool_def.mcp_original_name,
+                )
+
+                # Build a simple response model for MCP tools
+                params = _json_schema_to_parameters(tool_def.json_schema)
+                simple_def = _ToolDefinition(
+                    name=tool_def.name,
+                    description=tool_def.description,
+                    parameters=params,
+                    return_type=str,
+                )
+                mcp_response_models[tool_def.name] = ToolResponse.from_tool_def(
+                    simple_def
+                )
+
+        # Shadow class-level dicts with instance-level merged versions
+        self.__tool_defs__ = {**self.__class__.__tool_defs__, **mcp_tool_defs}
+        self.__tool_response_models__ = {
+            **self.__class__.__tool_response_models__,
+            **mcp_response_models,
+        }
+        self._mcp_connected = True
+
+    async def close(self):
+        """Tear down all MCP client connections.
+
+        Should be called when the agent is no longer needed to clean up
+        any open connections or subprocesses.
+        """
+        for client in getattr(self, "_mcp_clients", {}).values():
+            try:
+                await client.__aexit__(None, None, None)
+            except Exception:
+                pass
+        self._mcp_clients = {}
+        self._mcp_tool_routing = {}
+        self._mcp_connected = False
 
     def __post_init__(self):
         """
@@ -312,8 +434,9 @@ class BaseAgent(metaclass=AgentMeta):
                 response_format=self.__response_format__,
                 **kwargs,
             )
+            usage_details = response.usage.model_dump() if response.usage else {}
             self.tracer.set_attributes(
-                usage_details=response.usage.model_dump(), model=self.provider._model
+                usage_details=usage_details, model=self.provider._model
             )
             return response
         except Exception as e:
@@ -393,10 +516,16 @@ class BaseAgent(metaclass=AgentMeta):
         Returns:
             ToolResponse: The response from the tool execution
         """
-        # Add tool call message to conversation history
-        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
         self.tracer.set_attributes(**tool_call.__dict__)
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
+
+        # Check if this is an MCP-routed tool (before appending provider-specific message)
+        mcp_routing = getattr(self, "_mcp_tool_routing", {})
+        if tool_call.name in mcp_routing:
+            return await self._process_mcp_tool_call(tool_call, call_depth)
+
+        # Add tool call message to conversation history
+        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
 
         # Look up the tool definition and bound method
         try:
@@ -413,11 +542,11 @@ class BaseAgent(metaclass=AgentMeta):
         except ValidationError as e:
             # Handle validation errors for tool arguments
             result = f"Function Args were invalid: {str(e)}"
-            compiled_args = {}
+            compiled_args = None
             self.tracer.record_exception(str(e))
             logger.exception(e)
         try:
-            if compiled_args:
+            if compiled_args is not None:
                 result = await _safe_run(handler, **compiled_args)
                 self.tracer.set_attributes(result=result)
         except TypeError as e:
@@ -451,16 +580,65 @@ class BaseAgent(metaclass=AgentMeta):
             raw_kwargs=tool_call.arguments, call_depth=call_depth, output=result, **compiled_args
         )
 
+    @traced(SpanKind.TOOL)
+    async def _process_mcp_tool_call(self, tool_call: ToolCall, call_depth: int) -> ToolResponse:
+        """Processes a tool call routed to an MCP server.
+
+        Args:
+            tool_call (ToolCall): The tool call to execute via MCP.
+            call_depth (int): Current depth in the tool calling loop.
+
+        Returns:
+            ToolResponse: The response from the MCP tool execution.
+        """
+        # Add tool call to conversation history (provider-specific format)
+        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
+
+        client, original_name = self._mcp_tool_routing[tool_call.name]
+        kwargs = json.loads(tool_call.arguments)
+
+        try:
+            mcp_result = await client.call_tool(original_name, kwargs)
+            # CallToolResult has .content (list of content blocks)
+            parts = []
+            for block in mcp_result.content:
+                if hasattr(block, "text"):
+                    parts.append(block.text)
+                else:
+                    parts.append(str(block))
+            result = "\n".join(parts)
+            self.tracer.set_attributes(result=result)
+        except Exception as e:
+            self.tracer.record_exception(str(e))
+            logger.exception(e)
+            result = f"MCP tool `{tool_call.name}` failed: {e}. Please kindly state to the user that it failed, provide state, and ask if they want to try again."  # noqa E501
+
+        # Add result to conversation history
+        self.state._messages.append(
+            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
+        )
+
+        if self.phases:
+            self.state._update_state_machine(phases=self.phases)
+
+        # Return a base ToolResponse (not a class-time typed subclass,
+        # since MCP tools are discovered at runtime)
+        return ToolResponse(
+            raw_kwargs=tool_call.arguments, call_depth=call_depth, output=result
+        )
+
     async def _get_tool_defs(self) -> list[_ToolDefinition]:
         """
-        Builds a list of tool definitions from @tool methods and linked agents.
+        Builds a list of tool definitions from @tool methods, linked agents, and MCP servers.
 
         Resolves any StateRef references in tool parameters using the current agent_reference,
-        allowing tools to dynamically reference state values.
+        allowing tools to dynamically reference state values. Lazily connects to MCP servers
+        on first call.
 
         Returns:
             list[_ToolDefinition]: List of resolved tool definitions ready for LLM
         """
+        await self._ensure_mcp_connected()
         tool_defs = []
 
         # Add all @tool decorated methods
@@ -540,9 +718,6 @@ class BaseAgent(metaclass=AgentMeta):
             # Add user message to conversation state
             self.state.add_user_message(input_)
 
-            # Build tool definitions (including linked agents as tools)
-            tool_defs = await self._get_tool_defs()
-
             # Track responses and prevent duplicate processing
             tool_responses: list = []
             agent_responses: list = []
@@ -553,6 +728,10 @@ class BaseAgent(metaclass=AgentMeta):
             final_ai_output: str | None = None
 
             while depth < self.max_call_depth:
+                # Rebuild tool definitions each iteration so phase transitions
+                # that occurred during tool execution are reflected
+                tool_defs = await self._get_tool_defs()
+
                 # Ask the LLM what to do next (may return tool calls or final text)
                 response = await self._process_llm_inference(tool_defs=tool_defs)
                 yield response
@@ -610,6 +789,8 @@ class BaseAgent(metaclass=AgentMeta):
                 final_ai_output = response.parsed if response.parsed else response.text
 
             # Build the structured response
+            if final_ai_output is None:
+                final_ai_output = ""
             response_fields = {
                 "final_output": final_ai_output,
                 "state": self.state,

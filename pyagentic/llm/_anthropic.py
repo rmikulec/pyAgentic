@@ -27,7 +27,7 @@ class AnthropicMessage(Message):
     # Tool Usage
     id: Optional[str] = None
     name: Optional[str] = None
-    input: Optional[str] = None
+    input: Optional[dict | str] = None
     tool_use_id: Optional[str] = None
 
 
@@ -35,12 +35,11 @@ class AnthropicProvider(LLMProvider):
     """
     Anthropic provider implementation for Claude language models.
 
-    Provides integration with Anthropic's Claude API supporting text generation
-    and tool calling. Note that this provider does not support structured outputs
-    natively and implements them through tool calling mechanisms.
+    Provides integration with Anthropic's Claude API supporting text generation,
+    tool calling, and structured outputs via ``output_config.format``.
     """
 
-    __supports_structured_outputs__ = False
+    __supports_structured_outputs__ = True
 
     def __init__(self, model: str, api_key: str, **kwargs):
         """
@@ -109,15 +108,30 @@ class AnthropicProvider(LLMProvider):
         Returns:
             LLMResponse containing generated text, parsed data, tool calls, and metadata
         """
-        # Convert messages to Anthropic format
+        # Convert messages to Anthropic format.
+        # Anthropic requires consecutive tool_use blocks merged into one
+        # assistant message and consecutive tool_result blocks merged into
+        # one user message (needed for parallel tool calls).
         messages = []
 
         for message in state._messages:
             msg_dict = message.to_dict()
             if msg_dict.get("type") == "tool_use":
-                messages.append({"role": "assistant", "content": [{**msg_dict}]})
+                # Merge consecutive tool_use blocks into one assistant message
+                if messages and messages[-1]["role"] == "assistant" and isinstance(
+                    messages[-1].get("content"), list
+                ):
+                    messages[-1]["content"].append({**msg_dict})
+                else:
+                    messages.append({"role": "assistant", "content": [{**msg_dict}]})
             elif msg_dict.get("type") == "tool_result":
-                messages.append({"role": "user", "content": [{**msg_dict}]})
+                # Merge consecutive tool_result blocks into one user message
+                if messages and messages[-1]["role"] == "user" and isinstance(
+                    messages[-1].get("content"), list
+                ):
+                    messages[-1]["content"].append({**msg_dict})
+                else:
+                    messages.append({"role": "user", "content": [{**msg_dict}]})
             else:
                 messages.append(msg_dict)
 
@@ -129,12 +143,25 @@ class AnthropicProvider(LLMProvider):
         }
 
         if "max_tokens" not in request_params:
-            request_params["max_tokens"] = 1024
+            request_params["max_tokens"] = 4096
 
         request_params["system"] = state.system_message
 
         if tool_defs:
             request_params["tools"] = [tool.to_anthropic_spec() for tool in tool_defs]
+
+        # When a structured output is requested and no tools need calling,
+        # use Anthropic's output_config to constrain the response to JSON.
+        if response_format and not tool_defs:
+            schema = response_format.model_json_schema()
+            # Anthropic requires additionalProperties: false on all objects
+            self._enforce_additional_properties(schema)
+            request_params["output_config"] = {
+                "format": {
+                    "type": "json_schema",
+                    "schema": schema,
+                }
+            }
 
         # Make the API call
         async with self.client.messages.stream(**request_params) as stream:
@@ -158,13 +185,11 @@ class AnthropicProvider(LLMProvider):
 
         # Handle structured output
         parsed = None
-        if response_format and tool_calls:
-            # Assume first tool call contains structured data
+        if response_format and text_content and not tool_calls:
             try:
-                parsed = response_format(**tool_calls[0].arguments)
+                parsed = response_format.model_validate_json(text_content)
                 text_content = parsed.model_dump_json(indent=2)
             except Exception:
-                # Fallback to text content if parsing fails
                 pass
 
         return LLMResponse(
@@ -173,6 +198,25 @@ class AnthropicProvider(LLMProvider):
             tool_calls=tool_calls,
             raw=response,
         )
+
+    @staticmethod
+    def _enforce_additional_properties(schema: dict) -> None:
+        """Recursively set additionalProperties: false on all object schemas."""
+        if schema.get("type") == "object":
+            schema["additionalProperties"] = False
+            for prop in schema.get("properties", {}).values():
+                AnthropicProvider._enforce_additional_properties(prop)
+            if "required" not in schema:
+                schema["required"] = list(schema.get("properties", {}).keys())
+        if "items" in schema:
+            AnthropicProvider._enforce_additional_properties(schema["items"])
+        for key in ("anyOf", "allOf"):
+            for sub in schema.get(key, []):
+                AnthropicProvider._enforce_additional_properties(sub)
+        # Resolve $defs references inline
+        if "$defs" in schema:
+            for def_schema in schema["$defs"].values():
+                AnthropicProvider._enforce_additional_properties(def_schema)
 
     def extract_usage_info(self, response):
         return super().extract_usage_info(response)
