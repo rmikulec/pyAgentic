@@ -104,6 +104,14 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Trace behavior](observability.md)
 
+- :material-rocket-launch: **[Deploy](deploy/index.md)**
+
+    ---
+
+    Scaffold, run, build, and publish agents with the PyAgentic CLI.
+
+    [:octicons-arrow-right-24: Deploy your agent](deploy/index.md)
+
 </div>
 
 

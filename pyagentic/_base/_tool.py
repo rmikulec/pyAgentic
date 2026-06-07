@@ -124,7 +124,11 @@ class _ToolDefinition:
                 if default.required:
                     required.append(name)
                 if default.values:
-                    params[name]["enum"] = default.values
+                    if type_info.is_list:
+                        params[name]['items']["enum"] = default.values
+                    else:
+                        params[name]["enum"] = default.values
+
 
         # Final structure
         parameters = {
@@ -143,28 +147,44 @@ class _ToolDefinition:
             "parameters": parameters,
         }
 
+    @staticmethod
+    def _enforce_strict_schema(schema: dict) -> dict:
+        """Recursively add ``additionalProperties: false`` to all object types.
+
+        Required by Anthropic's strict tool mode on every ``object`` node.
+
+        Args:
+            schema (dict): A JSON Schema dict.
+
+        Returns:
+            dict: The schema with strict constraints applied.
+        """
+        if isinstance(schema, dict):
+            schema = {k: _ToolDefinition._enforce_strict_schema(v) for k, v in schema.items()}
+            if schema.get("type") == "object":
+                schema["additionalProperties"] = False
+        return schema
+
     def to_anthropic_spec(self) -> dict:
         """
-        Converts using the already-built OpenAI spec, then adapts shape to Anthropic:
-          - name, description copied over
-          - input_schema derived from OpenAI `parameters`
-          - required moved from top-level to inside input_schema
+        Converts the definition to an Anthropic-ready dictionary with strict mode.
+
+        Uses ``strict: true`` and ``additionalProperties: false`` to guarantee
+        Claude's tool inputs match the schema exactly via grammar-constrained
+        sampling — mirroring OpenAI's strict mode behaviour.
 
         Returns:
             dict: An Anthropic-compliant tool specification dictionary
         """
         openai_spec = self.to_openai_spec()
 
-        # Copy to avoid mutating original
         input_schema = dict(openai_spec.get("parameters", {"type": "object", "properties": {}}))
-        required = openai_spec.get("required") or []
-        if required:
-            # Anthropic expects `required` inside the JSON Schema object
-            input_schema = {**input_schema, "required": list(required)}
+        input_schema = self._enforce_strict_schema(input_schema)
 
         return {
             "name": openai_spec.get("name", self.name),
             "description": openai_spec.get("description", self.description),
+            "strict": True,
             "input_schema": input_schema,
         }
 

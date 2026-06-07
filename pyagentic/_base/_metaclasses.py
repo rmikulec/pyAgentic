@@ -1,21 +1,24 @@
 import inspect
 import threading
 import warnings
-from typing import dataclass_transform, TypeVar, Mapping, Type, Any
+from typing import dataclass_transform, TypeVar, Mapping, Type, Any, get_type_hints
 from types import MappingProxyType
 from collections import ChainMap
 from c3linearize import linearize
 from typeguard import check_type, TypeCheckError
+from pydantic import BaseModel, Field, create_model
 
-from pyagentic._base._info import _SpecInfo, ParamInfo, AgentInfo
+from pyagentic._base._info import _SpecInfo, ParamInfo, AgentInfo, MCPInfo
 from pyagentic._base._validation import _AgentConstructionValidator
 from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import State, StateInfo, _StateDefinition
 from pyagentic._base._agent._agent_linking import Link, _LinkedAgentDefinition
+from pyagentic._base._mcp import MCPLink, _MCPDefinition
 
 from pyagentic.models.response import AgentResponse, ToolResponse
+from pyagentic.models.llm import LLMResponse
 
 from pyagentic._utils._typing import analyze_type
 
@@ -96,7 +99,7 @@ class AgentMeta(type):
         return MappingProxyType(tools)
 
     @staticmethod
-    def _extract_annotations(namespace, bases) -> dict[str, TypeVar]:
+    def _extract_annotations(namespace, bases, cls=None) -> dict[str, TypeVar]:
         """
         Extracts all annotations from current class and all its parent classes. Combines them
             into one dictionary, with class order respected (subclasses override parent classes).
@@ -104,6 +107,8 @@ class AgentMeta(type):
         Args:
             namespace (dict): The class namespace containing __annotations__
             bases (tuple): The base classes
+            cls (type, optional): The created class object. In Python 3.14+, deferred
+                annotations may only be available on the class, not in the namespace.
 
         Returns:
             dict[str, TypeVar]: Combined annotations from all classes in hierarchy
@@ -117,6 +122,12 @@ class AgentMeta(type):
         for name, type_ in namespace.get("__annotations__", {}).items():
             if not name.startswith("__"):
                 annotations[name] = type_
+        # Python 3.14+ deferred annotations: annotations may not be in namespace
+        # but are available on the created class object
+        if cls is not None:
+            for name, type_ in getattr(cls, "__annotations__", {}).items():
+                if not name.startswith("__") and name not in annotations:
+                    annotations[name] = type_
         return annotations
 
     @staticmethod
@@ -198,7 +209,7 @@ class AgentMeta(type):
                     name=getter_name,
                     description=description,
                     parameters={},  # no parameters for getter
-                    return_type=state_def.model,
+                    return_type=str,  # getter returns str(value)
                 )
 
             # --- Setter ---
@@ -280,6 +291,130 @@ class AgentMeta(type):
         return MappingProxyType(linked_agents)
 
     @staticmethod
+    def _extract_mcp_defs(
+        annotations, namespace
+    ) -> Mapping[str, _MCPDefinition]:
+        """Extracts MCP server definitions from annotations and namespace.
+
+        Looks for ``MCPLink`` type annotations and pairs them with ``MCPInfo``
+        descriptors from the namespace.
+
+        Args:
+            annotations (dict): Combined annotations from the class hierarchy.
+            namespace (dict): The class namespace.
+
+        Returns:
+            Mapping[str, _MCPDefinition]: Immutable mapping of field names to
+                MCP definitions.
+        """
+        mcp_defs: dict[str, _MCPDefinition] = {}
+
+        for attr_name, attr_type in annotations.items():
+            if attr_type is MCPLink:
+                descriptor = namespace.get(attr_name)
+                if isinstance(descriptor, MCPInfo):
+                    mcp_info = descriptor
+                else:
+                    mcp_info = MCPInfo()
+
+                mcp_defs[attr_name] = _MCPDefinition(
+                    field_name=attr_name, info=mcp_info
+                )
+
+        return MappingProxyType(mcp_defs)
+
+    @staticmethod
+    def _build_request_model(cls) -> Type[BaseModel]:
+        """Build a Pydantic request model from the agent's __call__ signature.
+
+        Inspects the ``__call__`` method to determine the input contract.
+        For the default BaseAgent.__call__(user_input: str) this produces a
+        model with a single ``user_input`` field.  When a subclass overrides
+        ``__call__`` with structured parameters the model mirrors them exactly.
+
+        Args:
+            cls: The agent class whose __call__ to inspect.
+
+        Returns:
+            Type[BaseModel]: A dynamically created Pydantic model.
+        """
+        sig = inspect.signature(cls.__call__)
+        hints = get_type_hints(cls.__call__)
+        hints.pop("return", None)
+        hints.pop("self", None)
+
+        fields: dict[str, Any] = {}
+        for name, param in sig.parameters.items():
+            if name == "self":
+                continue
+            annotation = hints.get(name, str)
+            if param.default is inspect.Parameter.empty:
+                fields[name] = (annotation, Field(...))
+            else:
+                fields[name] = (annotation, Field(default=param.default))
+
+        return create_model(f"{cls.__name__}Request", **fields)
+
+    @staticmethod
+    def _build_stream_event_model(
+        agent_name: str,
+        tool_response_models: list[Type[ToolResponse]],
+        ResponseModel: Type[AgentResponse],
+    ) -> Type[BaseModel]:
+        """Build a discriminated-union model for SSE stream events.
+
+        Each event kind that ``step()`` can yield gets its own typed wrapper
+        with a ``Literal`` event discriminator, so the resulting union is
+        fully described in the JSON Schema.
+
+        Args:
+            agent_name: Name of the agent class (used for model naming).
+            tool_response_models: Per-tool response Pydantic models.
+            ResponseModel: The agent's predetermined response model.
+
+        Returns:
+            Type[BaseModel]: A Union model of all possible stream events.
+        """
+        from typing import Literal, Union
+
+        # LLM inference event
+        LLMEvent = create_model(
+            f"{agent_name}LLMEvent",
+            event=(Literal["llm_response"], "llm_response"),
+            data=(LLMResponse, ...),
+        )
+
+        # Tool response event — typed to the exact tool response variants
+        if tool_response_models:
+            ToolData = Union[tuple(tool_response_models)]
+        else:
+            ToolData = ToolResponse
+        ToolEvent = create_model(
+            f"{agent_name}ToolEvent",
+            event=(Literal["tool_response"], "tool_response"),
+            data=(ToolData, ...),
+        )
+
+        # Final agent response event
+        AgentEvent = create_model(
+            f"{agent_name}AgentEvent",
+            event=(Literal["agent_response"], "agent_response"),
+            data=(ResponseModel, ...),
+        )
+
+        StreamEvent = create_model(
+            f"{agent_name}StreamEvent",
+            __base__=BaseModel,
+            root=(Union[LLMEvent, ToolEvent, AgentEvent], ...),
+        )
+        # Store the individual event models for direct access
+        StreamEvent.__llm_event__ = LLMEvent
+        StreamEvent.__tool_event__ = ToolEvent
+        StreamEvent.__agent_event__ = AgentEvent
+
+        return StreamEvent
+
+    @staticmethod
     def _build_init_signature(agent_cls: Type[Agent]) -> inspect.Signature:
         """
         Builds __init__ signature with all non-default (required) params
@@ -320,6 +455,9 @@ class AgentMeta(type):
                     annotation=field_type,
                 )
                 agents.append(param)
+            # MCP fields are config-only, not constructor args
+            elif field_name in agent_cls.__mcp_defs__:
+                continue
             # Other annotated fields (like model, api_key, tracer, etc.)
             else:
                 default = getattr(agent_cls, field_name, inspect._empty)
@@ -464,7 +602,7 @@ class AgentMeta(type):
         # __linked_agents__: Linked agents extracted from annotations where the type is a
         #     subclass of Agent. These don't use namespace defaults, only annotations
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
-        annotations = mcs._extract_annotations(inherited_namespace | namespace, bases)
+        annotations = mcs._extract_annotations(inherited_namespace | namespace, bases, cls=cls)
         tool_defs = mcs._extract_tool_defs(inherited_namespace | namespace)
         state_defs = mcs._extract_state_defs(annotations, inherited_namespace | namespace)
         state_tool_defs = mcs._generate_state_tools(cls, state_defs)
@@ -472,11 +610,13 @@ class AgentMeta(type):
         linked_agents = mcs._extract_linked_agents(
             annotations, inherited_namespace | namespace, mcs.__BaseAgent__
         )
+        mcp_defs = mcs._extract_mcp_defs(annotations, inherited_namespace | namespace)
         with mcs._lock:
             cls.__tool_defs__ = tool_defs
             cls.__annotations__ = annotations
             cls.__state_defs__ = state_defs
             cls.__linked_agents__ = linked_agents
+            cls.__mcp_defs__ = mcp_defs
 
         # Create response models at class declaration time, giving the agent a predetermined
         # output structure. This allows developers to know exactly what the output of the
@@ -515,9 +655,24 @@ class AgentMeta(type):
             ResponseFormat=cls.__response_format__,
             StateClass=StateClass,
         )
+        # Build a Pydantic request model from the agent's __call__ signature.
+        # This is the predetermined input contract for the agent, mirroring how
+        # __response_model__ is the predetermined output contract.
+        RequestModel = mcs._build_request_model(cls)
+
+        # Build a typed model describing all possible SSE stream events.
+        # This gives the streaming endpoint a fully described JSON Schema.
+        StreamEventModel = mcs._build_stream_event_model(
+            agent_name=cls.__name__,
+            tool_response_models=tool_response_model_list,
+            ResponseModel=ResponseModel,
+        )
+
         with mcs._lock:
             cls.__tool_response_models__ = MappingProxyType(tool_response_models)
             cls.__response_model__ = ResponseModel
+            cls.__request_model__ = RequestModel
+            cls.__stream_event_model__ = StreamEventModel
             cls.__state_class__ = StateClass
 
         # Build the custom __init__ method

@@ -1,6 +1,6 @@
 from typing import Any, Callable, Literal
 
-from pyagentic._base._info import StateInfo, ParamInfo, AgentInfo
+from pyagentic._base._info import StateInfo, ParamInfo, AgentInfo, MCPInfo
 from pyagentic.policies._policy import Policy
 
 
@@ -137,4 +137,51 @@ class spec:
         """
         return AgentInfo(
             default=default, default_factory=default_factory, condition=condition, phases=phases
+        )
+
+    @staticmethod
+    def MCPLink(
+        server: Any = None,
+        *,
+        args: list[str] | None = None,
+        tools: list[str] | None = None,
+        exclude_tools: list[str] | None = None,
+        prefix: bool | str = True,
+        condition: Callable | None = None,
+        phases: list[str] | None = None,
+        description: str | None = None,
+    ) -> MCPInfo:
+        """Creates an MCPInfo descriptor for configuring MCP server connections.
+
+        Auto-detection of transport is handled at runtime:
+          - ``str`` starting with ``http://`` or ``https://`` → streamable HTTP
+          - ``str`` + ``args`` → stdio subprocess
+          - ``FastMCP`` object → in-process
+
+        Args:
+            server (Any): URL string, command string, or FastMCP server object.
+            args (list[str], optional): Arguments for stdio subprocess mode.
+            tools (list[str], optional): Whitelist of tool names to expose.
+            exclude_tools (list[str], optional): Blacklist of tool names to hide.
+            prefix (bool | str): Whether to prefix tool names with the field
+                name. ``True`` uses the field name, a string uses that value,
+                ``False`` disables prefixing. Defaults to True.
+            condition (Callable, optional): Callable determining when this MCP
+                connection is active.
+            phases (list[str], optional): Phases during which this MCP link
+                is available.
+            description (str, optional): Human-readable description.
+
+        Returns:
+            MCPInfo: A configured MCPInfo descriptor.
+        """
+        return MCPInfo(
+            server=server,
+            args=args,
+            tools=tools,
+            exclude_tools=exclude_tools,
+            prefix=prefix,
+            condition=condition,
+            phases=phases,
+            description=description,
         )

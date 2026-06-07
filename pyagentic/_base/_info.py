@@ -83,3 +83,16 @@ class ParamInfo(_SpecInfo):
     description: MaybeRef[str] | None = None
     required: MaybeRef[bool] | None = False
     values: MaybeRef[list[str]] | None = None
+
+
+@dataclass
+class MCPInfo(_SpecInfo):
+    """Descriptor for configuring MCP server connections."""
+
+    server: Any = None
+    args: list[str] | None = None
+    tools: list[str] | None = None
+    exclude_tools: list[str] | None = None
+    prefix: bool | str = True
+    condition: Callable | None = None
+    phases: list[str] | None = None
