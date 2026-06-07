@@ -24,8 +24,11 @@ def _version_scheme(version):
     if distance is None or distance == 0:
         return str(tag)
 
-    # tag is a packaging.version.Version; .release gives (major, minor, patch)
-    major, minor, patch = tag.release[:3]
+    # tag is a packaging.version.Version; .release gives (major, minor[, patch])
+    release = tag.release
+    major = release[0] if len(release) > 0 else 0
+    minor = release[1] if len(release) > 1 else 0
+    patch = release[2] if len(release) > 2 else 0
 
     if branch.startswith("feat/"):
         return f"{major}.{minor + 1}.0a{distance}"
