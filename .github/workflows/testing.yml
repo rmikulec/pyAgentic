@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         # uv sync installs everything from pyproject.toml/uv.lock;
         # --all-groups pulls in both main and dev deps
-        run: uv sync
+        run: uv sync --extra deploy
 
       - name: Test with pytest
         # run pytest inside uv’s managed environment
