@@ -15,6 +15,7 @@ nav:
     - Agent Linking: agent-linking.md
     - Responses: responses.md
     - Structured Outputs: structured-output.md
+    - MCP: mcp.md
     - Inheritance: inheritance.md
     - Observability: observability.md
   - Deploy:
