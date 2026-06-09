@@ -210,6 +210,9 @@ class AnthropicProvider(LLMProvider):
                 schema["required"] = list(schema.get("properties", {}).keys())
         if "items" in schema:
             AnthropicProvider._enforce_additional_properties(schema["items"])
+        # Anthropic doesn't support oneOf — convert to anyOf
+        if "oneOf" in schema:
+            schema["anyOf"] = schema.pop("oneOf")
         for key in ("anyOf", "allOf"):
             for sub in schema.get(key, []):
                 AnthropicProvider._enforce_additional_properties(sub)
