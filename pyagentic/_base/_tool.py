@@ -180,6 +180,7 @@ class _ToolDefinition:
 
         input_schema = dict(openai_spec.get("parameters", {"type": "object", "properties": {}}))
         input_schema = self._enforce_strict_schema(input_schema)
+        self._replace_one_of_with_any_of(input_schema)
 
         return {
             "name": openai_spec.get("name", self.name),
@@ -187,6 +188,18 @@ class _ToolDefinition:
             "strict": True,
             "input_schema": input_schema,
         }
+
+    @staticmethod
+    def _replace_one_of_with_any_of(schema) -> None:
+        """Recursively replace ``oneOf`` with ``anyOf`` — Anthropic doesn't support ``oneOf``."""
+        if isinstance(schema, dict):
+            if "oneOf" in schema:
+                schema["anyOf"] = schema.pop("oneOf")
+            for v in schema.values():
+                _ToolDefinition._replace_one_of_with_any_of(v)
+        elif isinstance(schema, list):
+            for v in schema:
+                _ToolDefinition._replace_one_of_with_any_of(v)
 
     def to_openai_v1(self):
         openai_spec = self.to_openai_spec()
