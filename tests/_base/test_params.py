@@ -56,6 +56,32 @@ def test_param_info_resolve():
     assert resolved_info.values == ["a", "b", "c"]
 
 
+def test_mcp_info_resolve_refs_in_args():
+    """Test that MCPInfo.resolve resolves ref references nested in the args list"""
+    info = spec.MCPLink(
+        "npx",
+        args=["-y", "@modelcontextprotocol/server-filesystem", ref.self.root],
+        tools=["read_file"],
+    )
+
+    agent_reference = {"self": {"root": "/tmp/project"}}
+
+    resolved_info = info.resolve(agent_reference)
+    assert resolved_info.args == ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/project"]
+    assert resolved_info.server == "npx"
+    assert resolved_info.tools == ["read_file"]
+
+
+def test_mcp_info_resolve_ref_server():
+    """Test that MCPInfo.resolve resolves a ref used as the server value"""
+    info = spec.MCPLink(ref.self.server_url)
+
+    agent_reference = {"self": {"server_url": "http://127.0.0.1:9000/mcp"}}
+
+    resolved_info = info.resolve(agent_reference)
+    assert resolved_info.server == "http://127.0.0.1:9000/mcp"
+
+
 def test_param_info_resolve_without_refs():
     """Test that ParamInfo.resolve works with non-ref values"""
     info = spec.Param(description="static description", values=["x", "y", "z"])

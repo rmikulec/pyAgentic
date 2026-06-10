@@ -22,17 +22,19 @@ class _SpecInfo:
             return None
 
     def resolve(self, agent_reference: dict) -> Self:
+        def _resolve_value(value: Any) -> Any:
+            if isinstance(value, RefNode):
+                return value.resolve(agent_reference)
+            if isinstance(value, list):
+                # resolve refs nested in list fields, e.g. MCPInfo.args
+                return [_resolve_value(item) for item in value]
+            return value
+
         attrs: dict[str, Any] = {}
 
         # walk actual model fields, not the dumped / serialized version
-        for name, value in self.__dict__.items():
-            value = getattr(self, name)
-
-            if isinstance(value, RefNode):
-                resolved = value.resolve(agent_reference)
-                attrs[name] = resolved
-            else:
-                attrs[name] = value
+        for name in self.__dict__:
+            attrs[name] = _resolve_value(getattr(self, name))
 
         # rebuild same class with resolved attrs
         return self.__class__(**attrs)
@@ -89,8 +91,8 @@ class ParamInfo(_SpecInfo):
 class MCPInfo(_SpecInfo):
     """Descriptor for configuring MCP server connections."""
 
-    server: Any = None
-    args: list[str] | None = None
+    server: MaybeRef[Any] = None
+    args: list[MaybeRef[str]] | None = None
     tools: list[str] | None = None
     exclude_tools: list[str] | None = None
     prefix: bool | str = True

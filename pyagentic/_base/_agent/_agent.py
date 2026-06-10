@@ -278,7 +278,9 @@ class BaseAgent(metaclass=AgentMeta):
         mcp_response_models = {}
 
         for field_name, mcp_def in self.__mcp_defs__.items():
-            info = mcp_def.info
+            # Resolve StateRefs (e.g. ref.self.root in server/args) the same
+            # way _get_tool_defs resolves them in tool definitions.
+            info = mcp_def.info.resolve(self.agent_reference)
             server = info.server
 
             # Auto-detect transport
