@@ -1,6 +1,6 @@
 from typing import Any, Callable, Literal
 
-from pyagentic._base._info import StateInfo, ParamInfo, AgentInfo, MCPInfo
+from pyagentic._base._info import StateInfo, ParamInfo, AgentInfo, MCPInfo, MaybeRef
 from pyagentic.policies._policy import Policy
 
 
@@ -141,9 +141,9 @@ class spec:
 
     @staticmethod
     def MCPLink(
-        server: Any = None,
+        server: MaybeRef[Any] = None,
         *,
-        args: list[str] | None = None,
+        args: list[MaybeRef[str]] | None = None,
         tools: list[str] | None = None,
         exclude_tools: list[str] | None = None,
         prefix: bool | str = True,
@@ -157,6 +157,10 @@ class spec:
           - ``str`` starting with ``http://`` or ``https://`` → streamable HTTP
           - ``str`` + ``args`` → stdio subprocess
           - ``FastMCP`` object → in-process
+
+        Both ``server`` and ``args`` entries may be StateRefs (e.g.
+        ``ref.self.root``); they are resolved against agent state when the
+        MCP connection is established.
 
         Args:
             server (Any): URL string, command string, or FastMCP server object.
