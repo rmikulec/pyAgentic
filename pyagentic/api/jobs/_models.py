@@ -124,6 +124,97 @@ class BackendHealth(BaseModel):
     detail: dict = Field(default_factory=dict)
 
 
+# --- HTTP request/response models for the /jobs routes ---------------------
+#
+# These are the wire models for the job endpoints. ``JobSnapshot`` carries a
+# loosely-typed ``result`` (Optional[Any]); ``build_jobs_router`` subclasses it
+# per-agent so ``result`` is typed as the agent's ``__response_model__``.
+
+
+class JobSummary(BaseModel):
+    """A job's status without its result payload (used in list responses).
+
+    Attributes:
+        job_id (str): Unique job identifier.
+        session_id (Optional[str]): Session the job belongs to, if any.
+        status (JobStatus): Current lifecycle state.
+        created_at (float): Unix timestamp of submission.
+        started_at (Optional[float]): Unix timestamp when execution began.
+        finished_at (Optional[float]): Unix timestamp of terminal transition.
+        error (Optional[str]): Failure description, set when the job fails.
+    """
+
+    job_id: str
+    session_id: Optional[str] = None
+    status: JobStatus
+    created_at: float
+    started_at: Optional[float] = None
+    finished_at: Optional[float] = None
+    error: Optional[str] = None
+
+
+class JobSnapshot(JobSummary):
+    """A job's status plus its result when terminal.
+
+    Attributes:
+        result (Optional[Any]): The final agent response, present once the job
+            has succeeded. ``build_jobs_router`` narrows this to the agent's
+            ``__response_model__`` per deployment.
+    """
+
+    result: Optional[Any] = None
+
+
+class JobSubmitResponse(BaseModel):
+    """Response returned after submitting a job (HTTP 202).
+
+    Attributes:
+        job_id (str): Identifier of the newly queued job.
+        status (JobStatus): Lifecycle state at submission time (``queued``).
+    """
+
+    job_id: str
+    status: JobStatus
+
+
+class JobListResponse(BaseModel):
+    """Response listing jobs newest-first.
+
+    Attributes:
+        jobs (list[JobSummary]): The matching job summaries.
+    """
+
+    jobs: list[JobSummary] = Field(default_factory=list)
+
+
+class JobUpdateEntry(BaseModel):
+    """One parsed entry of a job's update log.
+
+    Attributes:
+        seq (int): Monotonic per-job sequence number.
+        event (str): SSE event name.
+        data (Any): The parsed update payload.
+    """
+
+    seq: int
+    event: str
+    data: Any = None
+
+
+class JobUpdatesResponse(BaseModel):
+    """Response returning a job's update log past a cursor.
+
+    Attributes:
+        job_id (str): The job identifier.
+        status (JobStatus): Current lifecycle state of the job.
+        updates (list[JobUpdateEntry]): Updates past the requested cursor.
+    """
+
+    job_id: str
+    status: JobStatus
+    updates: list[JobUpdateEntry] = Field(default_factory=list)
+
+
 def _build_prompt(request: dict) -> str:
     """Collapse agent request kwargs into the single prompt string step() accepts.
 

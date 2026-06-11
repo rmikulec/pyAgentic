@@ -24,30 +24,27 @@ from typing import Optional, Union
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 from pyagentic._base._agent._agent import BaseAgent
 from pyagentic.models.llm import LLMResponse
 from pyagentic.models.response import AgentResponse, ToolResponse
 from pyagentic.api._config import AgentsConfig, JobsConfig, load_config
+from pyagentic.api._models import (
+    AgentInfo,
+    AppAgentEntry,
+    AppIndex,
+    CreateSessionRequest,
+    CreateSessionResponse,
+    DeleteSessionResponse,
+    HealthResponse,
+    ListSessionsResponse,
+    SchemaResponse,
+)
 from pyagentic.api._sessions import SessionManager
 
 # Agents may be passed as a single class, a list of classes, or a
 # {url_prefix: class} mapping.
 AgentsArg = Union[type[BaseAgent], list[type[BaseAgent]], dict[str, type[BaseAgent]]]
-
-
-class CreateSessionRequest(BaseModel):
-    """Request body for creating a new agent session.
-
-    Attributes:
-        model (Optional[str]): LLM model string override
-            (e.g. ``'openai::gpt-4o'``).
-        api_key (Optional[str]): API key for the model provider.
-    """
-
-    model: Optional[str] = None
-    api_key: Optional[str] = None
 
 
 _REQUIRED_AGENT_ATTRS = (
@@ -105,14 +102,23 @@ def _store_path_for(base: str, prefix: str, multi: bool) -> str:
     return str(p.with_name(f"{p.stem}-{slug}{p.suffix}"))
 
 
+def _normalize_prefix(prefix: str) -> str:
+    """Normalize a mount prefix: '' stays root, others get a single leading slash."""
+    prefix = prefix.strip()
+    if not prefix or prefix == "/":
+        return ""
+    return "/" + prefix.strip("/")
+
+
 def _normalize_agents(agents: AgentsArg) -> dict[str, type[BaseAgent]]:
     """Normalize the ``agents`` argument into a {prefix: class} mapping.
 
     A single class is mounted at the root (""); a list derives a prefix from
-    each class name; a dict is used as-is.
+    each class name; a dict's keys are used as prefixes (a leading slash is
+    added if missing, so ``{"duck": Duck}`` and ``{"/duck": Duck}`` are equivalent).
     """
     if isinstance(agents, dict):
-        mapping = dict(agents)
+        mapping = {_normalize_prefix(k): v for k, v in agents.items()}
     elif isinstance(agents, (list, tuple)):
         if len(agents) == 1:
             mapping = {"": agents[0]}
@@ -212,32 +218,32 @@ def create_router(
 
     # ---- info routes ----
 
-    @router.get("/", name=f"{slug}_info")
-    async def agent_info() -> dict:
+    @router.get("/", response_model=AgentInfo, name=f"{slug}_info")
+    async def agent_info() -> AgentInfo:
         """Return basic agent metadata."""
-        return {
-            "name": name,
-            "version": version,
-            "agent_class": agent_class.__name__,
-            "tools": list(agent_class.__tool_defs__.keys()),
-            "state_fields": list(agent_class.__state_defs__.keys()),
-            "linked_agents": list(agent_class.__linked_agents__.keys()),
-        }
+        return AgentInfo(
+            name=name,
+            version=version,
+            agent_class=agent_class.__name__,
+            tools=list(agent_class.__tool_defs__.keys()),
+            state_fields=list(agent_class.__state_defs__.keys()),
+            linked_agents=list(agent_class.__linked_agents__.keys()),
+        )
 
-    @router.get("/health", name=f"{slug}_health")
-    async def health() -> dict:
+    @router.get("/health", response_model=HealthResponse, name=f"{slug}_health")
+    async def health() -> HealthResponse:
         """Liveness probe endpoint."""
-        return {"status": "ok"}
+        return HealthResponse()
 
-    @router.get("/schema", name=f"{slug}_schema")
-    async def schema() -> dict:
+    @router.get("/schema", response_model=SchemaResponse, name=f"{slug}_schema")
+    async def schema() -> SchemaResponse:
         """Return JSON schemas for request, response, stream event, and state models."""
-        return {
-            "request": RequestModel.model_json_schema(),
-            "response": ResponseModel.model_json_schema(),
-            "stream_event": StreamEventModel.model_json_schema(),
-            "state": StateModel.model_json_schema(),
-        }
+        return SchemaResponse(
+            request=RequestModel.model_json_schema(),
+            response=ResponseModel.model_json_schema(),
+            stream_event=StreamEventModel.model_json_schema(),
+            state=StateModel.model_json_schema(),
+        )
 
     if sessions:
         _register_session_routes(
@@ -307,27 +313,42 @@ def _register_session_routes(
 
     # ---- session routes ----
 
-    @router.post("/sessions", status_code=201, name=f"{slug}_create_session")
-    async def create_session(req: Optional[CreateSessionRequest] = None) -> dict:
+    @router.post(
+        "/sessions",
+        status_code=201,
+        response_model=CreateSessionResponse,
+        name=f"{slug}_create_session",
+    )
+    async def create_session(
+        req: Optional[CreateSessionRequest] = None,
+    ) -> CreateSessionResponse:
         """Create a new agent session."""
         model = req.model if req else None
         api_key = req.api_key if req else None
         session_id = sessions.create(model=model, api_key=api_key)
-        return {"session_id": session_id}
+        return CreateSessionResponse(session_id=session_id)
 
-    @router.get("/sessions", name=f"{slug}_list_sessions")
-    async def list_sessions() -> dict:
+    @router.get(
+        "/sessions",
+        response_model=ListSessionsResponse,
+        name=f"{slug}_list_sessions",
+    )
+    async def list_sessions() -> ListSessionsResponse:
         """List all active session IDs."""
-        return {"sessions": sessions.list_sessions()}
+        return ListSessionsResponse(sessions=sessions.list_sessions())
 
-    @router.delete("/sessions/{session_id}", name=f"{slug}_delete_session")
-    async def delete_session(session_id: str) -> dict:
+    @router.delete(
+        "/sessions/{session_id}",
+        response_model=DeleteSessionResponse,
+        name=f"{slug}_delete_session",
+    )
+    async def delete_session(session_id: str) -> DeleteSessionResponse:
         """Delete an existing session."""
         try:
             sessions.delete(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="Session not found")
-        return {"deleted": session_id}
+        return DeleteSessionResponse(deleted=session_id)
 
     # ---- chat routes ----
 
@@ -547,7 +568,9 @@ def create_app(
             jobs_config=jobs_cfg,
         )
         app.include_router(router, prefix=prefix)
-        index.append({"agent_class": agent_class.__name__, "prefix": prefix or "/"})
+        index.append(
+            AppAgentEntry(agent_class=agent_class.__name__, prefix=prefix or "/")
+        )
         if mcp:
             mount_mcp(
                 app,
@@ -566,14 +589,14 @@ def create_app(
     # When no agent occupies the root, add a top-level index + health probe.
     if not mounted_at_root:
 
-        @app.get("/")
-        async def app_index() -> dict:
+        @app.get("/", response_model=AppIndex)
+        async def app_index() -> AppIndex:
             """List the agents mounted on this app."""
-            return {"name": name, "version": version, "agents": index}
+            return AppIndex(name=name, version=version, agents=index)
 
-        @app.get("/health")
-        async def app_health() -> dict:
+        @app.get("/health", response_model=HealthResponse)
+        async def app_health() -> HealthResponse:
             """Liveness probe endpoint."""
-            return {"status": "ok"}
+            return HealthResponse()
 
     return app

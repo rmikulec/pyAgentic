@@ -15,8 +15,12 @@ from pydantic import create_model
 from pyagentic._base._agent._agent import BaseAgent
 from pyagentic.api._sessions import SessionManager
 from pyagentic.api.jobs._models import (
+    JobListResponse,
     JobRecord,
+    JobSnapshot,
     JobStatus,
+    JobSubmitResponse,
+    JobUpdatesResponse,
     TERMINAL_EVENTS,
 )
 from pyagentic.api.jobs._orchestrator import JobOrchestrator
@@ -134,6 +138,7 @@ def build_jobs_router(
     """
     router = APIRouter()
     RequestModel = agent_class.__request_model__
+    ResponseModel = agent_class.__response_model__
 
     SubmitModel = create_model(
         f"{agent_class.__name__}JobSubmitRequest",
@@ -141,7 +146,15 @@ def build_jobs_router(
         session_id=(Optional[str], None),
     )
 
-    @router.post("/jobs", status_code=202)
+    # Narrow the loosely-typed JobSnapshot.result to this agent's response model
+    # so the get/cancel endpoints document the exact result shape.
+    SnapshotModel = create_model(
+        f"{agent_class.__name__}JobSnapshot",
+        __base__=JobSnapshot,
+        result=(Optional[ResponseModel], None),
+    )
+
+    @router.post("/jobs", status_code=202, response_model=JobSubmitResponse)
     async def submit_job(req: SubmitModel) -> dict:  # type: ignore[valid-type]
         """Submit an agent run as an async job."""
         await orchestrator.ensure_started()
@@ -153,7 +166,7 @@ def build_jobs_router(
         job = await orchestrator.submit(request, session_id=req.session_id)
         return {"job_id": job.job_id, "status": job.status.value}
 
-    @router.get("/jobs")
+    @router.get("/jobs", response_model=JobListResponse)
     async def list_jobs(
         status: Optional[JobStatus] = None,
         session_id: Optional[str] = None,
@@ -167,7 +180,7 @@ def build_jobs_router(
         )
         return {"jobs": [_snapshot(r, include_result=False) for r in records]}
 
-    @router.get("/jobs/{job_id}")
+    @router.get("/jobs/{job_id}", response_model=SnapshotModel)
     async def get_job(job_id: str) -> dict:
         """Return a job's status and, when terminal, its result."""
         await orchestrator.ensure_started()
@@ -176,7 +189,7 @@ def build_jobs_router(
             raise HTTPException(status_code=404, detail="Job not found")
         return _snapshot(record)
 
-    @router.get("/jobs/{job_id}/updates")
+    @router.get("/jobs/{job_id}/updates", response_model=JobUpdatesResponse)
     async def get_updates(job_id: str, since: int = -1) -> dict:
         """Return a job's update log past the given seq cursor.
 
@@ -225,7 +238,7 @@ def build_jobs_router(
             headers=_SSE_HEADERS,
         )
 
-    @router.post("/jobs/{job_id}/cancel")
+    @router.post("/jobs/{job_id}/cancel", response_model=SnapshotModel)
     async def cancel_job(job_id: str) -> dict:
         """Cancel a queued or running job."""
         await orchestrator.ensure_started()
