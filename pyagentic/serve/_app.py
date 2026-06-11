@@ -12,7 +12,7 @@ import json
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -65,31 +65,46 @@ def _validate_agent_class(cls: type) -> None:
         )
 
 
-def create_app(
+def create_router(
     agent_class: type[BaseAgent],
     manifest: Manifest,
-    mcp: bool = False,
-) -> FastAPI:
-    """Build a FastAPI application wired to the given agent class.
+) -> APIRouter:
+    """Build a FastAPI ``APIRouter`` exposing the given agent's endpoints.
 
-    The generated API automatically reflects the agent's input/output schemas:
+    Use this to mount an agent's HTTP API onto an existing FastAPI app::
+
+        app.include_router(create_router(MyAgent, manifest), prefix="/agent")
+
+    The router registers the same info, session, chat, streaming, and state
+    routes used by :func:`create_app`, and automatically reflects the agent's
+    input/output schemas:
       - Chat request body is derived from the agent's ``__call__`` signature
       - Chat response body uses the agent's ``__response_model__``
       - Stream events use the agent's ``__stream_event_model__``
       - State endpoint uses the agent's ``__state_class__``
 
+    The router owns its own :class:`SessionManager`, exposed as
+    ``router.sessions`` so callers (e.g. :func:`create_app`) can share it — for
+    instance when mounting an MCP endpoint that must see the same sessions.
+
+    Note:
+        MCP support is not included here: it relies on ASGI sub-app mounting
+        (``app.mount``), which an ``APIRouter`` cannot do. Use
+        :func:`create_app` with ``mcp=True``, or call
+        :func:`pyagentic.serve.mount_mcp` on your own app with
+        ``router.sessions``.
+
     Args:
         agent_class (type[BaseAgent]): The agent class to serve.
         manifest (Manifest): Parsed pyagentic.toml manifest.
-        mcp (bool): If True, mount an MCP server endpoint at ``/mcp``.
 
     Returns:
-        FastAPI: A configured FastAPI app.
+        APIRouter: A router with all agent routes registered. Its
+            ``SessionManager`` is attached as ``router.sessions``.
 
     Raises:
         TypeError: If agent_class is missing required metaclass attributes.
     """
-    load_dotenv()
     _validate_agent_class(agent_class)
 
     RequestModel = agent_class.__request_model__
@@ -97,16 +112,12 @@ def create_app(
     StreamEventModel = agent_class.__stream_event_model__
     StateModel = agent_class.__state_class__
 
-    app = FastAPI(
-        title=manifest.project.name,
-        version=manifest.project.version,
-        description=manifest.project.description,
-    )
+    router = APIRouter()
     sessions = SessionManager(agent_class, manifest)
 
     # ---- info routes ----
 
-    @app.get("/")
+    @router.get("/")
     async def agent_info() -> dict:
         """Return basic agent metadata."""
         return {
@@ -118,12 +129,12 @@ def create_app(
             "linked_agents": list(agent_class.__linked_agents__.keys()),
         }
 
-    @app.get("/health")
+    @router.get("/health")
     async def health() -> dict:
         """Liveness probe endpoint."""
         return {"status": "ok"}
 
-    @app.get("/schema")
+    @router.get("/schema")
     async def schema() -> dict:
         """Return JSON schemas for request, response, stream event, and state models."""
         return {
@@ -135,7 +146,7 @@ def create_app(
 
     # ---- session routes ----
 
-    @app.post("/sessions", status_code=201)
+    @router.post("/sessions", status_code=201)
     async def create_session(req: Optional[CreateSessionRequest] = None) -> dict:
         """Create a new agent session."""
         model = req.model if req else None
@@ -143,12 +154,12 @@ def create_app(
         session_id = sessions.create(model=model, api_key=api_key)
         return {"session_id": session_id}
 
-    @app.get("/sessions")
+    @router.get("/sessions")
     async def list_sessions() -> dict:
         """List all active session IDs."""
         return {"sessions": sessions.list_sessions()}
 
-    @app.delete("/sessions/{session_id}")
+    @router.delete("/sessions/{session_id}")
     async def delete_session(session_id: str) -> dict:
         """Delete an existing session."""
         try:
@@ -159,7 +170,7 @@ def create_app(
 
     # ---- chat routes ----
 
-    @app.post("/sessions/{session_id}/chat", response_model=ResponseModel)
+    @router.post("/sessions/{session_id}/chat", response_model=ResponseModel)
     async def chat(session_id: str, req: RequestModel):  # type: ignore[valid-type]
         """Send a message and receive a complete agent response."""
         try:
@@ -171,7 +182,7 @@ def create_app(
         response = await agent(**kwargs)
         return response
 
-    @app.post(
+    @router.post(
         "/sessions/{session_id}/chat/stream",
         response_model=StreamEventModel,
         responses={
@@ -234,7 +245,7 @@ def create_app(
 
     # ---- state route ----
 
-    @app.get("/sessions/{session_id}/state", response_model=StateModel)
+    @router.get("/sessions/{session_id}/state", response_model=StateModel)
     async def get_state(session_id: str):
         """Return the current state of the agent for a session."""
         try:
@@ -243,9 +254,49 @@ def create_app(
             raise HTTPException(status_code=404, detail="Session not found")
         return agent.state
 
-    if mcp:
-        from pyagentic.serve._mcp_server import _mount_mcp
+    # Expose the session manager so callers (e.g. create_app) can share it,
+    # for instance when mounting an MCP endpoint that must see the same sessions.
+    router.sessions = sessions
 
-        _mount_mcp(app, agent_class, sessions, manifest)
+    return router
+
+
+def create_app(
+    agent_class: type[BaseAgent],
+    manifest: Manifest,
+    mcp: bool = False,
+) -> FastAPI:
+    """Build a standalone FastAPI application wired to the given agent class.
+
+    This is a thin wrapper over :func:`create_router`: it creates a ``FastAPI``
+    app with metadata from the manifest, includes the agent router, and
+    optionally mounts an MCP server endpoint.
+
+    Args:
+        agent_class (type[BaseAgent]): The agent class to serve.
+        manifest (Manifest): Parsed pyagentic.toml manifest.
+        mcp (bool): If True, mount an MCP server endpoint at ``/mcp``.
+
+    Returns:
+        FastAPI: A configured FastAPI app.
+
+    Raises:
+        TypeError: If agent_class is missing required metaclass attributes.
+    """
+    load_dotenv()
+
+    app = FastAPI(
+        title=manifest.project.name,
+        version=manifest.project.version,
+        description=manifest.project.description,
+    )
+
+    router = create_router(agent_class, manifest)
+    app.include_router(router)
+
+    if mcp:
+        from pyagentic.serve._mcp_server import mount_mcp
+
+        mount_mcp(app, agent_class, manifest, sessions=router.sessions)
 
     return app
