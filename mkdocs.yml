@@ -18,12 +18,13 @@ nav:
     - MCP: mcp.md
     - Inheritance: inheritance.md
     - Observability: observability.md
-  - Deploy:
-    - Overview: deploy/index.md
-    - Create a Project: deploy/creating-a-project.md
-    - Run Your Project: deploy/running.md
-    - Build & Deploy: deploy/building.md
-  - API Reference:
+  - API:
+    - Overview: api/index.md
+    - Creating an App: api/creating-an-app.md
+    - Running: api/running.md
+    - Async Jobs: api/jobs.md
+    - Deploying: api/deploying.md
+  - Code Reference:
       - Architecture: reference/architecture.md
       - Modules: reference/modules.md
 

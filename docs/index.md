@@ -104,13 +104,13 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Trace behavior](observability.md)
 
-- :material-rocket-launch: **[Deploy](deploy/index.md)**
+- :material-rocket-launch: **[API](api/index.md)**
 
     ---
 
-    Scaffold, run, build, and publish agents with the PyAgentic CLI.
+    Turn agents into a FastAPI app or router, run async jobs, and ship a Docker image.
 
-    [:octicons-arrow-right-24: Deploy your agent](deploy/index.md)
+    [:octicons-arrow-right-24: Serve your agent](api/index.md)
 
 </div>
 
