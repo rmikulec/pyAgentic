@@ -79,3 +79,66 @@ def test_two_routers_isolated_sessions():
     sid = client.post("/a/sessions").json()["session_id"]
     assert sid in client.get("/a/sessions").json()["sessions"]
     assert sid not in client.get("/b/sessions").json()["sessions"]
+
+
+def test_routes_are_named():
+    """Each route gets a name derived from the agent name, for url reversal."""
+    router = create_router(_RouterTestAgent, name="my-agent", model="_mock::test-model")
+    names = {route.name for route in router.routes}
+    assert {"my-agent_info", "my-agent_chat", "my-agent_get_state"} <= names
+
+
+def test_tags_applied():
+    """The tags arg is attached to every route on the router."""
+    router = create_router(
+        _RouterTestAgent, model="_mock::test-model", tags=["bots"]
+    )
+    assert all("bots" in route.tags for route in router.routes)
+
+
+def test_named_routes_unique_across_mounts():
+    """Distinct names keep route names unique when mounted on one app."""
+    app = FastAPI()
+    app.include_router(
+        create_router(_RouterTestAgent, name="a", model="_mock::test-model"), prefix="/a"
+    )
+    app.include_router(
+        create_router(_RouterTestAgent, name="b", model="_mock::test-model"), prefix="/b"
+    )
+    # url_path_for resolves each agent's chat route by its unique name.
+    assert app.url_path_for("a_chat", session_id="x") == "/a/sessions/x/chat"
+    assert app.url_path_for("b_chat", session_id="x") == "/b/sessions/x/chat"
+
+
+def test_sessions_disabled_omits_session_routes():
+    """sessions=False drops the /sessions routes but keeps info/health/schema."""
+    app = FastAPI()
+    app.include_router(
+        create_router(_RouterTestAgent, model="_mock::test-model", sessions=False),
+        prefix=PREFIX,
+    )
+    client = TestClient(app)
+    assert client.get(f"{PREFIX}/health").json() == {"status": "ok"}
+    assert client.post(f"{PREFIX}/sessions").status_code == 404
+    assert client.get(f"{PREFIX}/sessions").status_code == 404
+
+
+def test_jobs_router_and_orchestrator_exposed():
+    """jobs=True mounts /jobs and exposes the orchestrator on the router."""
+    router = create_router(_RouterTestAgent, model="_mock::test-model", jobs=True)
+    assert router.orchestrator is not None
+    paths = {getattr(r, "path", None) for r in router.routes}
+    assert "/jobs" in paths
+    # Without jobs, no orchestrator.
+    plain = create_router(_RouterTestAgent, model="_mock::test-model")
+    assert plain.orchestrator is None
+
+
+def test_sessions_off_jobs_on():
+    """sessions=False with jobs=True serves an async-only agent."""
+    router = create_router(
+        _RouterTestAgent, model="_mock::test-model", sessions=False, jobs=True
+    )
+    paths = {getattr(r, "path", None) for r in router.routes}
+    assert "/jobs" in paths
+    assert "/sessions" not in paths
