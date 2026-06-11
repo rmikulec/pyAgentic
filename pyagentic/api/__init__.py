@@ -21,6 +21,17 @@ from pyagentic.api._config import (
 )
 from pyagentic.api._docker import generate_dockerfile, write_dockerfile
 from pyagentic.api._mcp_server import mount_mcp
+from pyagentic.api._models import (
+    AgentInfo,
+    AppAgentEntry,
+    AppIndex,
+    CreateSessionRequest,
+    CreateSessionResponse,
+    DeleteSessionResponse,
+    HealthResponse,
+    ListSessionsResponse,
+    SchemaResponse,
+)
 from pyagentic.api._sessions import SessionManager
 
 __all__ = [
@@ -35,4 +46,14 @@ __all__ = [
     "JobsConfig",
     "load_config",
     "SessionManager",
+    # HTTP request/response models
+    "AgentInfo",
+    "AppAgentEntry",
+    "AppIndex",
+    "CreateSessionRequest",
+    "CreateSessionResponse",
+    "DeleteSessionResponse",
+    "HealthResponse",
+    "ListSessionsResponse",
+    "SchemaResponse",
 ]
