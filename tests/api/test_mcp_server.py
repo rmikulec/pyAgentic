@@ -7,7 +7,16 @@ from pyagentic import BaseAgent, State, spec, tool
 from pyagentic.api import create_app, create_router, mount_mcp
 from pyagentic.api._sessions import SessionManager
 
-pytest.importorskip("fastmcp")
+# `import fastmcp` succeeds even on the slim install, but FastMCP server support
+# (fastmcp-slim[server]) is a separate set of deps. Skip the whole module when
+# it isn't importable rather than erroring.
+try:
+    from fastmcp import FastMCP  # noqa: F401
+except Exception:  # pragma: no cover - depends on optional install
+    pytest.skip(
+        "FastMCP server support not installed (fastmcp-slim[server])",
+        allow_module_level=True,
+    )
 
 
 class NoteModel(BaseModel):
