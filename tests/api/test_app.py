@@ -150,3 +150,24 @@ def test_jobs_enabled_multi_agent_prefixed():
     paths = {getattr(r, "path", None) for r in app.routes}
     assert "/app-test/jobs" in paths
     assert "/writer/jobs" in paths
+
+
+# ---- sessions opt-out ----
+
+
+def test_sessions_disabled():
+    """sessions=False omits the session routes from the app."""
+    app = create_app(_AppTestAgent, model="_mock::test-model", sessions=False)
+    paths = {getattr(r, "path", None) for r in app.routes}
+    assert "/sessions" not in paths
+    assert "/schema" in paths  # info routes remain
+
+
+def test_sessions_off_jobs_on():
+    """An async-only app: no /sessions, but /jobs is served."""
+    app = create_app(
+        _AppTestAgent, model="_mock::test-model", sessions=False, jobs=True
+    )
+    paths = {getattr(r, "path", None) for r in app.routes}
+    assert "/sessions" not in paths
+    assert "/jobs" in paths
