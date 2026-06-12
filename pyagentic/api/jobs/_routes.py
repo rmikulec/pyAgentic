@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import create_model
+from pydantic import ConfigDict, Field, create_model
 
 from pyagentic._base._agent._agent import BaseAgent
 from pyagentic.api._sessions import SessionManager
@@ -138,12 +138,17 @@ def build_jobs_router(
     """
     router = APIRouter()
     RequestModel = agent_class.__request_model__
+    ConstructModel = agent_class.__construct_model__
     ResponseModel = agent_class.__response_model__
 
+    # ``construct`` is the wire field name; the Python attribute is suffixed to
+    # avoid shadowing the deprecated ``BaseModel.construct`` method.
     SubmitModel = create_model(
         f"{agent_class.__name__}JobSubmitRequest",
+        __config__=ConfigDict(populate_by_name=True),
         input=(RequestModel, ...),
         session_id=(Optional[str], None),
+        construct_payload=(Optional[ConstructModel], Field(None, alias="construct")),
     )
 
     # Narrow the loosely-typed JobSnapshot.result to this agent's response model
@@ -156,14 +161,25 @@ def build_jobs_router(
 
     @router.post("/jobs", status_code=202, response_model=JobSubmitResponse)
     async def submit_job(req: SubmitModel) -> dict:  # type: ignore[valid-type]
-        """Submit an agent run as an async job."""
+        """Submit an agent run as an async job.
+
+        A session-bound job (``session_id`` set) runs on that session's live
+        agent. A sessionless job builds a fresh agent from the optional
+        ``construct`` payload (the agent's construct model) plus the server's
+        injected dependencies.
+        """
         await orchestrator.ensure_started()
         if req.session_id is not None and not sessions.exists(req.session_id):
             raise HTTPException(status_code=404, detail="Session not found")
         request = {
             field: getattr(req.input, field) for field in type(req.input).model_fields
         }
-        job = await orchestrator.submit(request, session_id=req.session_id)
+        construct = None
+        if req.session_id is None and req.construct_payload is not None:
+            construct = req.construct_payload.model_dump()
+        job = await orchestrator.submit(
+            request, session_id=req.session_id, construct=construct
+        )
         return {"job_id": job.job_id, "status": job.status.value}
 
     @router.get("/jobs", response_model=JobListResponse)

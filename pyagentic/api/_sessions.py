@@ -4,24 +4,28 @@ independent state and conversation history.
 """
 
 import uuid
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+from pyagentic.api._build import build_agent
 
 if TYPE_CHECKING:
     from pyagentic._base._agent._agent import BaseAgent
-    from pyagentic.llm._provider import LLMProvider
 
 
 class SessionManager:
     """Manages agent sessions keyed by session ID.
 
     Each session holds its own agent instance, so state and conversation
-    history are isolated per session.
+    history are isolated per session. Agents are constructed from a
+    construct-model payload (mirroring the constructor) plus developer-supplied
+    dependencies, via :func:`pyagentic.api._build.build_agent`.
     """
 
     def __init__(
         self,
         agent_class: "type[BaseAgent]",
         default_model: Optional[str] = None,
+        dependencies: Optional[list] = None,
     ) -> None:
         """Initialize the session manager.
 
@@ -29,42 +33,36 @@ class SessionManager:
             agent_class (type[BaseAgent]): The agent class to instantiate for
                 each session.
             default_model (Optional[str]): Model string used when a session is
-                created without one. ``None`` falls back to the agent class's
-                own default model.
+                created without one in its construct payload. ``None`` falls
+                back to the agent class's own default model.
+            dependencies (Optional[list]): Instances or factories used to satisfy
+                the agent tree's ``Depends[T]`` fields (resolved by type).
         """
         self._agent_class = agent_class
         self._default_model = default_model
+        self._dependencies = dependencies or []
         self._sessions: dict[str, "BaseAgent"] = {}
 
-    def create(
-        self,
-        *,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
-        provider: Optional["LLMProvider"] = None,
-    ) -> str:
+    def create(self, *, construct_data: Any = None) -> str:
         """Create a new session with a fresh agent instance.
 
         Args:
-            model (Optional[str]): LLM model string (e.g. 'openai::gpt-4o').
-                Falls back to the manager's ``default_model``.
-            api_key (Optional[str]): API key for the model provider.
-            provider (Optional[LLMProvider]): Pre-configured LLMProvider
-                instance. Overrides model/api_key.
+            construct_data (Any): An instance of the agent's
+                ``__construct_model__`` (or a dict of the same shape) carrying
+                the serializable construction data (state, nested linked-agent
+                state, ``model``/``api_key``). ``None`` builds with defaults.
 
         Returns:
             str: The new session ID.
         """
         session_id = uuid.uuid4().hex[:12]
 
-        if provider is not None:
-            agent = self._agent_class(provider=provider)
-        else:
-            kwargs: dict = {"api_key": api_key}
-            resolved_model = model or self._default_model
-            if resolved_model is not None:
-                kwargs["model"] = resolved_model
-            agent = self._agent_class(**kwargs)
+        agent = build_agent(
+            self._agent_class,
+            construct_data,
+            self._dependencies,
+            default_model=self._default_model,
+        )
 
         self._sessions[session_id] = agent
         return session_id

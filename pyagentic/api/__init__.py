@@ -11,7 +11,9 @@ Configuration lives in ``agents.toml`` beside your ``pyproject.toml`` (see
 :class:`AgentsConfig`).
 """
 
+from pyagentic._base._depends import Depends
 from pyagentic.api._app import create_app, create_router
+from pyagentic.api._build import build_agent, validate_dependencies
 from pyagentic.api._config import (
     AgentsConfig,
     AppConfig,
@@ -25,7 +27,6 @@ from pyagentic.api._models import (
     AgentInfo,
     AppAgentEntry,
     AppIndex,
-    CreateSessionRequest,
     CreateSessionResponse,
     DeleteSessionResponse,
     HealthResponse,
@@ -38,6 +39,9 @@ __all__ = [
     "create_app",
     "create_router",
     "mount_mcp",
+    "Depends",
+    "build_agent",
+    "validate_dependencies",
     "generate_dockerfile",
     "write_dockerfile",
     "AgentsConfig",
@@ -50,7 +54,6 @@ __all__ = [
     "AgentInfo",
     "AppAgentEntry",
     "AppIndex",
-    "CreateSessionRequest",
     "CreateSessionResponse",
     "DeleteSessionResponse",
     "HealthResponse",

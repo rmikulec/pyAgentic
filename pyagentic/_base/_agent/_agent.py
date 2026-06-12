@@ -163,6 +163,7 @@ class BaseAgent(metaclass=AgentMeta):
     __state_defs__: ClassVar[dict[str, _StateDefinition]]  # State field definitions
     __linked_agents__: ClassVar[dict[str, "_LinkedAgentDefinition"]]  # Linked agent definitions
     __mcp_defs__: ClassVar[dict[str, "_MCPDefinition"]]  # MCP server definitions
+    __dependencies__: ClassVar[dict[str, type]]  # Depends[T] field -> dependency type
 
     # User-set Class Attributes (defined in subclass)
     __system_message__: ClassVar[str]  # Required: system prompt for the agent
@@ -173,6 +174,7 @@ class BaseAgent(metaclass=AgentMeta):
 
     # Generated Class Attributes (built by metaclass)
     __request_model__: ClassVar[Type[BaseModel]] = None  # Pydantic request model from __call__
+    __construct_model__: ClassVar[Type[BaseModel]] = None  # Recursive constructor model
     __response_model__: ClassVar[Type[AgentResponse]] = None  # Pydantic response model
     __stream_event_model__: ClassVar[Type[BaseModel]] = None  # Typed SSE stream event union
     __state_class__: ClassVar[Type[_AgentState]] = None  # Generated state class
