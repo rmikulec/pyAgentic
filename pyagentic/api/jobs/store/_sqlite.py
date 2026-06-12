@@ -23,15 +23,16 @@ from pyagentic.api.jobs.store._base import JobStore
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
-    job_id       TEXT PRIMARY KEY,
-    session_id   TEXT,
-    status       TEXT NOT NULL,
-    request_json TEXT NOT NULL,
-    result_json  TEXT,
-    error        TEXT,
-    created_at   REAL NOT NULL,
-    started_at   REAL,
-    finished_at  REAL
+    job_id        TEXT PRIMARY KEY,
+    session_id    TEXT,
+    status        TEXT NOT NULL,
+    request_json  TEXT NOT NULL,
+    construct_json TEXT,
+    result_json   TEXT,
+    error         TEXT,
+    created_at    REAL NOT NULL,
+    started_at    REAL,
+    finished_at   REAL
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_session ON jobs(session_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status  ON jobs(status);
@@ -54,6 +55,9 @@ def _row_to_record(row: sqlite3.Row) -> JobRecord:
         session_id=row["session_id"],
         status=JobStatus(row["status"]),
         request=json.loads(row["request_json"]),
+        construct_payload=(
+            json.loads(row["construct_json"]) if row["construct_json"] else None
+        ),
         result_json=row["result_json"],
         error=row["error"],
         created_at=row["created_at"],
@@ -128,13 +132,18 @@ class SQLiteJobStore(JobStore):
         def _insert(conn: sqlite3.Connection) -> None:
             conn.execute(
                 "INSERT INTO jobs (job_id, session_id, status, request_json, "
-                "result_json, error, created_at, started_at, finished_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "construct_json, result_json, error, created_at, started_at, finished_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     job.job_id,
                     job.session_id,
                     job.status.value,
                     json.dumps(job.request, default=str),
+                    (
+                        json.dumps(job.construct_payload, default=str)
+                        if job.construct_payload is not None
+                        else None
+                    ),
                     job.result_json,
                     job.error,
                     job.created_at,

@@ -138,7 +138,10 @@ class JobOrchestrator:
     # ---- submission & execution ----
 
     async def submit(
-        self, request: dict, session_id: Optional[str] = None
+        self,
+        request: dict,
+        session_id: Optional[str] = None,
+        construct: Optional[dict] = None,
     ) -> JobRecord:
         """Create a durable job record and route it for execution.
 
@@ -150,6 +153,8 @@ class JobOrchestrator:
         Args:
             request (dict): Agent input kwargs.
             session_id (Optional[str]): Session to bind the job to.
+            construct (Optional[dict]): Construct-model payload for building a
+                fresh agent (sessionless jobs only). Persisted for recovery.
 
         Returns:
             JobRecord: The persisted record in its initial queued state.
@@ -160,6 +165,7 @@ class JobOrchestrator:
             session_id=session_id,
             status=JobStatus.QUEUED,
             request=request,
+            construct_payload=construct,
         )
         await self.store.create_job(job)
         self._next_seq[job.job_id] = 0

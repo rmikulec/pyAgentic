@@ -23,6 +23,7 @@ def build_backend(
     *,
     max_concurrency: int = 8,
     default_model: Optional[str] = None,
+    dependencies: Optional[list] = None,
 ) -> ExecutionBackend:
     """Build the in-process ExecutionBackend.
 
@@ -31,6 +32,8 @@ def build_backend(
         sessions (SessionManager): Live session registry.
         max_concurrency (int): Max concurrent agent runs.
         default_model (Optional[str]): Model for sessionless agents.
+        dependencies (Optional[list]): Providers for ``Depends[T]`` fields used
+            when building a fresh agent for a sessionless job.
 
     Returns:
         ExecutionBackend: A configured :class:`InProcessBackend`.
@@ -40,4 +43,5 @@ def build_backend(
         sessions,
         max_concurrency=max_concurrency,
         default_model=default_model,
+        dependencies=dependencies,
     )

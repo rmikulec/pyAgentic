@@ -30,6 +30,7 @@ Main Components:
     - tool: Decorator for marking methods as LLM-callable tools
     - State: Type annotation for persistent state fields
     - Link: Type annotation for linking agents together
+    - Depends: Type annotation for dependency-injected agent fields
     - spec: Configuration factory for state, params, and agent links
     - ref: Dynamic state reference system for tool parameters
     - AgentExtension: Base class for creating reusable agent mixins
@@ -42,6 +43,17 @@ from pyagentic._base._mcp import MCPLink
 from pyagentic._base._tool import tool
 
 from pyagentic._base._state import State
+from pyagentic._base._depends import Depends
 from pyagentic._base._ref import ref
 
-__all__ = ["BaseAgent", "AgentExtension", "tool", "spec", "State", "Link", "MCPLink", "ref"]
+__all__ = [
+    "BaseAgent",
+    "AgentExtension",
+    "tool",
+    "spec",
+    "State",
+    "Link",
+    "Depends",
+    "MCPLink",
+    "ref",
+]

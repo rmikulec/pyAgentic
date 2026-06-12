@@ -37,6 +37,9 @@ class JobRecord(BaseModel):
         session_id (Optional[str]): Session the job belongs to, if any.
         status (JobStatus): Current lifecycle state.
         request (dict): The submitted agent input kwargs.
+        construct_payload (Optional[dict]): Construct-model payload for a
+            sessionless job, used to build a fresh agent (and survive recovery).
+            ``None`` for session-bound jobs (which reuse the session's live agent).
         result_json (Optional[str]): Final agent response as a raw JSON
             string, set when the job succeeds.
         error (Optional[str]): Failure description, set when the job fails.
@@ -49,6 +52,7 @@ class JobRecord(BaseModel):
     session_id: Optional[str] = None
     status: JobStatus = JobStatus.QUEUED
     request: dict = Field(default_factory=dict)
+    construct_payload: Optional[dict] = None
     result_json: Optional[str] = None
     error: Optional[str] = None
     created_at: float = Field(default_factory=time.time)

@@ -23,17 +23,19 @@ from typing import Optional, Union
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 
 from pyagentic._base._agent._agent import BaseAgent
 from pyagentic.models.llm import LLMResponse
 from pyagentic.models.response import AgentResponse, ToolResponse
+from pyagentic.api._build import validate_dependencies
 from pyagentic.api._config import AgentsConfig, JobsConfig, load_config
 from pyagentic.api._models import (
     AgentInfo,
     AppAgentEntry,
     AppIndex,
-    CreateSessionRequest,
     CreateSessionResponse,
     DeleteSessionResponse,
     HealthResponse,
@@ -49,12 +51,14 @@ AgentsArg = Union[type[BaseAgent], list[type[BaseAgent]], dict[str, type[BaseAge
 
 _REQUIRED_AGENT_ATTRS = (
     "__request_model__",
+    "__construct_model__",
     "__response_model__",
     "__stream_event_model__",
     "__state_class__",
     "__tool_defs__",
     "__state_defs__",
     "__linked_agents__",
+    "__dependencies__",
 )
 
 
@@ -140,6 +144,26 @@ def _normalize_agents(agents: AgentsArg) -> dict[str, type[BaseAgent]]:
     return mapping
 
 
+def _deps_for(
+    prefix: str,
+    agent_class: type[BaseAgent],
+    dependencies: Optional[Union[list, dict]],
+) -> Optional[list]:
+    """Resolve the dependency list for one mounted agent.
+
+    A flat list applies to every agent; a dict is scoped by mount prefix (with or
+    without a leading slash) or by agent class.
+    """
+    if dependencies is None:
+        return None
+    if isinstance(dependencies, dict):
+        for key in (prefix, prefix.strip("/"), "/" + prefix.strip("/"), agent_class):
+            if key in dependencies:
+                return dependencies[key]
+        return None
+    return dependencies
+
+
 def create_router(
     agent_class: type[BaseAgent],
     *,
@@ -147,6 +171,7 @@ def create_router(
     name: Optional[str] = None,
     version: str = "0.1.0",
     tags: Optional[list[str]] = None,
+    dependencies: Optional[list] = None,
     sessions: bool = True,
     jobs: bool = False,
     jobs_config: Optional["JobsConfig"] = None,
@@ -185,6 +210,9 @@ def create_router(
         version (str): Version string for the info route.
         tags (Optional[list[str]]): OpenAPI tags applied to every route on the
             router (groups them in the docs). ``None`` leaves routes untagged.
+        dependencies (Optional[list]): Instances or factories satisfying the
+            agent tree's ``Depends[T]`` fields, resolved by type. Validated up
+            front so a missing dependency fails fast at router-build time.
         sessions (bool): If True, mount the session-based routes (create/list/
             delete sessions plus synchronous chat, streaming chat, and state).
             If False, those routes are omitted — interaction happens only via
@@ -203,18 +231,23 @@ def create_router(
 
     Raises:
         TypeError: If agent_class is missing required metaclass attributes.
+        ValueError: If a ``Depends[T]`` field in the agent tree has no provider.
     """
     _validate_agent_class(agent_class)
+    validate_dependencies(agent_class, dependencies)
 
     name = name or agent_class.__name__
     slug = _slugify(name)
     RequestModel = agent_class.__request_model__
+    ConstructModel = agent_class.__construct_model__
     ResponseModel = agent_class.__response_model__
     StreamEventModel = agent_class.__stream_event_model__
     StateModel = agent_class.__state_class__
 
     router = APIRouter(tags=tags)
-    session_manager = SessionManager(agent_class, default_model=model)
+    session_manager = SessionManager(
+        agent_class, default_model=model, dependencies=dependencies
+    )
 
     # ---- info routes ----
 
@@ -228,6 +261,7 @@ def create_router(
             tools=list(agent_class.__tool_defs__.keys()),
             state_fields=list(agent_class.__state_defs__.keys()),
             linked_agents=list(agent_class.__linked_agents__.keys()),
+            dependencies=list(agent_class.__dependencies__.keys()),
         )
 
     @router.get("/health", response_model=HealthResponse, name=f"{slug}_health")
@@ -237,8 +271,9 @@ def create_router(
 
     @router.get("/schema", response_model=SchemaResponse, name=f"{slug}_schema")
     async def schema() -> SchemaResponse:
-        """Return JSON schemas for request, response, stream event, and state models."""
+        """Return JSON schemas for construct, request, response, stream, and state models."""
         return SchemaResponse(
+            construct_schema=ConstructModel.model_json_schema(),
             request=RequestModel.model_json_schema(),
             response=ResponseModel.model_json_schema(),
             stream_event=StreamEventModel.model_json_schema(),
@@ -250,6 +285,7 @@ def create_router(
             router,
             slug,
             session_manager,
+            ConstructModel,
             RequestModel,
             ResponseModel,
             StreamEventModel,
@@ -268,6 +304,7 @@ def create_router(
             jobs_config or JobsConfig(),
             model,
             tags,
+            dependencies,
         )
     router.orchestrator = orchestrator
 
@@ -281,6 +318,7 @@ def _mount_jobs_router(
     jobs_config: "JobsConfig",
     default_model: Optional[str],
     tags: Optional[list[str]],
+    dependencies: Optional[list] = None,
 ) -> "JobOrchestrator":
     """Build a job orchestrator and include its /jobs router; return the orchestrator."""
     from pyagentic.api.jobs import JobOrchestrator, build_backend, build_store
@@ -292,6 +330,7 @@ def _mount_jobs_router(
         sessions,
         max_concurrency=jobs_config.max_concurrency,
         default_model=default_model,
+        dependencies=dependencies,
     )
     orchestrator = JobOrchestrator(store, backend, jobs_config, sessions)
     router.include_router(
@@ -304,6 +343,7 @@ def _register_session_routes(
     router: APIRouter,
     slug: str,
     sessions: SessionManager,
+    ConstructModel: type,
     RequestModel: type,
     ResponseModel: type,
     StreamEventModel: type,
@@ -320,12 +360,23 @@ def _register_session_routes(
         name=f"{slug}_create_session",
     )
     async def create_session(
-        req: Optional[CreateSessionRequest] = None,
+        req: Optional[ConstructModel] = None,  # type: ignore[valid-type]
     ) -> CreateSessionResponse:
-        """Create a new agent session."""
-        model = req.model if req else None
-        api_key = req.api_key if req else None
-        session_id = sessions.create(model=model, api_key=api_key)
+        """Create a new agent session.
+
+        The body is the agent's construct model — the serializable construction
+        data (state, nested linked-agent state, model/api_key). Required state
+        and linked agents (those without defaults) must be supplied here, exactly
+        as when constructing the agent in code. The body may be omitted only when
+        the agent has no required construction fields.
+        """
+        if req is None:
+            # No body: valid only when nothing is required; otherwise 422.
+            try:
+                req = ConstructModel()
+            except ValidationError as exc:
+                raise RequestValidationError(exc.errors())
+        session_id = sessions.create(construct_data=req)
         return CreateSessionResponse(session_id=session_id)
 
     @router.get(
@@ -483,6 +534,7 @@ def create_app(
     version: Optional[str] = None,
     description: Optional[str] = None,
     model: Optional[str] = None,
+    dependencies: Optional[Union[list, dict]] = None,
     mcp: bool = False,
     sessions: bool = True,
     jobs: bool = False,
@@ -512,6 +564,10 @@ def create_app(
         description (Optional[str]): App description. Overrides config.
         model (Optional[str]): Default model for all agents' sessions. Overrides
             config.
+        dependencies (Optional[Union[list, dict]]): Providers for the agents'
+            ``Depends[T]`` fields (instances or factories, resolved by type). A
+            flat list is applied to every mounted agent; a dict keyed by mount
+            prefix (or agent class) scopes providers per agent.
         mcp (bool): If True, mount an MCP endpoint per agent at ``<prefix>/mcp``.
         sessions (bool): If True (default), mount the session-based routes
             (sessions CRUD plus synchronous/streaming chat and state) for each
@@ -563,6 +619,7 @@ def create_app(
             model=model,
             name=agent_name,
             version=version,
+            dependencies=_deps_for(prefix, agent_class, dependencies),
             sessions=sessions,
             jobs=jobs_enabled,
             jobs_config=jobs_cfg,

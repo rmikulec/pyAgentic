@@ -58,7 +58,7 @@ result = httpx.get(f"http://localhost:8000/jobs/{job_id}").json()
 
 | Route | Purpose |
 |---|---|
-| `POST /jobs` | Submit a run. Body `{"input": {<chat fields>}, "session_id": <optional>}`. Returns `202 {job_id, status}`. |
+| `POST /jobs` | Submit a run. Body `{"input": {<chat fields>}, "session_id": <optional>, "construct": <optional>}`. Returns `202 {job_id, status}`. |
 | `GET /jobs` | List jobs, newest first. Filter with `?status=` and `?session_id=`. |
 | `GET /jobs/{id}` | Job status and, when terminal, its result. |
 | `GET /jobs/{id}/updates?since=<seq>` | The update log past a sequence cursor. |
@@ -68,6 +68,20 @@ result = httpx.get(f"http://localhost:8000/jobs/{job_id}").json()
 The `input` object is your agent's normal chat request body. Pass a
 `session_id` (from `POST /sessions`) to run the job against an existing session;
 omit it for a one-off run.
+
+For a one-off run, add a `construct` object — the same construction data as
+`POST /sessions` (state and any nested linked agents) — to build a fresh agent
+for the job. Its [dependencies](creating-an-app.md#dependencies) are injected
+server-side, just like for sessions. Session-bound jobs reuse the session's
+existing agent and ignore `construct`.
+
+```python
+# One-off job that builds its own agent from a construct payload
+httpx.post("http://localhost:8000/jobs", json={
+    "input": {"user_input": "Summarize the latest results"},
+    "construct": {"topic": {"name": "kv-cache"}},
+})
+```
 
 ## Surviving timeouts: replay-from-cursor
 

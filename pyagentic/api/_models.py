@@ -8,22 +8,7 @@ endpoints are typed directly from each agent's metaclass-generated models
 ``__state_class__``), so they are not duplicated here.
 """
 
-from typing import Optional
-
-from pydantic import BaseModel, Field
-
-
-class CreateSessionRequest(BaseModel):
-    """Request body for creating a new agent session.
-
-    Attributes:
-        model (Optional[str]): LLM model string override
-            (e.g. ``'openai::gpt-4o'``).
-        api_key (Optional[str]): API key for the model provider.
-    """
-
-    model: Optional[str] = None
-    api_key: Optional[str] = None
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CreateSessionResponse(BaseModel):
@@ -76,6 +61,7 @@ class AgentInfo(BaseModel):
         tools (list[str]): Names of the tools the agent exposes.
         state_fields (list[str]): Names of the agent's state fields.
         linked_agents (list[str]): Names of agents linked to this one.
+        dependencies (list[str]): Names of the agent's ``Depends[T]`` fields.
     """
 
     name: str
@@ -84,18 +70,26 @@ class AgentInfo(BaseModel):
     tools: list[str] = Field(default_factory=list)
     state_fields: list[str] = Field(default_factory=list)
     linked_agents: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
 
 
 class SchemaResponse(BaseModel):
-    """JSON schemas for an agent's request/response/stream/state models.
+    """JSON schemas for an agent's construct/request/response/stream/state models.
 
     Attributes:
+        construct (dict): JSON schema of the agent's construct model (the body
+            for creating a session / a sessionless job).
         request (dict): JSON schema of the agent's request model.
         response (dict): JSON schema of the agent's response model.
         stream_event (dict): JSON schema of the agent's stream event model.
         state (dict): JSON schema of the agent's state model.
     """
 
+    # Serialized as ``construct``; the Python attribute avoids shadowing the
+    # deprecated ``BaseModel.construct`` method (which pydantic warns about).
+    model_config = ConfigDict(populate_by_name=True)
+
+    construct_schema: dict = Field(serialization_alias="construct", validation_alias="construct")
     request: dict
     response: dict
     stream_event: dict
