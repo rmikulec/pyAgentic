@@ -121,6 +121,7 @@ class spec:
         default_factory: Callable = None,
         condition: Callable = None,
         phases: list[str] | None = None,
+        shared: bool = False,
     ) -> AgentInfo:
         """
         Creates an AgentInfo descriptor for configuring linked agent fields.
@@ -131,12 +132,21 @@ class spec:
             condition (Callable, optional): A callable determining when this agent link is active
             phases (list[str], optional): A list of phases of when this agent will be available.
                 When None, will show for all phases. Defaults to None.
+            shared (bool): If False (default), each call to the linked agent runs on a fresh,
+                isolated fork (its own conversation state, reset to construction time), so
+                concurrent or repeated calls neither race nor pollute each other. If True, all
+                calls share one persistent instance whose state accumulates across calls — use
+                this when the parent needs to read the linked agent's state via ``ref``.
 
         Returns:
             AgentInfo: A configured AgentInfo descriptor
         """
         return AgentInfo(
-            default=default, default_factory=default_factory, condition=condition, phases=phases
+            default=default,
+            default_factory=default_factory,
+            condition=condition,
+            phases=phases,
+            shared=shared,
         )
 
     @staticmethod

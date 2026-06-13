@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, create_model
-from typing import Type, Self, Union, Any
+from typing import Type, Self, Union, Any, Literal, Optional
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._agent._agent_state import _AgentState
@@ -65,6 +65,27 @@ class ToolResponse(BaseModel):
         )
 
 
+class ErrorResponse(BaseModel):
+    """A failed tool or linked-agent call.
+
+    Returned in place of a ToolResponse / AgentResponse when a tool or linked
+    agent raises, so a failure does not have to masquerade as a successful result
+    (whose schema — a structured ``final_output``, a populated ``state`` — a
+    failure cannot satisfy). It is included in both the ``tool_responses`` and
+    ``agent_responses`` unions of every generated agent response model, so either
+    kind of failure validates.
+    """
+
+    name: str = Field(description="Name of the tool or linked agent that failed.")
+    kind: Literal["tool", "agent"] = Field(
+        description="Whether the failure was a tool or a linked-agent call."
+    )
+    error: str = Field(description="The failure message, as surfaced to the model.")
+    call_depth: Optional[int] = Field(
+        default=None, description="Tool-calling loop depth at failure (tools only)."
+    )
+
+
 class AgentResponse(BaseModel):
     """
     Agent response class that captures the final output from an pyagentic agent and the raw
@@ -102,11 +123,14 @@ class AgentResponse(BaseModel):
         """
         fields = {}
         if tool_response_models:
-            # Include base ToolResponse so runtime-discovered tools (e.g. MCP) pass validation
-            ToolResult = Union[tuple([*tool_response_models, ToolResponse])]
+            # Include base ToolResponse so runtime-discovered tools (e.g. MCP) pass
+            # validation, and ErrorResponse so a failed tool call validates.
+            ToolResult = Union[tuple([*tool_response_models, ToolResponse, ErrorResponse])]
             fields["tool_responses"] = (list[ToolResult], ...)
         if linked_agents_response_models:
-            AgentResult = Union[tuple(linked_agents_response_models)]
+            # Include ErrorResponse so a failed linked-agent call — which yields an
+            # ErrorResponse, not the linked agent's own response type — validates.
+            AgentResult = Union[tuple([*linked_agents_response_models, ErrorResponse])]
             fields["agent_responses"] = (list[AgentResult], ...)
         if ResponseFormat:
             fields["final_output"] = (ResponseFormat, ...)

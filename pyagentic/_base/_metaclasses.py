@@ -1,3 +1,4 @@
+import copy
 import inspect
 import threading
 import warnings
@@ -625,6 +626,19 @@ class AgentMeta(type):
                 if name in self.__state_defs__:
                     continue  # State fields already set on state object
                 setattr(self, name, val)
+
+            # Capture the construction recipe so the agent can fork() fresh,
+            # isolated copies for non-shared linked-agent calls: a deep snapshot
+            # of the construct-time state, plus the shared linked templates,
+            # dependencies, and provider config to re-pass.
+            self.__initial_state_values__ = {
+                name: copy.deepcopy(compiled[name]) for name in self.__state_defs__
+            }
+            construct_args = {name: compiled[name] for name in self.__linked_agents__}
+            for name in (*self.__dependencies__, "model", "api_key", "max_call_depth"):
+                if name in bound.arguments:
+                    construct_args[name] = bound.arguments[name]
+            self.__construct_args__ = construct_args
 
             # Call post-initialization hook
             self.__post_init__()
