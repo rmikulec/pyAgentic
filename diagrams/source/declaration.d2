@@ -1,0 +1,369 @@
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+direction: right
+
+
+Utils: {
+  direction: right
+  style.fill: "#faf5ff"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 3
+  style.font-color: "#5b21b6"
+
+  spec: {
+    style.fill: "#ede9fe"
+    style.stroke: "#a78bfa"
+    style.stroke-width: 2
+
+    "spec.State": {
+      style.fill: "#ede9fe"
+      style.stroke: "#7c3aed"
+      style.stroke-width: 2
+    }
+    "spec.Agent": {
+      style.fill: "#ede9fe"
+      style.stroke: "#7c3aed"
+      style.stroke-width: 2
+    }
+    "spec.Param": {
+      style.fill: "#ede9fe"
+      style.stroke: "#7c3aed"
+      style.stroke-width: 2
+    }
+  }
+
+  ref: {
+    style.fill: "#ccfbf1"
+    style.stroke: "#0d9488"
+    style.stroke-width: 2
+  }
+
+  ref-->spec: {
+    style.stroke: "#0d9488"
+    style.stroke-width: 2
+    style.stroke-dash: 5
+  }
+}
+
+BaseAgent: {
+  label: "BaseAgent \n (User Declarations)"
+  direction: left
+  style.fill: "#eff6ff"
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.font-color: "#1e40af"
+  style.double-border: true
+
+  Attributes: {
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+
+    SystemMessage: {
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+    InputTemplate: {
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+    Description: {
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+  }
+
+  DecoratedAttributes: {
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+
+    "State[T]": {
+      style.fill: "#fef3c7"
+      style.stroke: "#f59e0b"
+      style.stroke-width: 2
+    }
+    Agent: {
+      style.fill: "#d1fae5"
+      style.stroke: "#10b981"
+      style.stroke-width: 2
+    }
+  }
+
+  Methods: {
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+    Param: {
+      style.fill: "#fed7aa"
+      style.stroke: "#ea580c"
+      style.stroke-width: 2
+    }
+    "@tool": {
+      style.fill: "#fed7aa"
+      style.stroke: "#ea580c"
+      style.stroke-width: 2
+    }
+  }
+}
+
+AgentMeta {
+  label: "AgentMeta\n(Metaclass Processing)"
+  direction: right
+  style.fill: "#fef2f2"
+  style.stroke: "#dc2626"
+  style.stroke-width: 3
+  style.font-color: "#991b1b"
+  style.stroke-dash: 3
+
+  ExtractAttributes: {
+    label: "Extract\nAttributes"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  C3Linearize: {
+    label: "C3\nLinearize"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  ValidateDefinitions: {
+    label: "Validate\nDefinitions"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  GeneratedDefinitions{
+    label: "Generated Definitions"
+    style.fill: "white"
+    style.stroke: "#b91c1c"
+    style.stroke-width: 2
+
+    StateDefinition: {
+      style.fill: "#fee2e2"
+      style.stroke: "#dc2626"
+      style.stroke-width: 2
+    }
+    LinkedAgent: {
+      style.fill: "#fee2e2"
+      style.stroke: "#dc2626"
+      style.stroke-width: 2
+    }
+    ToolDefinition: {
+      style.fill: "#fee2e2"
+      style.stroke: "#dc2626"
+      style.stroke-width: 2
+    }
+  }
+
+  BuildInitSignature: {
+    label: "Build\n__init__ Signature"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  BuildInit: {
+    label: "Build\n__init__ Function"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+}
+
+DeclaredAgent: {
+  label: "DeclaredAgent\n(Generated Python Class)"
+  direction: down
+  style.fill: "#f0fdf4"
+  style.stroke: "#059669"
+  style.stroke-width: 3
+  style.font-color: "#065f46"
+  style.double-border: true
+
+  Attributes: {
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+
+    SystemMessage: {
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+    InputTemplate: {
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+    Description: {
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+  }
+
+  Registries: {
+    label: "Definition Registries"
+    style.fill: "white"
+    style.stroke: "#34d399"
+    style.stroke-width: 2
+
+    "__tool_defs__": {
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+    "__state_defs__": {
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+    "__linked_agents__": {
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+  }
+
+  Generated: {
+    label: "Generated Models"
+    style.fill: "white"
+    style.stroke: "#34d399"
+    style.stroke-width: 2
+
+    "Response Model": {
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+
+    "__init__": {
+      label: "__init__(signature)"
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+  }
+}
+
+Utils.spec."spec.State"-->BaseAgent.DecoratedAttributes."State[T]": {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.stroke-dash: 5
+}
+Utils.spec."spec.Agent"-->BaseAgent.DecoratedAttributes.Agent: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.stroke-dash: 5
+}
+Utils.spec."spec.Param"-->BaseAgent.Methods: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.stroke-dash: 5
+}
+
+# BaseAgent → ExtractAttributes
+BaseAgent.DecoratedAttributes."State[T]"-->AgentMeta.ExtractAttributes{
+  style.stroke: "#eab308"
+  style.stroke-width: 3
+}
+BaseAgent.DecoratedAttributes.Agent-->AgentMeta.ExtractAttributes{
+  style.stroke: "#10b981"
+  style.stroke-width: 3
+}
+BaseAgent.Methods-->AgentMeta.ExtractAttributes{
+  style.stroke: "#ea580c"
+  style.stroke-width: 3
+}
+
+# ExtractAttributes → C3Linearize
+AgentMeta.ExtractAttributes-->AgentMeta.C3Linearize: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+# C3Linearize → ValidateDefinitions
+AgentMeta.C3Linearize-->AgentMeta.ValidateDefinitions: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+# ValidateDefinitions → GeneratedDefinitions (color-coded by type)
+AgentMeta.ValidateDefinitions-->AgentMeta.GeneratedDefinitions.StateDefinition: {
+  style.stroke: "#eab308"
+  style.stroke-width: 3
+}
+AgentMeta.ValidateDefinitions-->AgentMeta.GeneratedDefinitions.LinkedAgent: {
+  style.stroke: "#10b981"
+  style.stroke-width: 3
+}
+AgentMeta.ValidateDefinitions-->AgentMeta.GeneratedDefinitions.ToolDefinition: {
+  style.stroke: "#ea580c"
+  style.stroke-width: 3
+}
+
+# GeneratedDefinitions → BuildInitSignature
+AgentMeta.GeneratedDefinitions-->AgentMeta.BuildInitSignature: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+# BuildInitSignature → BuildInit
+AgentMeta.BuildInitSignature-->AgentMeta.BuildInit: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+# BuildInit → DeclaredAgent.__init__
+AgentMeta.BuildInit-->DeclaredAgent.Generated."__init__": {
+  style.stroke: "#059669"
+  style.stroke-width: 3
+}
+
+AgentMeta.GeneratedDefinitions.StateDefinition-->DeclaredAgent.Registries."__state_defs__": {
+  style.stroke: "#eab308"
+  style.stroke-width: 3
+}
+AgentMeta.GeneratedDefinitions.LinkedAgent-->DeclaredAgent.Registries."__linked_agents__": {
+  style.stroke: "#10b981"
+  style.stroke-width: 3
+}
+AgentMeta.GeneratedDefinitions.ToolDefinition-->DeclaredAgent.Registries."__tool_defs__": {
+  style.stroke: "#ea580c"
+  style.stroke-width: 3
+}
+
+AgentMeta.GeneratedDefinitions-->DeclaredAgent.Generated."Response Model": {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+}
+
+BaseAgent.Attributes.SystemMessage-->DeclaredAgent.Attributes.SystemMessage: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.stroke-dash: 5
+}
+BaseAgent.Attributes.InputTemplate-->DeclaredAgent.Attributes.InputTemplate: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.stroke-dash: 5
+}
+BaseAgent.Attributes.Description-->DeclaredAgent.Attributes.Description: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.stroke-dash: 5
+}
