@@ -347,10 +347,12 @@ class BaseAgent(metaclass=AgentMeta):
         self._mcp_connected = True
 
     async def close(self):
-        """Tear down all MCP client connections.
+        """Tear down all MCP client connections, including linked agents'.
 
         Should be called when the agent is no longer needed to clean up
-        any open connections or subprocesses.
+        any open connections or subprocesses. Linked sub-agents own their own
+        MCP clients, so closing must recurse into them (single-use forks already
+        close themselves after each call; this covers shared/persistent links).
         """
         for client in getattr(self, "_mcp_clients", {}).values():
             try:
@@ -360,6 +362,14 @@ class BaseAgent(metaclass=AgentMeta):
         self._mcp_clients = {}
         self._mcp_tool_routing = {}
         self._mcp_connected = False
+
+        for name in getattr(self, "__linked_agents__", {}):
+            linked = getattr(self, name, None)
+            if isinstance(linked, BaseAgent):
+                try:
+                    await linked.close()
+                except Exception:
+                    pass
 
     def __post_init__(self):
         """
@@ -540,6 +550,17 @@ class BaseAgent(metaclass=AgentMeta):
             self.tracer.record_exception(str(e))
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
             response = ErrorResponse(name=tool_call.name, kind="agent", error=result)
+        finally:
+            # A fork is single-use: tear down any MCP subprocesses it opened, in
+            # this same task (anyio forbids exiting an MCP client in a different
+            # task than it was entered, and this coroutine is where the fork's
+            # clients were connected). Shared agents persist and are closed by the
+            # owning agent's close().
+            if not shared:
+                try:
+                    await agent.close()
+                except Exception:
+                    pass
 
         # Add agent result to conversation history
         stringified_result = (
