@@ -183,7 +183,15 @@ class AgentTracer(ABC):
             self._record_exception(span, e)
             raise
         finally:
-            _current_span.reset(token)
+            try:
+                _current_span.reset(token)
+            except ValueError:
+                # The token can belong to a different context than the one we are
+                # unwinding in — e.g. when a span is opened inside a concurrently
+                # scheduled task (linked-agent calls run via asyncio.create_task) or
+                # is torn down across an async-generator boundary. Restore the parent
+                # span directly instead of resetting a foreign token.
+                _current_span.set(parent)
             self.end_span(span)
 
     @asynccontextmanager
