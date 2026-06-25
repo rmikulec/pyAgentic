@@ -19,7 +19,7 @@ from pyagentic._base._agent._agent_linking import Link, _LinkedAgentDefinition
 from pyagentic._base._depends import Depends
 from pyagentic._base._mcp import MCPLink, _MCPDefinition
 
-from pyagentic.models.response import AgentResponse, ToolResponse
+from pyagentic.models.response import AgentResponse, ErrorResponse, ToolResponse
 from pyagentic.models.llm import LLMResponse
 
 from pyagentic._utils._typing import analyze_type
@@ -472,11 +472,15 @@ class AgentMeta(type):
             data=(LLMResponse, ...),
         )
 
-        # Tool response event — typed to the exact tool response variants
+        # Tool response event — typed to the exact tool response variants, plus the
+        # base ToolResponse so runtime-discovered (MCP) tool results validate and
+        # ErrorResponse so a failed tool call validates. Mirrors the union built by
+        # AgentResponse.from_agent_class; without it, an MCP tool result (a base
+        # ToolResponse) fails validation when wrapped as a ToolEvent in the jobs backend.
         if tool_response_models:
-            ToolData = Union[tuple(tool_response_models)]
+            ToolData = Union[tuple([*tool_response_models, ToolResponse, ErrorResponse])]
         else:
-            ToolData = ToolResponse
+            ToolData = Union[ToolResponse, ErrorResponse]
         ToolEvent = create_model(
             f"{agent_name}ToolEvent",
             event=(Literal["tool_response"], "tool_response"),
