@@ -53,13 +53,17 @@ field and the schemas update with no manual OpenAPI maintenance:
 
 | Route | Purpose |
 |---|---|
-| `GET /` | Agent metadata (name, tools, state fields, linked agents) |
+| `GET /` | Agent metadata (name, tools, state fields, linked agents, dependencies) |
 | `GET /health` | Liveness probe |
-| `GET /schema` | JSON schemas for request/response/stream-event/state |
-| `POST /sessions` | Create an isolated session |
+| `GET /schema` | JSON schemas for construct/request/response/stream-event/state |
+| `POST /sessions` | Create an isolated session (body mirrors the agent's constructor) |
 | `POST /sessions/{id}/chat` | Send a message, get a complete response |
 | `POST /sessions/{id}/chat/stream` | Stream typed SSE events as the agent works |
 | `GET /sessions/{id}/state` | Current agent state for a session |
+
+Creating a session constructs the agent: the body carries its state and any
+linked sub-agents (`POST /sessions`), while non-serializable resources are
+injected server-side with [`Depends[...]`](creating-an-app.md#dependencies).
 
 ## Guides
 

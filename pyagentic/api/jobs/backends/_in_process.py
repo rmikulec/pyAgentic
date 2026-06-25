@@ -17,6 +17,7 @@ from pyagentic.api.jobs._models import (
     _build_prompt,
 )
 from pyagentic.api.jobs.backends._base import EmitFn, LocalExecutionBackend
+from pyagentic.api._build import build_agent
 
 if TYPE_CHECKING:
     from pyagentic.api._sessions import SessionManager
@@ -37,6 +38,7 @@ class InProcessBackend(LocalExecutionBackend):
         *,
         max_concurrency: int = 8,
         default_model: Optional[str] = None,
+        dependencies: Optional[list] = None,
     ) -> None:
         """Create the backend.
 
@@ -46,11 +48,14 @@ class InProcessBackend(LocalExecutionBackend):
             sessions (SessionManager): Live session registry for session-bound jobs.
             max_concurrency (int): Max concurrent agent runs.
             default_model (Optional[str]): Model for sessionless agents.
+            dependencies (Optional[list]): Providers for the agent's ``Depends[T]``
+                fields when building a fresh agent for a sessionless job.
         """
         super().__init__()
         self._agent_class = agent_class
         self._sessions = sessions
         self._default_model = default_model
+        self._dependencies = dependencies or []
         self._max_concurrency = max_concurrency
         self._sem = asyncio.Semaphore(max_concurrency)
 
@@ -72,10 +77,12 @@ class InProcessBackend(LocalExecutionBackend):
             agent = self._sessions.get(session_id)
             own_agent = False
         else:
-            kwargs = {}
-            if self._default_model is not None:
-                kwargs["model"] = self._default_model
-            agent = self._agent_class(**kwargs)
+            agent = build_agent(
+                self._agent_class,
+                job.construct_payload,
+                self._dependencies,
+                default_model=self._default_model,
+            )
             own_agent = True
 
         prompt = _build_prompt(job.request)

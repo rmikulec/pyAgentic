@@ -1,3 +1,4 @@
+import copy
 import inspect
 import threading
 import warnings
@@ -15,6 +16,7 @@ from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import State, StateInfo, _StateDefinition
 from pyagentic._base._agent._agent_linking import Link, _LinkedAgentDefinition
+from pyagentic._base._depends import Depends
 from pyagentic._base._mcp import MCPLink, _MCPDefinition
 
 from pyagentic.models.response import AgentResponse, ErrorResponse, ToolResponse
@@ -324,6 +326,92 @@ class AgentMeta(type):
         return MappingProxyType(mcp_defs)
 
     @staticmethod
+    def _extract_dependencies(annotations, namespace) -> Mapping[str, type]:
+        """Extracts dependency-injected fields declared with ``Depends[T]``.
+
+        Looks for annotations whose marker has ``__origin__ is Depends`` and
+        records the wrapped dependency type. These fields are injected at serve
+        time (by type) rather than supplied by clients, so they are excluded from
+        the generated construct model.
+
+        Args:
+            annotations (dict): Combined annotations from the class hierarchy.
+            namespace (dict): The class namespace.
+
+        Returns:
+            Mapping[str, type]: Immutable mapping of field name to dependency type.
+        """
+        dependencies: dict[str, type] = {}
+
+        for attr_name, attr_type in annotations.items():
+            if getattr(attr_type, "__origin__", None) is Depends:
+                dependencies[attr_name] = attr_type.__dependency_type__
+
+        return MappingProxyType(dependencies)
+
+    @staticmethod
+    def _build_construct_model(cls) -> Type[BaseModel]:
+        """Build a recursive Pydantic model mirroring the agent's constructor.
+
+        The construct model is the serializable construction contract for the
+        agent: it carries the data a client must supply to instantiate one, in a
+        way that mirrors writing the construction in Python.
+
+          - State fields → the raw per-field model, required when the StateInfo
+            has no default/default_factory, otherwise optional.
+          - Linked agents → that agent's own ``__construct_model__`` (nested),
+            optional when the AgentLink provides a default, otherwise required.
+          - ``model`` / ``api_key`` → optional scalars for provider selection.
+
+        ``Depends`` and MCP fields are excluded — they are injected/configured
+        server-side, not provided by clients.
+
+        Args:
+            cls: The agent class whose constructor to mirror.
+
+        Returns:
+            Type[BaseModel]: A dynamically created Pydantic model.
+        """
+        from typing import Optional
+        from pydantic import ConfigDict
+
+        fields: dict[str, Any] = {}
+
+        # State fields: type is the raw per-field model (e.g. UserProfile).
+        # Check for a default's *existence* without invoking factories.
+        for name, state_def in cls.__state_defs__.items():
+            info = state_def.info
+            if info.default_factory is not None:
+                fields[name] = (state_def.model, Field(default_factory=info.default_factory))
+            elif info.default is not None:
+                fields[name] = (state_def.model, Field(default=info.default))
+            else:
+                fields[name] = (state_def.model, Field(...))
+
+        # Linked agents: nest each child's construct model. A link is optional
+        # when its AgentLink declares any default (don't call the factory here).
+        for name, linked_def in cls.__linked_agents__.items():
+            child_model = linked_def.agent.__construct_model__
+            info = linked_def.info
+            has_default = info is not None and (
+                info.default is not None or info.default_factory is not None
+            )
+            if has_default:
+                fields[name] = (Optional[child_model], Field(default=None))
+            else:
+                fields[name] = (child_model, Field(...))
+
+        # Provider selection scalars.
+        fields["model"] = (Optional[str], Field(default=None))
+        fields["api_key"] = (Optional[str], Field(default=None))
+
+        return create_model(
+            f"{cls.__name__}Construct",
+            __config__=ConfigDict(arbitrary_types_allowed=True),
+            **fields,
+        )
+
+    @staticmethod
     def _build_request_model(cls) -> Type[BaseModel]:
         """Build a Pydantic request model from the agent's __call__ signature.
 
@@ -462,6 +550,16 @@ class AgentMeta(type):
             # MCP fields are config-only, not constructor args
             elif field_name in agent_cls.__mcp_defs__:
                 continue
+            # Dependency-injected fields are optional (default None); they are
+            # supplied at serve time or passed explicitly for direct/test use.
+            elif field_name in agent_cls.__dependencies__:
+                param = inspect.Parameter(
+                    field_name,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=None,
+                    annotation=field_type,
+                )
+                optional.append(param)
             # Other annotated fields (like model, api_key, tracer, etc.)
             else:
                 default = getattr(agent_cls, field_name, inspect._empty)
@@ -532,6 +630,19 @@ class AgentMeta(type):
                 if name in self.__state_defs__:
                     continue  # State fields already set on state object
                 setattr(self, name, val)
+
+            # Capture the construction recipe so the agent can fork() fresh,
+            # isolated copies for non-shared linked-agent calls: a deep snapshot
+            # of the construct-time state, plus the shared linked templates,
+            # dependencies, and provider config to re-pass.
+            self.__initial_state_values__ = {
+                name: copy.deepcopy(compiled[name]) for name in self.__state_defs__
+            }
+            construct_args = {name: compiled[name] for name in self.__linked_agents__}
+            for name in (*self.__dependencies__, "model", "api_key", "max_call_depth"):
+                if name in bound.arguments:
+                    construct_args[name] = bound.arguments[name]
+            self.__construct_args__ = construct_args
 
             # Call post-initialization hook
             self.__post_init__()
@@ -615,12 +726,14 @@ class AgentMeta(type):
             annotations, inherited_namespace | namespace, mcs.__BaseAgent__
         )
         mcp_defs = mcs._extract_mcp_defs(annotations, inherited_namespace | namespace)
+        dependencies = mcs._extract_dependencies(annotations, inherited_namespace | namespace)
         with mcs._lock:
             cls.__tool_defs__ = tool_defs
             cls.__annotations__ = annotations
             cls.__state_defs__ = state_defs
             cls.__linked_agents__ = linked_agents
             cls.__mcp_defs__ = mcp_defs
+            cls.__dependencies__ = dependencies
 
         # Create response models at class declaration time, giving the agent a predetermined
         # output structure. This allows developers to know exactly what the output of the
@@ -672,10 +785,16 @@ class AgentMeta(type):
             ResponseModel=ResponseModel,
         )
 
+        # Build the recursive construct model mirroring the agent's constructor.
+        # Linked agents' construct models already exist because their classes are
+        # defined before this one (same guarantee relied on for __response_model__).
+        ConstructModel = mcs._build_construct_model(cls)
+
         with mcs._lock:
             cls.__tool_response_models__ = MappingProxyType(tool_response_models)
             cls.__response_model__ = ResponseModel
             cls.__request_model__ = RequestModel
+            cls.__construct_model__ = ConstructModel
             cls.__stream_event_model__ = StreamEventModel
             cls.__state_class__ = StateClass
 

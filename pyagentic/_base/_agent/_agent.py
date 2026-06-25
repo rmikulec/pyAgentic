@@ -1,3 +1,4 @@
+import copy
 import inspect
 import json
 import asyncio
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from pyagentic._base._agent._agent_linking import _LinkedAgentDefinition
     from pyagentic._base._mcp import _MCPDefinition
 
-from pyagentic.models.response import ToolResponse, AgentResponse
+from pyagentic.models.response import ToolResponse, AgentResponse, ErrorResponse
 from pyagentic.models.llm import Message, ToolCall, LLMResponse
 from pyagentic.models.tracing import SpanKind
 
@@ -163,6 +164,7 @@ class BaseAgent(metaclass=AgentMeta):
     __state_defs__: ClassVar[dict[str, _StateDefinition]]  # State field definitions
     __linked_agents__: ClassVar[dict[str, "_LinkedAgentDefinition"]]  # Linked agent definitions
     __mcp_defs__: ClassVar[dict[str, "_MCPDefinition"]]  # MCP server definitions
+    __dependencies__: ClassVar[dict[str, type]]  # Depends[T] field -> dependency type
 
     # User-set Class Attributes (defined in subclass)
     __system_message__: ClassVar[str]  # Required: system prompt for the agent
@@ -173,6 +175,7 @@ class BaseAgent(metaclass=AgentMeta):
 
     # Generated Class Attributes (built by metaclass)
     __request_model__: ClassVar[Type[BaseModel]] = None  # Pydantic request model from __call__
+    __construct_model__: ClassVar[Type[BaseModel]] = None  # Recursive constructor model
     __response_model__: ClassVar[Type[AgentResponse]] = None  # Pydantic response model
     __stream_event_model__: ClassVar[Type[BaseModel]] = None  # Typed SSE stream event union
     __state_class__: ClassVar[Type[_AgentState]] = None  # Generated state class
@@ -408,6 +411,42 @@ class BaseAgent(metaclass=AgentMeta):
 
         return {"self": self.state.model_dump(), **linked_agent_references}
 
+    def fork(self) -> "BaseAgent":
+        """Create a fresh, isolated copy of this agent for a single invocation.
+
+        Used to call a non-shared linked agent without races or context
+        pollution. The fork shares this agent's provider, dependency-injected
+        (``Depends``) fields, linked sub-agent templates, and any connected MCP
+        clients, but gets its own conversation state reset to construction time
+        (an empty message history), so concurrent or repeated calls stay isolated.
+
+        Returns:
+            BaseAgent: A new instance of the same class sharing immutable
+                resources with this agent but holding fresh, independent state.
+        """
+        state_kwargs = {
+            name: copy.deepcopy(value)
+            for name, value in self.__initial_state_values__.items()
+        }
+        clone = type(self)(provider=self.provider, **state_kwargs, **self.__construct_args__)
+        # Share already-connected MCP clients so forks don't reconnect per call.
+        if getattr(self, "_mcp_connected", False):
+            clone._mcp_connected = True
+            clone._mcp_clients = self._mcp_clients
+            clone._mcp_tool_routing = self._mcp_tool_routing
+            clone.__tool_defs__ = self.__tool_defs__
+            clone.__tool_response_models__ = self.__tool_response_models__
+        return clone
+
+    @staticmethod
+    def _get_call_lock(agent: "BaseAgent") -> asyncio.Lock:
+        """Return (creating on first use) the lock serializing a shared agent's calls."""
+        lock = agent.__dict__.get("_call_lock")
+        if lock is None:
+            lock = asyncio.Lock()
+            agent.__dict__["_call_lock"] = lock
+        return lock
+
     @traced(SpanKind.INFERENCE)
     async def _process_llm_inference(
         self,
@@ -476,22 +515,31 @@ class BaseAgent(metaclass=AgentMeta):
         # Add tool call message to conversation history
         self.state._messages.append(self.provider.to_tool_call_message(tool_call))
 
-        # Get the linked agent instance and share tracer
-        agent = getattr(self, tool_call.name)
+        # By default each call runs on a fresh, isolated fork of the linked agent
+        # so concurrent/repeated calls neither race nor pollute one another. A
+        # `shared=True` link keeps one persistent instance (calls are serialized).
+        linked_def = self.__linked_agents__[tool_call.name]
+        template = getattr(self, tool_call.name)
+        shared = bool(linked_def.info and getattr(linked_def.info, "shared", False))
+        agent = template if shared else template.fork()
         agent.tracer = self.tracer
 
         try:
             # Parse arguments and call the linked agent
             kwargs = json.loads(tool_call.arguments)
             self.tracer.set_attributes(**kwargs)
-            response = await agent(**kwargs)
+            if shared:
+                async with self._get_call_lock(template):
+                    response = await agent(**kwargs)
+            else:
+                response = await agent(**kwargs)
             result = f"Agent {tool_call.name}: {response.final_output}"
             self.tracer.set_attributes(result=response.model_dump())
         except Exception as e:
             # Handle agent execution errors
             self.tracer.record_exception(str(e))
             result = f"Agent `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
-            response = AgentResponse(final_output=result, provider_info=agent.provider._info)
+            response = ErrorResponse(name=tool_call.name, kind="agent", error=result)
 
         # Add agent result to conversation history
         stringified_result = (
@@ -538,44 +586,55 @@ class BaseAgent(metaclass=AgentMeta):
 
         # Parse and validate tool arguments
         kwargs = json.loads(tool_call.arguments)
+        error: str | None = None
+        compiled_args = None
         try:
             # Compile args converts raw JSON to typed parameters (e.g., dict -> Pydantic models)
             compiled_args = tool_def.compile_args(**kwargs)
         except ValidationError as e:
             # Handle validation errors for tool arguments
-            result = f"Function Args were invalid: {str(e)}"
-            compiled_args = None
+            error = f"Function Args were invalid: {str(e)}"
             self.tracer.record_exception(str(e))
             logger.exception(e)
-        try:
-            if compiled_args is not None:
+        if compiled_args is not None:
+            try:
                 result = await _safe_run(handler, **compiled_args)
                 self.tracer.set_attributes(result=result)
-        except TypeError as e:
-            self.tracer.record_exception(str(e))
-            logger.exception(e)
-            raise InvalidToolDefinition(
-                tool_name=tool_call.name,
-                message=f"Tool must have a serializable return type; {tool_def.return_type} failed to be casted to a string.",
-            )
-        except Exception as e:
-            # Handle any other tool execution errors
-            self.tracer.record_exception(str(e))
-            logger.exception(e)
-            result = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
+            except TypeError as e:
+                self.tracer.record_exception(str(e))
+                logger.exception(e)
+                raise InvalidToolDefinition(
+                    tool_name=tool_call.name,
+                    message=f"Tool must have a serializable return type; {tool_def.return_type} failed to be casted to a string.",
+                )
+            except Exception as e:
+                # Handle any other tool execution errors
+                self.tracer.record_exception(str(e))
+                logger.exception(e)
+                error = f"Tool `{tool_call.name}` failed: {e}. Please kindly state to the user that is failed, provide state, and ask if they want to try again."  # noqa E501
 
-        stringified_result = (
-            result.model_dump_json(indent=2)
-            if issubclass(result.__class__, BaseModel)
-            else str(result)
-        )
-        # Add tool result to conversation history for LLM
+        # Add the tool result (or the error) to conversation history for the LLM
+        if error is not None:
+            message = error
+        else:
+            message = (
+                result.model_dump_json(indent=2)
+                if issubclass(result.__class__, BaseModel)
+                else str(result)
+            )
         self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
+            self.provider.to_tool_call_result_message(result=message, id_=tool_call.id)
         )
 
         if self.phases:
             self.state._update_state_machine(phases=self.phases)
+
+        # A failed call (bad args or a raising handler) returns a typed ErrorResponse
+        # rather than a half-built ToolResponse (avoids unpacking None compiled_args).
+        if error is not None:
+            return ErrorResponse(
+                name=tool_call.name, kind="tool", error=error, call_depth=call_depth
+            )
         # Build and return the structured tool response
         ToolResponseModel = self.__tool_response_models__[tool_call.name]
         return ToolResponseModel(
@@ -599,6 +658,7 @@ class BaseAgent(metaclass=AgentMeta):
         client, original_name = self._mcp_tool_routing[tool_call.name]
         kwargs = json.loads(tool_call.arguments)
 
+        error: str | None = None
         try:
             mcp_result = await client.call_tool(original_name, kwargs)
             # CallToolResult has .content (list of content blocks)
@@ -613,16 +673,22 @@ class BaseAgent(metaclass=AgentMeta):
         except Exception as e:
             self.tracer.record_exception(str(e))
             logger.exception(e)
-            result = f"MCP tool `{tool_call.name}` failed: {e}. Please kindly state to the user that it failed, provide state, and ask if they want to try again."  # noqa E501
+            error = f"MCP tool `{tool_call.name}` failed: {e}. Please kindly state to the user that it failed, provide state, and ask if they want to try again."  # noqa E501
 
-        # Add result to conversation history
+        # Add result (or error) to conversation history
         self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=result, id_=tool_call.id)
+            self.provider.to_tool_call_result_message(
+                result=error if error is not None else result, id_=tool_call.id
+            )
         )
 
         if self.phases:
             self.state._update_state_machine(phases=self.phases)
 
+        if error is not None:
+            return ErrorResponse(
+                name=tool_call.name, kind="tool", error=error, call_depth=call_depth
+            )
         # Return a base ToolResponse (not a class-time typed subclass,
         # since MCP tools are discovered at runtime)
         return ToolResponse(

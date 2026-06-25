@@ -176,6 +176,46 @@ The `condition` parameter accepts a callable (typically a lambda function) that 
 This enables sophisticated agent workflows where the available linked agents adapt based on the current state and requirements.
 
 
+## Call Isolation: forks and `shared`
+
+A linked agent is presented to the LLM as a tool, and the parent may call it
+several times — even concurrently, since tool calls in a single turn run in
+parallel. By default, **each call runs on a fresh, isolated fork** of the linked
+agent:
+
+- its conversation history starts empty (no **context pollution** between calls), and
+- its state is reset to construction time, so concurrent or repeated calls never
+  **race** on shared state.
+
+A fork shares the template's provider, dependency-injected (`Depends`) fields,
+linked sub-agent templates, and any connected MCP clients — only the
+conversation state is fresh — so forking is cheap and resources aren't
+duplicated. This is the right default: a linked agent behaves like a clean
+function call each time it's invoked.
+
+### When you need persistence: `shared=True`
+
+If you want a single, persistent linked instance whose state accumulates across
+calls — for example so the parent can read the linked agent's state through
+[`ref`](states.md) — opt in with `shared=True`:
+
+```python
+from pyagentic import BaseAgent, Link, spec
+
+class Orchestrator(BaseAgent):
+    __system_message__ = "I coordinate a stateful researcher."
+
+    # One persistent researcher; its state survives across calls and is
+    # readable via ref.researcher.<field>.
+    researcher: Link[ResearchAgent] = spec.AgentLink(shared=True)
+```
+
+With `shared=True` the parent reuses one instance, and concurrent calls to it are
+serialized (one at a time) so they don't corrupt its state. Use it deliberately:
+it trades the isolation above for cross-call memory. If you only read linked
+state via `ref`, you need `shared=True`; otherwise prefer the default fork.
+
+
 ## Custom Agent Parameters
 
 By default, when a linked agent is called, it receives the full user input as a single string. However, you can customize this behavior to create more sophisticated interactions by implementing custom `__call__` methods and using Pydantic models to define structured input parameters.
