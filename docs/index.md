@@ -48,13 +48,13 @@ Dive deeper into PyAgentic's powerful features:
 
     [:octicons-arrow-right-24: Learn about phases](phases.md)
 
-- :material-shield-check: **[Policies](policies.md)**
+- :material-shield-check: **[Policies](policies/index.md)**
 
     ---
 
-    React to state changes with validation, history tracking, persistence, and custom behaviors.
+    React to state and message-context changes with validation, transformation, context management, and custom behaviors.
 
-    [:octicons-arrow-right-24: Learn about policies](policies.md)
+    [:octicons-arrow-right-24: Learn about policies](policies/index.md)
 
 - :material-chat-processing: **[Agent Responses](responses.md)**
 

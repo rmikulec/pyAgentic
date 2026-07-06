@@ -5,20 +5,14 @@ This module provides a mock LLM provider that can be used for testing agents
 without making actual API calls to external language model services.
 """
 
-from typing import Optional, Type, Any
+from typing import Optional, Type
 from pydantic import BaseModel
 
 from pyagentic.llm._provider import LLMProvider
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._agent._agent_state import _AgentState
-from pyagentic.models.llm import Message, LLMResponse, ToolCall, ProviderInfo
-
-
-class _MockMessage(Message):
-    tool_call: Any = None
-    tool_result: Any = None
-    tool_call_id: Any = None
+from pyagentic.models.llm import LLMResponse, ProviderInfo, UsageInfo
 
 
 class _MockProvider(LLMProvider):
@@ -48,43 +42,11 @@ class _MockProvider(LLMProvider):
             **kwargs: Additional arguments (ignored)
         """
         self.model = model
+        # Optional FIFO queue of canned responses; when non-empty, generate()
+        # pops and returns these instead of the default echo response.
+        self.responses: list[LLMResponse] = []
 
         self._info = ProviderInfo(name="_mock", model=self.model, attributes=kwargs)
-
-    def to_tool_call_message(self, tool_call: ToolCall) -> Message:
-        """
-        Convert a tool call to a mock message format.
-
-        Args:
-            tool_call: The tool call to convert
-
-        Returns:
-            Simple Message with fixed content
-        """
-        return _MockMessage(
-            type="tool_call",
-            content="Tool call message",
-            tool_call=tool_call,
-            tool_call_id=tool_call.id,
-        )
-
-    def to_tool_call_result_message(self, result, id_) -> Message:
-        """
-        Convert a tool result to a mock message format.
-
-        Args:
-            result: The tool execution result (ignored)
-            id_: The tool call ID (ignored)
-
-        Returns:
-            Simple Message with fixed content
-        """
-        return _MockMessage(
-            type="tool_result",
-            content="Tool call result message",
-            tool_result=result,
-            tool_call_id=id_,
-        )
 
     async def generate(
         self,
@@ -97,23 +59,33 @@ class _MockProvider(LLMProvider):
         """
         Generate a mock response without calling any external APIs.
 
-        Returns a fixed response suitable for testing. In the future, this could
-        be enhanced to return different responses based on input state or
-        load test cases from configuration.
+        Pops from the `responses` queue when canned responses were provided;
+        otherwise echoes the latest context message. Usage is reported as a
+        naive character count of the context so token-triggered policies can
+        be tested deterministically.
 
         Args:
-            state: Agent state (currently ignored)
+            state: Agent state providing the compiled message context
             tool_defs: Available tools (currently ignored)
             response_format: Structured output format (currently ignored)
             **kwargs: Additional parameters (currently ignored)
 
         Returns:
-            LLMResponse with fixed test content
+            LLMResponse with canned or echoed test content
         """
-        latest_message = state._messages[-1].content
+        if self.responses:
+            return self.responses.pop(0)
+
+        latest_message = state._context[-1].content if state._context else ""
+        input_size = sum(len(message.content or "") for message in state._context)
 
         return LLMResponse(
             text=f"user said {latest_message}",
             tool_calls=[],
             finish_reason="stop",
+            usage=UsageInfo(
+                input_tokens=input_size,
+                output_tokens=0,
+                total_tokens=input_size,
+            ),
         )

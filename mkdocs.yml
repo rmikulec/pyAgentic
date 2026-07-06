@@ -11,7 +11,10 @@ nav:
     - Tools: tools.md
     - State Management: states.md
     - Phases: phases.md
-    - Policies: policies.md
+    - Policies:
+      - Overview: policies/index.md
+      - Built-in Policies: policies/built-in.md
+      - Writing Custom Policies: policies/custom.md
     - Agent Linking: agent-linking.md
     - Responses: responses.md
     - Structured Outputs: structured-output.md

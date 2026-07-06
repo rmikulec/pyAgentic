@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._agent._agent_state import _AgentState
-from pyagentic.models.llm import Message, LLMResponse, ToolCall
+from pyagentic.models.llm import LLMResponse
 
 
 class LLMProvider(ABC):
@@ -45,33 +45,6 @@ class LLMProvider(ABC):
             api_key: Authentication key for the provider's API
             base_url: Optional custom base URL for the API endpoint
             **kwargs: Additional provider-specific configuration options
-        """
-        ...
-
-    @abstractmethod
-    def to_tool_call_message(self, tool_call: ToolCall) -> Message:
-        """
-        Convert a tool call to a provider-specific message format.
-
-        Args:
-            tool_call: The tool call to convert
-
-        Returns:
-            Message formatted for this provider's API
-        """
-        ...
-
-    @abstractmethod
-    def to_tool_call_result_message(self, result, id_) -> Message:
-        """
-        Convert a tool call result to a provider-specific message format.
-
-        Args:
-            result: The result/output from the tool execution
-            id_: The tool call ID to associate with this result
-
-        Returns:
-            Message formatted for this provider's API
         """
         ...
 
