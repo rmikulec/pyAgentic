@@ -15,22 +15,15 @@ from pydantic import BaseModel
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
-from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
-
-
-class OpenAIMessage(Message):
-    """
-    OpenAI-specific message format extending the base Message class.
-
-    Includes additional fields required for OpenAI's API format including
-    tool call handling and function calling support.
-    """
-
-    # Tool Usage
-    name: Optional[str] = None
-    arguments: Optional[str] = None
-    call_id: Optional[str] = None
-    output: Optional[str] = None
+from pyagentic.models.llm import (
+    ProviderInfo,
+    LLMResponse,
+    Message,
+    ToolCall,
+    ToolCallMessage,
+    ToolResultMessage,
+    UsageInfo,
+)
 
 
 class OpenAIProvider(LLMProvider):
@@ -55,35 +48,38 @@ class OpenAIProvider(LLMProvider):
         self.client = openai.AsyncOpenAI(api_key=api_key, **kwargs)
         self._info = ProviderInfo(name="openai", model=model, attributes=kwargs)
 
-    def to_tool_call_message(self, tool_call: ToolCall):
+    def _convert_messages(self, messages: List[Message]) -> List[dict]:
         """
-        Convert a tool call to OpenAI's function call message format.
+        Convert semantic messages to OpenAI Responses API input items.
 
         Args:
-            tool_call: The tool call to convert
+            messages (List[Message]): Semantic message history from the agent context.
 
         Returns:
-            OpenAIMessage formatted for OpenAI's function calling API
+            List[dict]: Input items formatted for OpenAI's Responses API.
         """
-        return OpenAIMessage(
-            type="function_call",
-            call_id=tool_call.id,
-            name=tool_call.name,
-            arguments=tool_call.arguments,
-        )
-
-    def to_tool_call_result_message(self, result, id_):
-        """
-        Convert a tool execution result to OpenAI's function result message format.
-
-        Args:
-            result: The output from the tool execution
-            id_: The function call ID to associate with this result
-
-        Returns:
-            OpenAIMessage containing the function execution result
-        """
-        return OpenAIMessage(type="function_call_output", call_id=id_, output=result)
+        items = []
+        for message in messages:
+            if isinstance(message, ToolCallMessage):
+                items.append(
+                    {
+                        "type": "function_call",
+                        "call_id": message.id,
+                        "name": message.name,
+                        "arguments": message.arguments,
+                    }
+                )
+            elif isinstance(message, ToolResultMessage):
+                items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": message.tool_call_id,
+                        "output": message.content or "",
+                    }
+                )
+            else:
+                items.append({"role": message.role, "content": message.content or ""})
+        return items
 
     async def generate(
         self,
@@ -117,7 +113,7 @@ class OpenAIProvider(LLMProvider):
             response: OpenAIParsedResponse[Type[BaseModel]] = await self.client.responses.parse(
                 model=self._model,
                 instructions=state.system_message,
-                input=[message.to_dict() for message in state._messages],
+                input=self._convert_messages(state._context),
                 tools=[tool.to_openai_spec() for tool in tool_defs],
                 text_format=response_format,
                 **kwargs,
@@ -142,7 +138,7 @@ class OpenAIProvider(LLMProvider):
             response: OpenAIResponse = await self.client.responses.create(
                 model=self._model,
                 instructions=state.system_message,
-                input=[message.to_dict() for message in state._messages],
+                input=self._convert_messages(state._context),
                 tools=[tool.to_openai_spec() for tool in tool_defs],
                 **kwargs,
             )

@@ -154,20 +154,57 @@ class SetEvent:
     timestamp: datetime # When the change occurred
 ```
 
+**`AppendEvent`** — triggered when an item is appended to a list-valued state field or the message context
+
+```python
+@dataclass
+class AppendEvent:
+    name: str           # Field name (or "messages" for the message context)
+    value: Any          # The item being appended
+    timestamp: datetime # When the append occurred
+```
+
+**`CompileEvent`** — triggered right before each LLM inference, over a whole list
+
+```python
+@dataclass
+class CompileEvent:
+    name: str            # Field name (or "messages")
+    value: list          # The list being compiled
+    provider: LLMProvider  # The provider about to be called (e.g. for summarization)
+    last_usage: UsageInfo | None  # Token usage from the previous inference
+    system_message: str | None    # Rendered system prompt (read-only)
+    state: _AgentState   # The owning state
+    timestamp: datetime
+```
+
 ### Handler Semantics
 
-* **Synchronous (`on_get`, `on_set`)**
+* **Synchronous (`on_get`, `on_set`, `on_append`)**
 
   * Run **before** the value is returned/stored and **block** the operation.
   * May **transform** the value by returning a replacement.
-  * May **validate** by raising an exception, which aborts the operation.
+  * May **validate** by raising an exception, which aborts the operation
+    (for `on_append`, a raise skips inserting the item).
+  * `on_set` also fires when a policied list field is mutated in place
+    (item assignment, deletion, `remove`, `pop`, `clear`).
   * **Ordering:** policies run in the order they’re declared; the first exception aborts, and later handlers do not run.
 
-* **Background (`background_get`, `background_set`)**
+* **Async compile (`on_compile`)**
+
+  * Runs right **before every LLM inference**, receiving the whole list.
+  * May return a transformed list; the result is **written back**, so effects
+    like eviction and compaction persist instead of re-running every turn.
+  * Async by design — a compile policy can call the LLM itself
+    (see `CompactionPolicy`).
+
+* **Background (`background_get`, `background_set`, `background_append`)**
 
   * Run **after** sync handlers complete and **must not** mutate stored state.
   * Intended for **side effects only**: logging, metrics, notifications, persistence.
   * Failures should be handled internally (e.g., retries/backoff); they cannot prevent an already-completed operation.
+
+Implement only the handlers you need — missing handlers are skipped.
 
 ### Execution Flow
 
@@ -424,6 +461,136 @@ class GameAgent(BaseAgent):
 
 * `update_score(150)` → tool error: `Value must be between 0 and 100`
 * `update_score(100)` → success; history appended; JSON file updated asynchronously
+
+---
+
+## Message Policies & Context Management
+
+The same `Policy` protocol also manages the agent's **message context** — the
+conversation history sent to the LLM. This is how you keep context small and
+prevent context explosion on long-running agents.
+
+### Attaching message policies
+
+Declare `__message_policies__` on the agent class:
+
+```python
+from pyagentic.policies import (
+    ToolOutputClipPolicy,
+    ToolEvictionPolicy,
+    CompactionPolicy,
+)
+
+class ResearchAgent(BaseAgent):
+    __system_message__ = "You research topics using tools."
+    __message_policies__ = [
+        ToolOutputClipPolicy(max_chars=8000),      # clip huge tool outputs on entry
+        ToolEvictionPolicy(keep_last_n=5),         # stub stale tool results
+        CompactionPolicy(max_input_tokens=80_000), # summarize when context grows
+    ]
+```
+
+`__message_policies__` is inherited by subclasses (and composable via
+`AgentExtension` mixins). Policies fire:
+
+* `on_append` / `background_append` — for each message entering the context
+  (user turns, assistant replies, tool calls/results)
+* `on_compile` — over the whole context, right before every LLM inference
+
+### Dual history: raw log vs. working context
+
+The state keeps **two** message lists:
+
+* `state._messages` — the **raw log**: every message, append-only, never touched
+  by policies. Use `state.raw_messages` (system message included) for
+  debugging and auditing.
+* `state._context` — the **working context** providers actually send. Appends run
+  through `on_append` (clipping, vetoes), and `on_compile` rewrites it in place
+  (eviction stubs, compaction summaries). Use `state.messages` for the compiled
+  view with the system message prepended.
+
+Because compile results are written back, `CompactionPolicy` summarizes once per
+threshold crossing — not on every turn — and the context keeps stable prefixes
+for provider prompt caching.
+
+### Filtering by message type
+
+Context messages are semantic types from `pyagentic.models.llm`, so policies
+filter with `isinstance`:
+
+| Type | Meaning |
+|---|---|
+| `UserMessage` / `AssistantMessage` | Conversation turns |
+| `ToolCallMessage` | LLM requested a tool (`id`, `name`, `arguments`) |
+| `ToolResultMessage` | Tool output (`tool_call_id`, `name`, content) |
+| `AgentCallMessage` / `AgentResultMessage` | Linked-agent calls — subclasses of the tool types, so generic tool policies match them too |
+| `CompactionSummaryMessage` | Summary emitted by `CompactionPolicy` |
+
+```python
+class AgentResultBudgetPolicy(Policy):
+    """Clip linked-agent responses only (a per-link context budget)."""
+
+    def on_append(self, event, item):
+        if isinstance(item, AgentResultMessage) and len(item.content or "") > 2000:
+            return item.model_copy(update={"content": item.content[:2000] + "…"})
+        return None
+```
+
+### Prewritten policies
+
+All in `pyagentic.policies`:
+
+* **`ToolOutputClipPolicy(max_chars, suffix)`** — clips oversized tool results at
+  append time, so a huge output never occupies context.
+* **`ToolEvictionPolicy(keep_last_n, stub, include_agent_results)`** — replaces
+  the content of all but the last N tool results with a stub. The message and
+  its `tool_call_id` survive (providers reject orphaned call/result pairs).
+* **`SlidingWindowPolicy(max_messages)`** — bounds the context to the most
+  recent N messages, never splitting a tool call from its result.
+* **`CompactionPolicy(max_input_tokens, keep_recent, summary_prompt)`** —
+  when the previous inference's input tokens cross the threshold, summarizes
+  older history into a single `CompactionSummaryMessage` via an LLM call.
+
+An observability policy is just an `on_compile` that records metrics and
+returns `None`:
+
+```python
+class ContextMetricsPolicy(Policy):
+    async def on_compile(self, event, items):
+        tool_chars = sum(
+            len(m.content or "") for m in items if isinstance(m, ToolResultMessage)
+        )
+        logger.info(f"context: {len(items)} messages, {tool_chars} tool chars")
+        return None
+```
+
+### List-valued state fields
+
+Policies on list-typed state fields now fire on **in-place mutations**, not just
+assignment. Appends run `on_append`; other mutations (`[i] = x`, `remove`,
+`pop`, `clear`) run `on_set` over the whole list:
+
+```python
+class NotesAgent(BaseAgent):
+    __system_message__ = "You keep notes."
+
+    notes: State[list] = spec.State(
+        default_factory=list,
+        policies=[TrimAndLowerAppendPolicy()],
+    )
+
+# agent.notes.append("  HELLO ")  -> stored as "hello", policy enforced
+```
+
+`on_compile` also runs for policied list fields before each inference, so a
+policy can e.g. cap a scratchpad list the same way it caps messages.
+
+### Statelessness rule
+
+Policy instances are attached at class-definition time and **shared across all
+agent instances and forks**. Keep them config-only: derive anything per-agent
+from the event or the list contents (e.g. `CompactionSummaryMessage` markers),
+never from attributes mutated on the policy itself.
 
 ---
 

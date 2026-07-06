@@ -13,20 +13,15 @@ from pydantic import BaseModel
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic.llm._provider import LLMProvider
-from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message, UsageInfo
-
-
-class GeminiMessage(Message):
-    """
-    Gemini-specific message format extending the base Message class.
-
-    Includes additional fields required for Gemini's API format including
-    parts-based content structure and tool calling support.
-    """
-
-    # Tool Usage
-    function_call: Optional[dict] = None
-    function_response: Optional[dict] = None
+from pyagentic.models.llm import (
+    ProviderInfo,
+    LLMResponse,
+    Message,
+    ToolCall,
+    ToolCallMessage,
+    ToolResultMessage,
+    UsageInfo,
+)
 
 
 class GeminiProvider(LLMProvider):
@@ -63,48 +58,11 @@ class GeminiProvider(LLMProvider):
         )
         self._info = ProviderInfo(name="gemini", model=model, attributes=kwargs)
 
-    def to_tool_call_message(self, tool_call: ToolCall):
-        """
-        Convert a tool call to Gemini's function call message format.
-
-        Args:
-            tool_call: The tool call to convert
-
-        Returns:
-            GeminiMessage formatted for Gemini's function calling API
-        """
-        return GeminiMessage(
-            role="model",
-            function_call={
-                "name": tool_call.name,
-                "args": json.loads(tool_call.arguments),
-            },
-        )
-
-    def to_tool_call_result_message(self, result, id_):
-        """
-        Convert a tool execution result to Gemini's function response message format.
-
-        Args:
-            result: The output from the tool execution
-            id_: The function name (Gemini uses function name as the identifier)
-
-        Returns:
-            GeminiMessage containing the function execution result
-        """
-        return GeminiMessage(
-            role="function",
-            function_response={
-                "name": id_,
-                "response": {"result": result},
-            },
-        )
-
     def _convert_messages_to_gemini_format(
         self, messages: List[Message]
     ) -> tuple[Optional[str], List[dict]]:
         """
-        Convert pyagentic messages to Gemini's content format.
+        Convert semantic messages to Gemini's content format.
 
         Args:
             messages: List of Message objects from the agent context
@@ -116,36 +74,47 @@ class GeminiProvider(LLMProvider):
         system_instruction = None
 
         for message in messages:
-            msg_dict = message.to_dict()
-
-            # Extract system message
-            if msg_dict.get("role") == "system":
-                system_instruction = msg_dict.get("content")
-                continue
-
-            # Handle function calls
-            if hasattr(message, "function_call") and message.function_call:
+            if isinstance(message, ToolCallMessage):
                 gemini_messages.append(
-                    {"role": "model", "parts": [{"function_call": message.function_call}]}
+                    {
+                        "role": "model",
+                        "parts": [
+                            {
+                                "function_call": {
+                                    "name": message.name,
+                                    "args": (
+                                        json.loads(message.arguments) if message.arguments else {}
+                                    ),
+                                }
+                            }
+                        ],
+                    }
                 )
-            # Handle function responses
-            elif hasattr(message, "function_response") and message.function_response:
+            elif isinstance(message, ToolResultMessage):
+                # Gemini keys function responses by function NAME, not call id
                 gemini_messages.append(
                     {
                         "role": "function",
-                        "parts": [{"function_response": message.function_response}],
+                        "parts": [
+                            {
+                                "function_response": {
+                                    "name": message.name,
+                                    "response": {"result": message.content},
+                                }
+                            }
+                        ],
                     }
                 )
-            # Handle regular messages
+            elif message.role == "system":
+                system_instruction = message.content
             else:
-                role = msg_dict.get("role", "user")
+                role = message.role or "user"
                 # Map roles: assistant -> model, user -> user
                 if role == "assistant":
                     role = "model"
 
-                content = msg_dict.get("content")
-                if content:
-                    gemini_messages.append({"role": role, "parts": [{"text": content}]})
+                if message.content:
+                    gemini_messages.append({"role": role, "parts": [{"text": message.content}]})
 
         return system_instruction, gemini_messages
 
@@ -205,7 +174,7 @@ class GeminiProvider(LLMProvider):
 
         # Convert messages to Gemini format
         system_instruction, gemini_messages = self._convert_messages_to_gemini_format(
-            state._messages
+            state._context
         )
 
         # Update model configuration if system instruction exists

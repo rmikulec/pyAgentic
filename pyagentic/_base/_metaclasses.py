@@ -756,13 +756,24 @@ class AgentMeta(type):
         ]
 
         # Create a Pydantic model for the agent's state
+        if "messages" in cls.__state_defs__:
+            raise ValueError(
+                f"Agent '{cls.__name__}' declares a state field named 'messages', which is "
+                "reserved for the message context (it collides with the `messages` property "
+                "and the message-policy registry). Rename the field."
+            )
         StateClass = _AgentState.make_state_model(
             name=cls.__name__, state_definitions=cls.__state_defs__
         )
-        # Attach policies to the state class for runtime policy enforcement
+        # Attach policies to the state class for runtime policy enforcement.
+        # Message policies (from __message_policies__) register under the
+        # reserved "messages" key, alongside per-field state policies.
         StateClass.__policies__ = {
             name: def_.info.policies for name, def_ in cls.__state_defs__.items()
         }
+        StateClass.__policies__["messages"] = tuple(
+            (inherited_namespace | namespace).get("__message_policies__") or ()
+        )
 
         # Create the final agent response model
         ResponseModel = AgentResponse.from_agent_class(

@@ -12,6 +12,8 @@ class EventKind(Enum):
     INIT = auto()
     GET = auto()
     SET = auto()
+    APPEND = auto()
+    COMPILE = auto()
     DELETE = auto()
     TIMER = auto()
 
@@ -67,3 +69,34 @@ class SetEvent(Event):
 
     kind: EventKind = EventKind.SET
     previous: Any = None  # Optional context: previous stored value
+
+
+@dataclass
+class AppendEvent(Event):
+    """
+    Represents appending an item to a list-valued state field or to the
+    agent's message context. `value` holds the item being appended.
+    """
+
+    kind: EventKind = EventKind.APPEND
+
+
+@dataclass
+class CompileEvent(Event):
+    """
+    Fired right before each LLM inference, letting policies transform a whole
+    list (the message context, or a list-valued state field). `value` holds
+    the list being compiled.
+
+    Extra context:
+        provider: The LLM provider about to be called (usable for e.g. summarization)
+        last_usage: Token usage from the previous inference, if any
+        system_message: The rendered system prompt (read-only; policies cannot change it)
+        state: The agent state owning the list
+    """
+
+    kind: EventKind = EventKind.COMPILE
+    provider: Any = None
+    last_usage: Any = None
+    system_message: Optional[str] = None
+    state: Any = None

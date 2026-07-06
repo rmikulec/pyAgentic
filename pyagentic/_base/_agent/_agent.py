@@ -31,7 +31,15 @@ if TYPE_CHECKING:
     from pyagentic._base._mcp import _MCPDefinition
 
 from pyagentic.models.response import ToolResponse, AgentResponse, ErrorResponse
-from pyagentic.models.llm import Message, ToolCall, LLMResponse
+from pyagentic.models.llm import (
+    AgentCallMessage,
+    AgentResultMessage,
+    AssistantMessage,
+    LLMResponse,
+    ToolCall,
+    ToolCallMessage,
+    ToolResultMessage,
+)
 from pyagentic.models.tracing import SpanKind
 
 from pyagentic.updates import AiUpdate, Status, EmitUpdate, ToolUpdate
@@ -171,6 +179,7 @@ class BaseAgent(metaclass=AgentMeta):
     __description__: ClassVar[str]  # Optional: description for linked agents
     __input_template__: ClassVar[str] = None  # Optional: template for user input
     __response_format__: ClassVar[Type[BaseModel]] = None  # Optional: structured output format
+    __message_policies__: ClassVar[list] = None  # Optional: policies on the message context
     phases: ClassVar[list[tuple[str, str, Callable]]] = None
 
     # Generated Class Attributes (built by metaclass)
@@ -469,12 +478,17 @@ class BaseAgent(metaclass=AgentMeta):
         )
 
         try:
+            # Run attached policies (eviction, compaction, ...) over the message
+            # context and policied list state fields before the provider reads them
+            await self.state.compile_context(self.provider)
+
             response = await self.provider.generate(
                 state=self.state,
                 tool_defs=tool_defs,
                 response_format=self.__response_format__,
                 **kwargs,
             )
+            self.state._last_usage = response.usage
             usage_details = response.usage.model_dump() if response.usage else {}
             self.tracer.set_attributes(
                 usage_details=usage_details, model=self.provider._model
@@ -484,8 +498,8 @@ class BaseAgent(metaclass=AgentMeta):
             # Handle inference errors gracefully
             logger.exception(e)
             # Add error message to conversation history
-            self.state._messages.append(
-                Message(role="assistant", content="Failed to generate a response")
+            self.state.add_message(
+                AssistantMessage(content="Failed to generate a response")
             )
             response = LLMResponse(
                 text=f"The LLM failed to generate a response: {e}", tool_calls=[]
@@ -512,8 +526,10 @@ class BaseAgent(metaclass=AgentMeta):
         )
         logger.info(f"Calling {tool_call.name} with kwargs: {tool_call.arguments}")
 
-        # Add tool call message to conversation history
-        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
+        # Add agent call message to conversation history
+        self.state.add_message(
+            AgentCallMessage(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
+        )
 
         # By default each call runs on a fresh, isolated fork of the linked agent
         # so concurrent/repeated calls neither race nor pollute one another. A
@@ -547,8 +563,10 @@ class BaseAgent(metaclass=AgentMeta):
             if issubclass(result.__class__, BaseModel)
             else str(result)
         )
-        self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=stringified_result, id_=tool_call.id)
+        self.state.add_message(
+            AgentResultMessage(
+                tool_call_id=tool_call.id, name=tool_call.name, content=stringified_result
+            )
         )
         if self.phases:
             self.state._update_state_machine(phases=self.phases)
@@ -575,7 +593,9 @@ class BaseAgent(metaclass=AgentMeta):
             return await self._process_mcp_tool_call(tool_call, call_depth)
 
         # Add tool call message to conversation history
-        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
+        self.state.add_message(
+            ToolCallMessage(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
+        )
 
         # Look up the tool definition and bound method
         try:
@@ -622,8 +642,8 @@ class BaseAgent(metaclass=AgentMeta):
                 if issubclass(result.__class__, BaseModel)
                 else str(result)
             )
-        self.state._messages.append(
-            self.provider.to_tool_call_result_message(result=message, id_=tool_call.id)
+        self.state.add_message(
+            ToolResultMessage(tool_call_id=tool_call.id, name=tool_call.name, content=message)
         )
 
         if self.phases:
@@ -652,8 +672,10 @@ class BaseAgent(metaclass=AgentMeta):
         Returns:
             ToolResponse: The response from the MCP tool execution.
         """
-        # Add tool call to conversation history (provider-specific format)
-        self.state._messages.append(self.provider.to_tool_call_message(tool_call))
+        # Add tool call to conversation history
+        self.state.add_message(
+            ToolCallMessage(id=tool_call.id, name=tool_call.name, arguments=tool_call.arguments)
+        )
 
         client, original_name = self._mcp_tool_routing[tool_call.name]
         kwargs = json.loads(tool_call.arguments)
@@ -676,9 +698,11 @@ class BaseAgent(metaclass=AgentMeta):
             error = f"MCP tool `{tool_call.name}` failed: {e}. Please kindly state to the user that it failed, provide state, and ask if they want to try again."  # noqa E501
 
         # Add result (or error) to conversation history
-        self.state._messages.append(
-            self.provider.to_tool_call_result_message(
-                result=error if error is not None else result, id_=tool_call.id
+        self.state.add_message(
+            ToolResultMessage(
+                tool_call_id=tool_call.id,
+                name=tool_call.name,
+                content=error if error is not None else result,
             )
         )
 
@@ -807,7 +831,7 @@ class BaseAgent(metaclass=AgentMeta):
                 # If the model produced final text without tool calls, we're done
                 if not response.tool_calls:
                     final_ai_output = response.parsed if response.parsed else response.text
-                    self.state._messages.append(Message(role="assistant", content=response.text))
+                    self.state.add_message(AssistantMessage(content=response.text))
                     break
 
                 tasks = []

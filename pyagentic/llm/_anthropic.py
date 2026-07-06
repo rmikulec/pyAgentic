@@ -13,22 +13,14 @@ from pydantic import BaseModel
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
 from pyagentic.llm._provider import LLMProvider
-from pyagentic.models.llm import ProviderInfo, LLMResponse, ToolCall, Message
-
-
-class AnthropicMessage(Message):
-    """
-    Anthropic-specific message format extending the base Message class.
-
-    Includes additional fields required for Anthropic's API format including
-    tool use handling and proper message structuring for Claude models.
-    """
-
-    # Tool Usage
-    id: Optional[str] = None
-    name: Optional[str] = None
-    input: Optional[dict | str] = None
-    tool_use_id: Optional[str] = None
+from pyagentic.models.llm import (
+    ProviderInfo,
+    LLMResponse,
+    Message,
+    ToolCall,
+    ToolCallMessage,
+    ToolResultMessage,
+)
 
 
 class AnthropicProvider(LLMProvider):
@@ -54,35 +46,54 @@ class AnthropicProvider(LLMProvider):
         self.client = anthropic.AsyncAnthropic(api_key=api_key, **kwargs)
         self._info = ProviderInfo(name="anthropic", model=model, attributes=kwargs)
 
-    def to_tool_call_message(self, tool_call: ToolCall):
+    def _convert_messages(self, messages: List[Message]) -> List[dict]:
         """
-        Convert a tool call to Anthropic's tool use message format.
+        Convert semantic messages to Anthropic's message format.
+
+        Anthropic requires consecutive tool_use blocks merged into one assistant
+        message and consecutive tool_result blocks merged into one user message
+        (needed for parallel tool calls).
 
         Args:
-            tool_call: The tool call to convert
+            messages (List[Message]): Semantic message history from the agent context.
 
         Returns:
-            AnthropicMessage formatted for Anthropic's tool use API
+            List[dict]: Messages formatted for Anthropic's API.
         """
-        return AnthropicMessage(
-            type="tool_use",
-            id=tool_call.id,
-            name=tool_call.name,
-            input=json.loads(tool_call.arguments),
-        )
-
-    def to_tool_call_result_message(self, result, id_):
-        """
-        Convert a tool execution result to Anthropic's tool result message format.
-
-        Args:
-            result: The output from the tool execution
-            id_: The tool use ID to associate with this result
-
-        Returns:
-            AnthropicMessage containing the tool execution result
-        """
-        return AnthropicMessage(type="tool_result", tool_use_id=id_, content=result)
+        converted = []
+        for message in messages:
+            if isinstance(message, ToolCallMessage):
+                block = {
+                    "type": "tool_use",
+                    "id": message.id,
+                    "name": message.name,
+                    "input": json.loads(message.arguments) if message.arguments else {},
+                }
+                if (
+                    converted
+                    and converted[-1]["role"] == "assistant"
+                    and isinstance(converted[-1].get("content"), list)
+                ):
+                    converted[-1]["content"].append(block)
+                else:
+                    converted.append({"role": "assistant", "content": [block]})
+            elif isinstance(message, ToolResultMessage):
+                block = {
+                    "type": "tool_result",
+                    "tool_use_id": message.tool_call_id,
+                    "content": message.content or "",
+                }
+                if (
+                    converted
+                    and converted[-1]["role"] == "user"
+                    and isinstance(converted[-1].get("content"), list)
+                ):
+                    converted[-1]["content"].append(block)
+                else:
+                    converted.append({"role": "user", "content": [block]})
+            else:
+                converted.append({"role": message.role, "content": message.content or ""})
+        return converted
 
     async def generate(
         self,
@@ -108,32 +119,7 @@ class AnthropicProvider(LLMProvider):
         Returns:
             LLMResponse containing generated text, parsed data, tool calls, and metadata
         """
-        # Convert messages to Anthropic format.
-        # Anthropic requires consecutive tool_use blocks merged into one
-        # assistant message and consecutive tool_result blocks merged into
-        # one user message (needed for parallel tool calls).
-        messages = []
-
-        for message in state._messages:
-            msg_dict = message.to_dict()
-            if msg_dict.get("type") == "tool_use":
-                # Merge consecutive tool_use blocks into one assistant message
-                if messages and messages[-1]["role"] == "assistant" and isinstance(
-                    messages[-1].get("content"), list
-                ):
-                    messages[-1]["content"].append({**msg_dict})
-                else:
-                    messages.append({"role": "assistant", "content": [{**msg_dict}]})
-            elif msg_dict.get("type") == "tool_result":
-                # Merge consecutive tool_result blocks into one user message
-                if messages and messages[-1]["role"] == "user" and isinstance(
-                    messages[-1].get("content"), list
-                ):
-                    messages[-1]["content"].append({**msg_dict})
-                else:
-                    messages.append({"role": "user", "content": [{**msg_dict}]})
-            else:
-                messages.append(msg_dict)
+        messages = self._convert_messages(state._context)
 
         # Prepare request parameters
         request_params = {

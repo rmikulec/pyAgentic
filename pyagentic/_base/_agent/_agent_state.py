@@ -9,9 +9,10 @@ from transitions import Machine
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
 from pyagentic.policies._policy import Policy
-from pyagentic.policies._events import Event, EventKind, GetEvent, SetEvent
+from pyagentic.policies._events import Event, EventKind, GetEvent, SetEvent, CompileEvent
+from pyagentic.policies._list import PolicyList
 
-from pyagentic.models.llm import Message
+from pyagentic.models.llm import Message, SystemMessage, UserMessage, UsageInfo
 
 
 class _AgentState(BaseModel):
@@ -25,13 +26,18 @@ class _AgentState(BaseModel):
         ("background", EventKind.GET): "background_get",
         ("on", EventKind.SET): "on_set",
         ("background", EventKind.SET): "background_set",
+        ("on", EventKind.APPEND): "on_append",
+        ("background", EventKind.APPEND): "background_append",
     }
-    __policies__: ClassVar[dict[str, list[Policy]]]
+    __policies__: ClassVar[dict[str, list[Policy]]] = {}
 
     instructions: str
     input_template: Optional[str] = "{{ user_message }}"
+
     _machine: Machine = PrivateAttr(default=None)
     _messages: list[Message] = PrivateAttr(default_factory=list)
+    _context: list[Message] = PrivateAttr(default_factory=list)
+    _last_usage: Optional[UsageInfo] = PrivateAttr(default=None)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
     _input_template: Template = PrivateAttr(
         default_factory=lambda: Template(source="{{ user_message }}")
@@ -72,6 +78,20 @@ class _AgentState(BaseModel):
             self._input_template = Template(source=self.input_template)
 
         self._state_lock = threading.Lock()
+
+        # Bind the message context to the "messages" policy key so appends and
+        # compiles route through any attached message policies
+        self._context = PolicyList(self._context, state=self, name="messages")
+
+        # Wrap list-valued state fields that have policies attached, so in-place
+        # mutations (append, etc.) trigger the policy pipeline
+        for field_name, policies in self.__policies__.items():
+            if field_name == "messages" or not policies:
+                continue
+            value = getattr(self, field_name, None)
+            if isinstance(value, list) and not isinstance(value, PolicyList):
+                setattr(self, field_name, PolicyList(value, state=self, name=field_name))
+
         return super().model_post_init(state)
 
     def get_policies(self, state_name: str) -> list[Policy]:
@@ -84,7 +104,7 @@ class _AgentState(BaseModel):
         Returns:
             list[Policy]: List of policies for the field, or empty list if none
         """
-        return self.__policies__.get(state_name, [])
+        return self.__policies__.get(state_name) or []
 
     def _run_policies(self, event: Event, policy_type: Literal["on", "background"]) -> Any:
         """
@@ -114,7 +134,9 @@ class _AgentState(BaseModel):
             if not handler_name:
                 raise ValueError(f"No handler for ({policy_type}, {event.kind})")
 
-            handler = getattr(policy, handler_name)
+            handler = getattr(policy, handler_name, None)
+            if handler is None:
+                continue
 
             if policy_type != "on":
                 raise RuntimeError("_run_policies is only for synchronous 'on' policies")
@@ -154,7 +176,9 @@ class _AgentState(BaseModel):
             if not handler_name:
                 raise ValueError(f"No handler for ({policy_type}, {event.kind})")
 
-            handler = getattr(policy, handler_name)
+            handler = getattr(policy, handler_name, None)
+            if handler is None:
+                continue
 
             try:
                 maybe_new_value = await handler(event, value)
@@ -188,8 +212,18 @@ class _AgentState(BaseModel):
 
         event = GetEvent(name=name, value=stored_value)
         transformed_value = self._run_policies(event, "on")
-        asyncio.create_task(self._dispatch_policies(event, "background"))
+        self._schedule_background(event)
         return transformed_value
+
+    def _schedule_background(self, event: Event):
+        """Schedule background policies on the running loop; skip in sync contexts."""
+        if not self.get_policies(event.name):
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        loop.create_task(self._dispatch_policies(event, "background"))
 
     def set(self, name: str, value: Any):
         """
@@ -210,9 +244,87 @@ class _AgentState(BaseModel):
         event = SetEvent(name=name, previous=previous, value=value)
         final_value = self._run_policies(event, "on")
 
+        # Keep policied list fields observable so in-place mutations keep
+        # routing through the policy pipeline
+        if (
+            isinstance(final_value, list)
+            and not isinstance(final_value, PolicyList)
+            and self.get_policies(name)
+        ):
+            final_value = PolicyList(final_value, state=self, name=name)
+
         with self._state_lock:
             setattr(self, name, final_value)
-        asyncio.create_task(self._dispatch_policies(event, "background"))
+        self._schedule_background(event)
+
+    async def _run_compile(self, event: CompileEvent, items: list) -> list:
+        """
+        Run the async on_compile pipeline for one list. Each policy may return a
+        transformed list (or None for no change); exceptions are logged and skipped.
+        """
+        value = items
+        for policy in self.get_policies(event.name):
+            handler = getattr(policy, "on_compile", None)
+            if handler is None:
+                continue
+            try:
+                new_value = await handler(event, value)
+                if new_value is not None:
+                    value = new_value
+            except Exception as e:
+                print(f"[PolicyError] {policy.__class__.__name__}.on_compile failed: {e}")
+        return value
+
+    async def compile_context(self, provider) -> list[Message]:
+        """
+        Compiles the message context (and any policied list-valued state fields)
+        by running attached policies' on_compile handlers. Called right before
+        each LLM inference; the transformed lists are written back, so policies
+        like eviction and compaction persist their effect.
+
+        Args:
+            provider: The LLM provider about to be called, exposed to policies
+                via CompileEvent (e.g. for summarization calls).
+
+        Returns:
+            list[Message]: The compiled message context providers should send.
+        """
+        # Compile policied list-valued state fields first so the system message
+        # (rendered from state) reflects their final contents
+        for field_name, policies in self.__policies__.items():
+            if field_name == "messages" or not policies:
+                continue
+            value = getattr(self, field_name, None)
+            if not isinstance(value, list):
+                continue
+            event = CompileEvent(
+                name=field_name,
+                value=list(value),
+                provider=provider,
+                last_usage=self._last_usage,
+                state=self,
+            )
+            result = await self._run_compile(event, list(value))
+            with self._state_lock:
+                if isinstance(value, PolicyList):
+                    value._set_contents(result)
+                else:
+                    setattr(self, field_name, result)
+
+        if self.get_policies("messages"):
+            event = CompileEvent(
+                name="messages",
+                value=list(self._context),
+                provider=provider,
+                last_usage=self._last_usage,
+                system_message=self.system_message,
+                state=self,
+            )
+            result = await self._run_compile(event, list(self._context))
+            with self._state_lock:
+                self._context._set_contents(result)
+
+        return self._context
 
     @classmethod
     def make_state_model(
@@ -287,14 +399,42 @@ class _AgentState(BaseModel):
     @property
     def messages(self) -> list[Message]:
         """
-        Returns a list of OpenAI-ready messages with the most up-to-date system message.
+        Returns the compiled message context with the most up-to-date system message.
+
+        This is the policy-shaped view providers consume; see `raw_messages` for the
+        untouched history.
 
         Returns:
-            list[Message]: Complete message list with system message prepended
+            list[Message]: Compiled message context with system message prepended
+        """
+        messages = self._context.copy()
+        messages.insert(0, SystemMessage(content=self.system_message))
+        return messages
+
+    @property
+    def raw_messages(self) -> list[Message]:
+        """
+        Returns the raw, append-only message history with the most up-to-date
+        system message. Policies never modify this list; use it for debugging
+        and auditing what actually happened.
+
+        Returns:
+            list[Message]: Raw message history with system message prepended
         """
         messages = self._messages.copy()
-        messages.insert(0, Message(role="system", content=self.system_message))
+        messages.insert(0, SystemMessage(content=self.system_message))
         return messages
+
+    def add_message(self, message: Message) -> None:
+        """
+        Adds a message to both histories: the raw append-only log (`_messages`)
+        and the working context (`_context`) that providers consume.
+
+        Args:
+            message (Message): The message to record.
+        """
+        self._messages.append(message)
+        self._context.append(message)
 
     def add_user_message(self, message: str):
         """
@@ -311,9 +451,9 @@ class _AgentState(BaseModel):
             data = self.model_dump()
             data["user_message"] = message
             if self.phase:
-                content = self._input_template.render(phase=self.phase, **self.model_dump())
+                content = self._input_template.render(phase=self.phase, **data)
             else:
-                content = self._input_template.render(**self.model_dump())
+                content = self._input_template.render(**data)
         else:
             content = message
-        self._messages.append(Message(role="user", content=content))
+        self.add_message(UserMessage(content=content))
