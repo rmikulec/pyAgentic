@@ -327,11 +327,11 @@ Policies execute in order when state changes:
 1. **ScoreValidationPolicy** - Ensures score is between 0-100 (raises error if not)
 2. **ChangeHistoryPolicy** - Records the change in an in-memory history
 
-See the **[Policies documentation](policies.md)** for:
-- Complete guide to the Policy protocol
-- 7+ patterns for building policies (validation, transformation, history, persistence, etc.)
+See the **[Policies documentation](policies/index.md)** for:
+- Complete guide to the Policy protocol and its events
+- [Built-in policies](policies/built-in.md) for context management (clip, evict, window, compact)
+- [Writing custom policies](policies/custom.md) — validation, transformation, redaction, persistence
 - Async vs sync handlers with execution flow diagrams
-- Best practices and common use cases
 
 ## Best Practices
 
@@ -489,6 +489,6 @@ class Agent(BaseAgent):
 
 ## Next Steps
 
-- Learn about [Policies](policies.md) for advanced state management
+- Learn about [Policies](policies/index.md) for advanced state management
 - Explore [Agent Linking](agent-linking.md) to share state between agents
 - See [Structured Outputs](structured-output.md) for validating agent responses
