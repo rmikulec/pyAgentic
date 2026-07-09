@@ -4,7 +4,7 @@ Prewritten message-context policies for managing agent context growth.
 Attach these to an agent via the `__message_policies__` class attribute:
 
     class MyAgent(BaseAgent):
-        __system_message__ = "..."
+        __instructions__ = "..."
         __message_policies__ = [
             ToolOutputClipPolicy(max_chars=8000),
             ToolEvictionPolicy(keep_last_n=5),

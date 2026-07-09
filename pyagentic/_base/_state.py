@@ -27,7 +27,7 @@ class State(Generic[T]):
             message_count: int = 0
 
         class ChatAgent(BaseAgent):
-            __system_message__ = "You are a chatbot"
+            __instructions__ = "You are a chatbot"
 
             # Simple state field
             conversation: State[ConversationState]

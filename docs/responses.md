@@ -9,6 +9,7 @@ Every agent response is a Pydantic model with a predictable structure:
 - `final_output: str` - The natural language response from the LLM
 - `tool_responses: List[ToolResponse]` - Details of any tools called (if agent has tools)
 - `agent_responses: List[AgentResponse]` - Responses from linked agents (if agent has linked agents)
+- `prompt: PromptSource` - The prompt behind the agent's instructions, with source and version metadata
 
 The response model is predetermined when the agent class is defined. Each agent automatically gets its own response class that knows exactly what tools and linked agents it can use. This means you get full type safety and IDE autocompletion before you ever run the agent.
 
@@ -88,3 +89,17 @@ response.agent_responses[0].final_output # Database agent response
 ```
 
 This nested structure lets you trace exactly what each agent did and access the results of any sub-agent calls. The parent agent's response includes both its own tool calls and the complete responses from any linked agents it used.
+
+## Prompt Provenance
+
+Every response records which prompt produced it in the `prompt` field. For instructions loaded from a [prompt engine](prompts.md), the version comes from the engine; plain-string instructions get an `inline` source named after the agent, versioned by content hash:
+
+```python
+response = await agent.run("hello")
+
+response.prompt.source       # ".prompts/researcher/v2.md" or "ResearchAgent"
+response.prompt.source_type  # "local" or "inline"
+response.prompt.version      # "v2" or a content hash
+```
+
+Since the version is always populated, you can group or diff runs by prompt version — useful when evaluating prompt changes across a set of conversations.

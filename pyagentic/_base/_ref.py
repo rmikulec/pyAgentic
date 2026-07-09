@@ -79,7 +79,7 @@ class _RefRoot:
         from pyagentic import ref
 
         class Agent(BaseAgent):
-            __system_message__ = "You are helpful"
+            __instructions__ = "You are helpful"
             conversation: State[Conversation]
 
             @tool("Continue the conversation")

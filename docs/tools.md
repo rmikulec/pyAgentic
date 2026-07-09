@@ -20,7 +20,7 @@ The simplest tool is a method decorated with `@tool` that returns a string:
 from pyagentic import BaseAgent, tool
 
 class ResearchAgent(BaseAgent):
-    __system_message__ = "I help with research tasks"
+    __instructions__ = "I help with research tasks"
 
     @tool("Search for academic papers on a topic")
     def search_papers(self, query: str) -> str:
@@ -46,7 +46,7 @@ Tools can accept any number of typed parameters. PyAgentic automatically generat
 
 ```python
 class DataAgent(BaseAgent):
-    __system_message__ = "I analyze data"
+    __instructions__ = "I analyze data"
 
     @tool("Query database with filters")
     def query_data(
@@ -83,7 +83,7 @@ Use `spec.Param()` to add descriptions, defaults, and constraints to parameters:
 from pyagentic import spec
 
 class FileAgent(BaseAgent):
-    __system_message__ = "I manage files"
+    __instructions__ = "I manage files"
 
     @tool("Read a file from the system")
     def read_file(
@@ -132,7 +132,7 @@ class SearchOptions(BaseModel):
     case_sensitive: bool = Field(default=False, description="Case sensitive search")
 
 class SearchAgent(BaseAgent):
-    __system_message__ = "I search databases"
+    __instructions__ = "I search databases"
 
     @tool("Search with advanced options")
     def search(self, options: SearchOptions) -> str:
@@ -163,7 +163,7 @@ class Task(BaseModel):
     tags: list[str] = Field(default_factory=list, description="Task tags")
 
 class TaskAgent(BaseAgent):
-    __system_message__ = "I manage tasks"
+    __instructions__ = "I manage tasks"
 
     @tool("Create multiple tasks at once")
     def create_tasks(self, tasks: list[Task]) -> str:
@@ -191,7 +191,7 @@ class FileSystemState(BaseModel):
         return [f.split('/')[-1] for f in self.available_files]
 
 class FileAgent(BaseAgent):
-    __system_message__ = "I manage files in the current directory"
+    __instructions__ = "I manage files in the current directory"
 
     filesystem: State[FileSystemState] = spec.State(default_factory=FileSystemState)
 
@@ -261,7 +261,7 @@ Tools have full access to agent state via `self`:
 
 ```python
 class ResearchAgent(BaseAgent):
-    __system_message__ = "I research papers"
+    __instructions__ = "I research papers"
 
     paper_count: State[int] = spec.State(default=0)
     current_topic: State[str] = spec.State(default="general")
@@ -288,7 +288,7 @@ Tools can be async functions for I/O operations:
 
 ```python
 class APIAgent(BaseAgent):
-    __system_message__ = "I call external APIs"
+    __instructions__ = "I call external APIs"
 
     @tool("Fetch data from external API")
     async def fetch_data(self, endpoint: str) -> str:
@@ -311,7 +311,7 @@ Tools can be conditionally included based on state using the `condition` paramet
 
 ```python
 class WorkflowAgent(BaseAgent):
-    __system_message__ = "I manage workflows"
+    __instructions__ = "I manage workflows"
 
     workflow_stage: State[str] = spec.State(default="initial")
 

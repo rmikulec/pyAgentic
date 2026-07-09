@@ -48,3 +48,21 @@ Complete API documentation for PyAgentic's public interfaces.
 ### ref
 
 ::: pyagentic.ref
+
+## Prompt Management
+
+### PromptEngine
+
+::: pyagentic.PromptEngine
+
+### LocalPromptEngine
+
+::: pyagentic.LocalPromptEngine
+
+### PromptRef
+
+::: pyagentic.PromptRef
+
+### PromptSource
+
+::: pyagentic.PromptSource

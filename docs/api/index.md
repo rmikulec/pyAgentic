@@ -26,7 +26,7 @@ from pyagentic.api import create_app
 
 
 class AssistantAgent(BaseAgent):
-    __system_message__ = "You are a helpful assistant."
+    __instructions__ = "You are a helpful assistant."
 
     @tool("Add two numbers")
     def add(self, a: int, b: int) -> str:

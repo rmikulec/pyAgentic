@@ -19,7 +19,7 @@ Attach them to an agent with the `__message_policies__` class attribute:
 
 ```python
 class ResearchAgent(BaseAgent):
-    __system_message__ = "You research topics using tools."
+    __instructions__ = "You research topics using tools."
     __message_policies__ = [
         ToolOutputClipPolicy(max_chars=8000),
         ToolEvictionPolicy(keep_last_n=5),

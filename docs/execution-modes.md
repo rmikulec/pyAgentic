@@ -35,7 +35,7 @@ The real power of `__call__` is that you can override it to accept typed paramet
 from typing import Optional
 
 class CoursePlannerAgent(BaseAgent):
-    __system_message__ = "You design course curricula"
+    __instructions__ = "You design course curricula"
     __description__ = "Creates structured course plans based on learning goals"
     __response_format__ = CoursePlan
 
@@ -79,7 +79,7 @@ When you link an agent to another agent, PyAgentic extracts the parameters from 
 
 ```python
 class AssistantAgent(BaseAgent):
-    __system_message__ = "You help students with learning plans"
+    __instructions__ = "You help students with learning plans"
 
     # Link the course planner
     planner: CoursePlannerAgent

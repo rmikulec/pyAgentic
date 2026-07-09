@@ -1,13 +1,14 @@
 import asyncio
 import threading
 from typing import Any, Type, Self, Optional, ClassVar
-from pydantic import BaseModel, create_model, Field, PrivateAttr, computed_field
+from pydantic import BaseModel, ConfigDict, create_model, Field, PrivateAttr
 from jinja2 import Template
 from typing import Optional, Literal, Callable
 from transitions import Machine
 
 from pyagentic._base._exceptions import InvalidStateRefNotFoundInState
 from pyagentic._base._state import _StateDefinition
+from pyagentic._base._prompts import PromptRef, PromptSource, _inline_source
 from pyagentic.policies._policy import Policy
 from pyagentic.policies._events import Event, EventKind, GetEvent, SetEvent, CompileEvent
 from pyagentic.policies._list import PolicyList
@@ -30,14 +31,18 @@ class _AgentState(BaseModel):
         ("background", EventKind.APPEND): "background_append",
     }
     __policies__: ClassVar[dict[str, list[Policy]]] = {}
+    __agent_name__: ClassVar[str] = ""
 
-    instructions: str
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    instructions: str | PromptRef
     input_template: Optional[str] = "{{ user_message }}"
 
     _machine: Machine = PrivateAttr(default=None)
     _messages: list[Message] = PrivateAttr(default_factory=list)
     _context: list[Message] = PrivateAttr(default_factory=list)
     _last_usage: Optional[UsageInfo] = PrivateAttr(default=None)
+    _prompt_source: Optional[PromptSource] = PrivateAttr(default=None)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
     _input_template: Template = PrivateAttr(
         default_factory=lambda: Template(source="{{ user_message }}")
@@ -73,6 +78,18 @@ class _AgentState(BaseModel):
                     getattr(self._machine, trigger)()
 
     def model_post_init(self, state):
+        # Instructions declared as a PromptRef resolve here, at instantiation, so
+        # every new agent instance (and every fork) picks up the latest prompt.
+        # Plain strings get an "inline" PromptSource so every run still carries
+        # versioned prompt metadata.
+        if isinstance(self.instructions, PromptRef):
+            self._prompt_source = self.instructions.resolve()
+            self.instructions = self._prompt_source.text
+        else:
+            self._prompt_source = _inline_source(
+                self.instructions, source=self.__agent_name__ or type(self).__name__
+            )
+
         self._instructions_template = Template(source=self.instructions)
         if self.input_template:
             self._input_template = Template(source=self.input_template)
@@ -364,7 +381,10 @@ class _AgentState(BaseModel):
                 raise RuntimeError(f"Unexpected ctx_map entry for {_name!r}: {definition!r}")
 
         # now build the dataclass
-        return create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
+        model = create_model(f"AgentState[{name}]", __base__=cls, **pydantic_fields)
+        # Used as the PromptSource `source` for inline (plain string) instructions
+        model.__agent_name__ = name
+        return model
 
     @property
     def phase(self) -> str:
@@ -379,6 +399,18 @@ class _AgentState(BaseModel):
             Message: The last message added to the state
         """
         return self._messages[-1]
+
+    @property
+    def prompt_source(self) -> PromptSource:
+        """
+        Returns metadata about the prompt behind the instructions: the engine it
+        was loaded from (source_type "local", ...), or an "inline" source named
+        after the agent for instructions declared as a plain string.
+
+        Returns:
+            PromptSource: The prompt text plus source, version, and load-time metadata.
+        """
+        return self._prompt_source
 
     @property
     def system_message(self) -> str:

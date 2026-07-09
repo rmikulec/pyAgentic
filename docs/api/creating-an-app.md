@@ -69,7 +69,7 @@ agent class, exactly where you'd otherwise put `State[...]`:
 from pyagentic import BaseAgent, State, Depends
 
 class ResearchAgent(BaseAgent):
-    __system_message__ = "You research topics."
+    __instructions__ = "You research topics."
 
     topic: State[Topic]        # client-provided per session
     db:    Depends[Database]    # injected server-side, never sent by clients
