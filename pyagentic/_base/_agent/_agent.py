@@ -24,6 +24,7 @@ from pyagentic._base._state import _StateDefinition
 from pyagentic._base._metaclasses import AgentMeta
 from pyagentic._base._exceptions import InvalidLLMSetup, InvalidToolDefinition
 from pyagentic._base._info import _SpecInfo
+from pyagentic._base._prompts import PromptRef
 from pyagentic._base._agent._agent_state import _AgentState
 
 if TYPE_CHECKING:
@@ -91,7 +92,7 @@ class AgentExtension:
                 return f"Logged: {message}"
 
         class MyAgent(BaseAgent, LoggingMixin):
-            __system_message__ = "You are a helpful agent with logging"
+            __instructions__ = "You are a helpful agent with logging"
         ```
     """
 
@@ -127,7 +128,10 @@ class BaseAgent(metaclass=AgentMeta):
 
     Agent definition requires the use of special decorators and class attributes:
       - @tool: Declares a method as a tool callable by the LLM
-      - __system_message__: Required class attribute defining the agent's system prompt
+      - __instructions__: Required class attribute defining the agent's instructions,
+            either as a string or a PromptRef from a PromptEngine. Rendered with state
+            into the system message sent to the LLM. (__system_message__ is the
+            deprecated spelling.)
       - __description__: Optional description used when agent is linked to another agent
       - __input_template__: Optional template for formatting user input
       - __response_format__: Optional Pydantic model for structured output
@@ -175,7 +179,8 @@ class BaseAgent(metaclass=AgentMeta):
     __dependencies__: ClassVar[dict[str, type]]  # Depends[T] field -> dependency type
 
     # User-set Class Attributes (defined in subclass)
-    __system_message__: ClassVar[str]  # Required: system prompt for the agent
+    __instructions__: ClassVar[Union[str, PromptRef]]  # Required: the agent's instructions
+    __system_message__: ClassVar[str]  # Deprecated: old spelling of __instructions__
     __description__: ClassVar[str]  # Optional: description for linked agents
     __input_template__: ClassVar[str] = None  # Optional: template for user input
     __response_format__: ClassVar[Type[BaseModel]] = None  # Optional: structured output format
@@ -381,7 +386,7 @@ class BaseAgent(metaclass=AgentMeta):
         Example:
             ```python
             class DatabaseAgent(BaseAgent):
-                __system_message__ = "You query databases"
+                __instructions__ = "You query databases"
                 connection: Optional[Connection] = None
 
                 def __post_init__(self):
@@ -887,6 +892,7 @@ class BaseAgent(metaclass=AgentMeta):
                 "final_output": final_ai_output,
                 "state": self.state,
                 "provider_info": self.provider._info,
+                "prompt": self.state.prompt_source,
             }
             # Include tool/agent responses if any were called
             if self.__tool_defs__:
@@ -957,7 +963,7 @@ class BaseAgent(metaclass=AgentMeta):
         Example (Custom Implementation):
             ```python
             class CoursePlannerAgent(BaseAgent):
-                __system_message__ = "You design course curricula"
+                __instructions__ = "You design course curricula"
                 __description__ = "Creates structured course plans"
 
                 async def __call__(

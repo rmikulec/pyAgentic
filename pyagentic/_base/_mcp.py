@@ -27,7 +27,7 @@ class MCPLink:
     Example:
         ```python
         class MyAgent(BaseAgent):
-            __system_message__ = "You are helpful"
+            __instructions__ = "You are helpful"
 
             fs: MCPLink = spec.MCPLink(
                 "npx",

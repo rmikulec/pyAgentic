@@ -4,7 +4,7 @@ PyAgentic supports standard Python inheritance, allowing you to build agent hier
 
 ## How Inheritance Works
 
-Agent inheritance follows Python's standard rules with some PyAgentic-specific behaviors. When you inherit from an agent, you get all its tools, context items, and linked agents. However, each agent must define its own system message to maintain clear identity and purpose.
+Agent inheritance follows Python's standard rules with some PyAgentic-specific behaviors. When you inherit from an agent, you get all its tools, context items, and linked agents. However, each agent must define its own instructions to maintain clear identity and purpose.
 
 PyAgentic builds the complete agent schema at class definition time, combining inherited elements with new ones to create a fully-typed, predictable agent interface.
 
@@ -21,7 +21,7 @@ PyAgentic follows specific rules about what gets inherited and what must be rede
 
 #### What Must Be Redefined ❌
 
-- **System Messages** - Each agent must define its own `__system_message__` to maintain clear identity
+- **Instructions** - Each agent must define its own `__instructions__` to maintain clear identity
 - **Input Templates** - `__input_template__` is not inherited, allowing agent-specific formatting
 
 This design ensures that while agents can share functionality, each maintains its own distinct purpose and behavior.
@@ -32,7 +32,7 @@ Extend agents using normal Python inheritance to build specialized capabilities 
 
 ```python
 class BaseAssistantAgent(BaseAgent):
-    __system_message__ = "I am a helpful AI assistant"
+    __instructions__ = "I am a helpful AI assistant"
 
     user_name: State[str] = spec.State(default="User")
     session_id: State[str] = spec.State(default="")
@@ -48,7 +48,7 @@ class BaseAssistantAgent(BaseAgent):
     def update_context(self, new_context: str) -> str: ...
 
 class CodeAssistantAgent(BaseAssistantAgent):
-    __system_message__ = "I help with programming tasks and code review"
+    __instructions__ = "I help with programming tasks and code review"
 
     # Inherit user_name, session_id, conversation_context, and basic tools
     # Add coding-specific state
@@ -69,7 +69,7 @@ Inheritance also works with tool overriding to enhance parent functionality:
 
 ```python
 class AdvancedCodeAssistantAgent(CodeAssistantAgent):
-    __system_message__ = "I provide advanced programming assistance with security analysis"
+    __instructions__ = "I provide advanced programming assistance with security analysis"
 
     # Override parent tool with enhanced functionality
     @tool("Format and validate code snippet")
@@ -110,7 +110,7 @@ Simply include extensions in your agent's inheritance list:
 
 ```python
 class ResearchAgent(BaseAgent, FileOperationsExtension, WebSearchExtension):
-    __system_message__ = "I help with research by searching the web and managing files"
+    __instructions__ = "I help with research by searching the web and managing files"
 
     research_topic: State[str] = spec.State(default="")
 
@@ -134,7 +134,7 @@ class ConversationExtension(AgentExtension):
     def remember(self, info: str) -> str: ...
 
 class ChatbotAgent(BaseAgent, MemoryExtension, ConversationExtension):
-    __system_message__ = "I am a conversational AI"
+    __instructions__ = "I am a conversational AI"
 
 # MRO: ChatbotAgent -> MemoryExtension -> ConversationExtension -> BaseAgent
 # The MemoryExtension.remember() method will be used

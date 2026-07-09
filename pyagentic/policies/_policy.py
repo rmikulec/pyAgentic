@@ -69,7 +69,7 @@ class Policy(Protocol[T]):
 
         # Use in agent
         class CounterAgent(BaseAgent):
-            __system_message__ = "You manage a counter"
+            __instructions__ = "You manage a counter"
             counter: State[int] = spec.State(default=0, policies=[ValidationPolicy()])
         ```
     """

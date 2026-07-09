@@ -256,7 +256,7 @@ def tool(description: str, condition: Callable[[Any], bool] = None, phases: list
     Example:
         ```python
         class FileAgent(BaseAgent):
-            __system_message__ = "You help manage files"
+            __instructions__ = "You help manage files"
 
             @tool("Read the contents of a file given its path")
             def read_file(self, path: str) -> str:

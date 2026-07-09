@@ -36,7 +36,7 @@ The BasicTracer is the simplest way to get started with tracing. It stores all t
 from pyagentic import BaseAgent
 
 class YourAgent(BaseAgent):
-    __system_message__ = "Your agent description"
+    __instructions__ = "Your agent description"
     # ... your agent implementation ...
 
 # Create an agent - The BasicTracer is the default tracer of any declared agent
@@ -93,7 +93,7 @@ from pyagentic import BaseAgent
 from pyagentic.tracing import LangfuseTracer
 
 class YourAgent(BaseAgent):
-    __system_message__ = "Your agent description"
+    __instructions__ = "Your agent description"
     # ... your agent implementation ...
 
 # Create an agent with the tracer

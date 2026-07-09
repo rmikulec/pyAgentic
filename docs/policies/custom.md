@@ -55,7 +55,7 @@ class RangePolicy(Policy[int]):
 
 
 class GameAgent(BaseAgent):
-    __system_message__ = "You run a text adventure."
+    __instructions__ = "You run a text adventure."
 
     score: State[int] = spec.State(
         default=0,
@@ -141,7 +141,7 @@ class NoEmptyStrings(Policy):
 
 
 class NotesAgent(BaseAgent):
-    __system_message__ = "You keep notes."
+    __instructions__ = "You keep notes."
 
     notes: State[list] = spec.State(default_factory=list, policies=[NoEmptyStrings()])
 
@@ -333,7 +333,7 @@ LLM saw) versus `agent.state._messages` (what actually happened):
 @pytest.mark.asyncio
 async def test_budget_policy_in_agent():
     class _Agent(BaseAgent):
-        __system_message__ = "test"
+        __instructions__ = "test"
         __message_policies__ = [AgentResultBudgetPolicy(max_chars=100)]
 
     agent = _Agent(model="_mock::test-model", api_key="k")

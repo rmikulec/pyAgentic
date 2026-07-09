@@ -15,15 +15,34 @@ class InvalidToolDefinition(Exception):
         super().__init__(message)
 
 
-class SystemMessageNotDeclared(Exception):
+class InstructionsNotDeclared(Exception):
     """
-    Exception raised when an Agent subclass is created without declaring __system_message__.
+    Exception raised when an Agent subclass is created without declaring __instructions__
+    (or the deprecated __system_message__).
     """
 
     def __init__(self):
         super().__init__(
-            "System message not declared on agent. Agent must be declared with `__system_message__`"  # noqa E501
+            "Instructions not declared on agent. Agent must be declared with `__instructions__`"
         )
+
+
+# Deprecated alias, kept for backwards compatibility with the old dunder name
+SystemMessageNotDeclared = InstructionsNotDeclared
+
+
+class PromptNotFound(Exception):
+    """
+    Exception raised when a PromptEngine cannot find a prompt for the given key.
+
+    Args:
+        key (str): The prompt key that was requested
+        source (str): Where the engine looked (e.g. the root directory)
+    """
+
+    def __init__(self, key, source):
+        message = f"Prompt '{key}' not found in {source}"
+        super().__init__(message)
 
 
 class UnexpectedStateItemType(Exception):

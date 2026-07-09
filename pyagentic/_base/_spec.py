@@ -26,7 +26,7 @@ class spec:
             email: str
 
         class MyAgent(BaseAgent):
-            __system_message__ = "You are a helpful assistant"
+            __instructions__ = "You are a helpful assistant"
 
             # State with default factory
             profile: State[UserProfile] = spec.State(

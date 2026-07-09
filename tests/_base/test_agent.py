@@ -5,17 +5,17 @@ from pydantic import BaseModel
 from pyagentic import BaseAgent, tool, spec, State, ref
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition
-from pyagentic._base._exceptions import SystemMessageNotDeclared
+from pyagentic._base._exceptions import InstructionsNotDeclared
 
 
-def test_agent_class_declaration_raises_no_system_message():
-    """Test that BaseAgent subclass without __system_message__ raises exception"""
-    with pytest.raises(SystemMessageNotDeclared) as e:
+def test_agent_class_declaration_raises_no_instructions():
+    """Test that BaseAgent subclass without __instructions__ raises exception"""
+    with pytest.raises(InstructionsNotDeclared) as e:
 
         class TestAgent(BaseAgent):
             pass
 
-    assert "SystemMessageNotDeclared" in str(e)
+    assert "InstructionsNotDeclared" in str(e)
 
 
 def test_agent_class_declaration_no_state_or_tools():

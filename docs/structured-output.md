@@ -18,7 +18,7 @@ class UserInfo(BaseModel):
     state: str
 
 class UserParsingAgent(BaseAgent):
-    __system_message__ = "You are an AI that is an expert at parsing user information from any text"
+    __instructions__ = "You are an AI that is an expert at parsing user information from any text"
     __response_format__ = UserInfo
 
     @tool("Returns the city and state of a given zipcode")

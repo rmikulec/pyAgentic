@@ -21,11 +21,11 @@ class Link(Generic[T]):
     Example:
         ```python
         class ResearchAgent(BaseAgent):
-            __system_message__ = "You research topics deeply"
+            __instructions__ = "You research topics deeply"
             __description__ = "Research agent for gathering detailed information"
 
         class OrchestratorAgent(BaseAgent):
-            __system_message__ = "You coordinate research tasks"
+            __instructions__ = "You coordinate research tasks"
 
             # Link research agent as a tool
             researcher: Link[ResearchAgent]

@@ -91,12 +91,14 @@ from pyagentic import BaseAgent
 class ResearchAgent(BaseAgent):
     """An AI assistant for managing and analyzing research papers."""
 
-    __system_message__ = """
+    __instructions__ = """
     You are a research assistant that helps organize and analyze academic papers.
     You maintain a collection of research papers and can answer questions about them.
     You are knowledgeable, precise, and helpful in academic contexts.
     """
 ```
+
+The `__instructions__` attribute defines the agent's system prompt — it can be a plain string like this, a Jinja template rendered with the agent's state, or a reference to a prompt managed outside your code (see [Prompt Management](prompts.md)).
 
 This creates a basic conversational agent, but it can't do much beyond chat. Let's add some memory and capabilities.
 
@@ -114,7 +116,7 @@ from arxiv import Result as Paper
 class ResearchAgent(BaseAgent):
     """An AI assistant for managing and analyzing research papers."""
 
-    __system_message__ = """
+    __instructions__ = """
     You are a research assistant that helps organize and analyze academic papers.
     You have full access to the Arxiv
 
@@ -200,7 +202,7 @@ class ResearchState(BaseModel):
         return [paper.get_short_id() for paper in self.papers.get(self.current_topic, [])]
 
 class ResearchAgent(BaseAgent):
-    # ... system message ...
+    # ... instructions ...
 
     state: State[ResearchState] = spec.State(default_factory=ResearchState)
 
@@ -266,7 +268,7 @@ class ResearchState(BaseModel):
 class ResearchAgent(BaseAgent):
     """An AI assistant for managing and analyzing research papers."""
 
-    __system_message__ = """
+    __instructions__ = """
     You are a research assistant that helps organize and analyze academic papers.
     You have full access to the Arxiv
 

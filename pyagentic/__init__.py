@@ -13,7 +13,7 @@ Quick Start:
     from pyagentic import BaseAgent, tool
 
     class MyAgent(BaseAgent):
-        __system_message__ = "You are a helpful assistant"
+        __instructions__ = "You are a helpful assistant"
 
         @tool("Calculate the sum of two numbers")
         def add(self, a: int, b: int) -> str:
@@ -34,6 +34,7 @@ Main Components:
     - spec: Configuration factory for state, params, and agent links
     - ref: Dynamic state reference system for tool parameters
     - AgentExtension: Base class for creating reusable agent mixins
+    - PromptEngine / LocalPromptEngine: Managed sources for agent instructions
 """
 
 from pyagentic._base._spec import spec
@@ -45,6 +46,7 @@ from pyagentic._base._tool import tool
 from pyagentic._base._state import State
 from pyagentic._base._depends import Depends
 from pyagentic._base._ref import ref
+from pyagentic._base._prompts import PromptEngine, LocalPromptEngine, PromptRef, PromptSource
 
 __all__ = [
     "BaseAgent",
@@ -56,4 +58,8 @@ __all__ = [
     "Depends",
     "MCPLink",
     "ref",
+    "PromptEngine",
+    "LocalPromptEngine",
+    "PromptRef",
+    "PromptSource",
 ]

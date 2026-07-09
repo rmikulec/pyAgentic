@@ -16,14 +16,14 @@ The simplest way to link agents is by declaring them as typed attributes in your
 from pyagentic import BaseAgent, Link, tool
 
 class DatabaseAgent(BaseAgent):
-    __system_message__ = "I query databases"
+    __instructions__ = "I query databases"
     __description__ = "Retrieves and analyzes data from databases"
 
     @tool("Execute SQL query")
     def query(self, sql: str) -> str: ...
 
 class ReportAgent(BaseAgent):
-    __system_message__ = "I generate business reports"
+    __instructions__ = "I generate business reports"
 
     # Using Link[T] (recommended for advanced features)
     database: Link[DatabaseAgent]
@@ -45,15 +45,15 @@ Real-world applications often require coordination between multiple specialized 
 
 ```python
 class EmailAgent(BaseAgent):
-    __system_message__ = "I send emails"
+    __instructions__ = "I send emails"
     __description__ = "Sends and manages email communications"
 
 class CalendarAgent(BaseAgent):
-    __system_message__ = "I manage calendars"
+    __instructions__ = "I manage calendars"
     __description__ = "Schedules meetings and manages calendar events"
 
 class AssistantAgent(BaseAgent):
-    __system_message__ = "I help with daily tasks"
+    __instructions__ = "I help with daily tasks"
 
     email: EmailAgent
     calendar: CalendarAgent
@@ -75,14 +75,14 @@ Provide a default agent instance that will be used if none is provided during in
 from pyagentic import BaseAgent, Link, spec
 
 class AnalysisAgent(BaseAgent):
-    __system_message__ = "I analyze data"
+    __instructions__ = "I analyze data"
     __description__ = "Performs data analysis"
 
 # Create a pre-configured analyzer
 default_analyzer = AnalysisAgent(model="gpt-4", api_key="sk-...")
 
 class ReportAgent(BaseAgent):
-    __system_message__ = "I generate reports"
+    __instructions__ = "I generate reports"
 
     # Will use default_analyzer if no analyzer is provided
     analyzer: Link[AnalysisAgent] = spec.AgentLink(default=default_analyzer)
@@ -104,7 +104,7 @@ Use `default_factory` to create agent instances on-demand, similar to how `spec.
 
 ```python
 class SearchAgent(BaseAgent):
-    __system_message__ = "I search databases"
+    __instructions__ = "I search databases"
     __description__ = "Database search specialist"
 
 def create_searcher():
@@ -116,7 +116,7 @@ def create_searcher():
     )
 
 class DataAgent(BaseAgent):
-    __system_message__ = "I manage data operations"
+    __instructions__ = "I manage data operations"
 
     # Automatically creates a searcher if not provided
     searcher: Link[SearchAgent] = spec.AgentLink(default_factory=create_searcher)
@@ -139,11 +139,11 @@ Link agents conditionally based on runtime state, enabling dynamic agent composi
 from pyagentic import State
 
 class ExpertAgent(BaseAgent):
-    __system_message__ = "I provide expert analysis"
+    __instructions__ = "I provide expert analysis"
     __description__ = "Expert consultant for complex problems"
 
 class SmartAgent(BaseAgent):
-    __system_message__ = "I handle tasks with optional expert help"
+    __instructions__ = "I handle tasks with optional expert help"
 
     # State field to control expert availability
     needs_expert: State[bool] = spec.State(default=False)
@@ -203,7 +203,7 @@ calls — for example so the parent can read the linked agent's state through
 from pyagentic import BaseAgent, Link, spec
 
 class Orchestrator(BaseAgent):
-    __system_message__ = "I coordinate a stateful researcher."
+    __instructions__ = "I coordinate a stateful researcher."
 
     # One persistent researcher; its state survives across calls and is
     # readable via ref.researcher.<field>.
@@ -226,13 +226,13 @@ Overriding the `__call__` method gives you complete control over how your linked
 
 ```python
 class AnalysisAgent(BaseAgent):
-    __system_message__ = "I analyze data"
+    __instructions__ = "I analyze data"
     __description__ = "Performs statistical analysis on datasets"
 
     async def __call__(self, data: str, analysis_type: str = "basic") -> str: ...
 
 class ReportAgent(BaseAgent):
-    __system_message__ = "I generate reports"
+    __instructions__ = "I generate reports"
     analyzer: AnalysisAgent
 
 # The LLM can now call the analyzer with specific parameters
@@ -254,7 +254,7 @@ class SearchParams(BaseModel):
     include_metadata: bool = Field(default=True, description="Whether to include metadata in results")
 
 class SearchAgent(BaseAgent):
-    __system_message__ = "I search databases"
+    __instructions__ = "I search databases"
     __description__ = "Searches databases with advanced filtering"
 
     async def __call__(self, params: SearchParams) -> str:
@@ -263,7 +263,7 @@ class SearchAgent(BaseAgent):
         return f"Found {len(results)} results for '{params.query}'"
 
 class DataAgent(BaseAgent):
-    __system_message__ = "I manage data operations"
+    __instructions__ = "I manage data operations"
     searcher: SearchAgent
 
 # The LLM can now call the searcher with structured parameters

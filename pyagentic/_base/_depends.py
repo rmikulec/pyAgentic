@@ -28,7 +28,7 @@ class Depends(Generic[T]):
         from pyagentic import BaseAgent, State, Depends
 
         class ResearchAgent(BaseAgent):
-            __system_message__ = "You research topics"
+            __instructions__ = "You research topics"
 
             topic: State[TopicState]      # client-provided per session
             db:    Depends[Database]      # injected by the developer, by type

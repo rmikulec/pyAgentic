@@ -20,7 +20,7 @@ Define phases on your agent class using the `phases` class variable:
 from pyagentic import BaseAgent, tool, spec
 
 class ResearchAgent(BaseAgent):
-    __system_message__ = """
+    __instructions__ = """
     You are a research agent.
     Current phase: {{ phase }}
     {% if phase == "planning" %}
@@ -120,19 +120,19 @@ Linked agents can be restricted to specific phases using the `phases` parameter 
 from pyagentic import BaseAgent, tool, spec, Link
 
 class PlannerAgent(BaseAgent):
-    __system_message__ = "I create detailed plans"
+    __instructions__ = "I create detailed plans"
     __description__ = "Planning specialist for strategy development"
 
 class ExecutorAgent(BaseAgent):
-    __system_message__ = "I execute plans"
+    __instructions__ = "I execute plans"
     __description__ = "Execution specialist for implementing plans"
 
 class ReviewerAgent(BaseAgent):
-    __system_message__ = "I review completed work"
+    __instructions__ = "I review completed work"
     __description__ = "Quality assurance and review specialist"
 
 class ProjectAgent(BaseAgent):
-    __system_message__ = """
+    __instructions__ = """
     You manage projects through phases: {{ phase }}
     """
 
@@ -178,7 +178,7 @@ You can access the current phase in several ways:
 Use the `{{ phase }}` variable in your system message template:
 
 ```python
-__system_message__ = """
+__instructions__ = """
 You are in the {{ phase }} phase.
 {% if phase == "planning" %}
 Create a detailed plan.

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, create_model
 
 from pyagentic._base._info import _SpecInfo, ParamInfo, AgentInfo, MCPInfo
 from pyagentic._base._validation import _AgentConstructionValidator
-from pyagentic._base._exceptions import SystemMessageNotDeclared, UnexpectedStateItemType
+from pyagentic._base._exceptions import InstructionsNotDeclared, UnexpectedStateItemType
 from pyagentic._base._agent._agent_state import _AgentState
 from pyagentic._base._tool import _ToolDefinition, tool
 from pyagentic._base._state import State, StateInfo, _StateDefinition
@@ -35,7 +35,7 @@ class Agent:
 class AgentMeta(type):
     """
     Metaclass that applies only to Agent subclasses:
-      - Ensures __system_message__ was declared
+      - Ensures __instructions__ (or the deprecated __system_message__) was declared
       - Collects @tool definitions and State field attributes
       - Initializes class __tool_defs__ and __state_defs__
       - Dynamically injects an __init__ signature based on class __annotations__
@@ -608,9 +608,9 @@ class AgentMeta(type):
                 else:
                     compiled[name] = definition.info.get_default()
 
-            # Create the state object with system message and state fields
+            # Create the state object with instructions and state fields
             self.state = self.__state_class__(
-                instructions=self.__system_message__,
+                instructions=self.__instructions__,
                 input_template=self.__input_template__,
                 **compiled,
             )
@@ -665,7 +665,7 @@ class AgentMeta(type):
 
         Inheritance is respected in MRO order. Tools, state attributes, and linked agents
         can all be inherited from other agents or mixins.
-        __system_message__ and __input_template__ are *not* inherited.
+        __instructions__ and __input_template__ are *not* inherited.
 
         Args:
             name (str): Name of the new class
@@ -677,7 +677,8 @@ class AgentMeta(type):
             type: The newly created Agent subclass
 
         Raises:
-            SystemMessageNotDeclared: If __system_message__ is not defined in the class
+            InstructionsNotDeclared: If neither __instructions__ nor the deprecated
+                __system_message__ is defined in the class
         """
 
         # Create an inherited namespace by combining all bases in MRO order
@@ -699,9 +700,22 @@ class AgentMeta(type):
                 mcs.__BaseAgent__ = cls
                 return cls
             cls.__abstract_base__ = False
-            # Verify system message is set (not inherited)
-            if "__system_message__" not in namespace:
-                raise SystemMessageNotDeclared()
+            # Verify instructions are set (not inherited); __system_message__ is
+            # the deprecated spelling and normalizes onto __instructions__
+            if "__instructions__" in namespace:
+                cls.__instructions__ = namespace["__instructions__"]
+            elif "__system_message__" in namespace:
+                warnings.warn(
+                    f"`__system_message__` on {name} is deprecated; "
+                    "declare `__instructions__` instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                cls.__instructions__ = namespace["__system_message__"]
+            else:
+                raise InstructionsNotDeclared()
+            # Keep the deprecated attribute readable for backwards compatibility
+            cls.__system_message__ = cls.__instructions__
 
         # Extract and attach Agent attributes:
         #

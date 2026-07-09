@@ -20,7 +20,7 @@ The simplest way to add state is using `State[T]` with `spec.State()`:
 from pyagentic import BaseAgent, State, spec
 
 class ChatAgent(BaseAgent):
-    __system_message__ = "I'm a helpful assistant that remembers our conversations"
+    __instructions__ = "I'm a helpful assistant that remembers our conversations"
 
     user_name: State[str] = spec.State(default="User")
     message_count: State[int] = spec.State(default=0)
@@ -38,7 +38,7 @@ Access state fields directly on `self` - the framework handles state management 
 
 ```python
 class ChatAgent(BaseAgent):
-    __system_message__ = "I'm a helpful assistant"
+    __instructions__ = "I'm a helpful assistant"
 
     message_count: State[int] = spec.State(default=0)
 
@@ -102,7 +102,7 @@ class UserProfile(BaseModel):
         return f"Welcome back, {self.name}! Visit #{self.login_count}"
 
 class UserAgent(BaseAgent):
-    __system_message__ = "I manage user profiles. Greeting: {profile.greeting}"
+    __instructions__ = "I manage user profiles. Greeting: {profile.greeting}"
 
     profile: State[UserProfile] = spec.State(default_factory=UserProfile)
 
@@ -138,7 +138,7 @@ class TopicState(BaseModel):
         return len(self.available_topics)
 
 class TopicAgent(BaseAgent):
-    __system_message__ = "I manage topics. Current: {current_topic}"
+    __instructions__ = "I manage topics. Current: {current_topic}"
 
     topics: State[TopicState] = spec.State(default_factory=TopicState)
 
@@ -167,7 +167,7 @@ You can also reference state in system messages using template syntax:
 
 ```python
 class Agent(BaseAgent):
-    __system_message__ = """
+    __instructions__ = """
     Current topic: {current_topic}
     Available topics: {available_topics}
     Total topics: {topic_count}
@@ -184,7 +184,7 @@ Control how the LLM can interact with state using the `access` parameter:
 
 ```python
 class SecureAgent(BaseAgent):
-    __system_message__ = "I'm a secure agent with controlled state access"
+    __instructions__ = "I'm a secure agent with controlled state access"
 
     # Default: LLM can see value but not modify it
     user_id: State[str] = spec.State(
@@ -229,7 +229,7 @@ PyAgentic automatically generates tools for state access based on the `access` l
 
 ```python
 class DataAgent(BaseAgent):
-    __system_message__ = "I manage data"
+    __instructions__ = "I manage data"
 
     current_data: State[str] = spec.State(
         default="",
@@ -251,7 +251,7 @@ Reference state fields in templates directly by their field names:
 
 ```python
 class ResearchAgent(BaseAgent):
-    __system_message__ = """
+    __instructions__ = """
     You are a research assistant.
     Current focus: {current_topic}
     Papers collected: {paper_count}
@@ -312,7 +312,7 @@ class ChangeHistoryPolicy:
 
 # Use them
 class TrackedAgent(BaseAgent):
-    __system_message__ = "I track changes to my state"
+    __instructions__ = "I track changes to my state"
 
     score: State[int] = spec.State(
         default=0,
@@ -479,7 +479,7 @@ class Settings(BaseModel):
         return f"{self.language.upper()} | {self.theme} theme | {'🔔' if self.notifications else '🔕'}"
 
 class Agent(BaseAgent):
-    __system_message__ = "Settings: {settings.formatted_display}"
+    __instructions__ = "Settings: {settings.formatted_display}"
 
     settings: State[Settings] = spec.State(
         default_factory=Settings,

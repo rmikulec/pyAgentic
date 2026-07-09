@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, create_model
 from typing import Type, Self, Union, Any, Literal, Optional
 
 from pyagentic._base._tool import _ToolDefinition
+from pyagentic._base._prompts import PromptSource
 from pyagentic._base._agent._agent_state import _AgentState
 
 from pyagentic._utils._typing import TypeCategory, analyze_type
@@ -97,6 +98,14 @@ class AgentResponse(BaseModel):
 
     final_output: Union[str, Type[BaseModel]]
     provider_info: ProviderInfo
+    prompt: Optional[PromptSource] = Field(
+        default=None,
+        description=(
+            "The prompt behind the agent's instructions: loaded from a PromptEngine "
+            "(e.g. source_type 'local'), or an 'inline' source named after the agent "
+            "for instructions declared as a plain string."
+        ),
+    )
 
     @classmethod
     def from_agent_class(
