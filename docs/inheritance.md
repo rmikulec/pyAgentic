@@ -4,27 +4,47 @@ PyAgentic supports standard Python inheritance, allowing you to build agent hier
 
 ## How Inheritance Works
 
-Agent inheritance follows Python's standard rules with some PyAgentic-specific behaviors. When you inherit from an agent, you get all its tools, context items, and linked agents. However, each agent must define its own instructions to maintain clear identity and purpose.
+Agent inheritance follows Python's standard rules with some PyAgentic-specific behaviors. When you inherit from an agent, you get all its tools, context items, linked agents, and instructions.
 
 PyAgentic builds the complete agent schema at class definition time, combining inherited elements with new ones to create a fully-typed, predictable agent interface.
 
 ### Inheritance Rules
 
-PyAgentic follows specific rules about what gets inherited and what must be redefined:
-
-#### What Gets Inherited ✅
+Everything inherits by default:
 
 - **Tools** - All `@tool` methods are inherited and can be overridden
 - **State Fields** - `State` fields inherit with their defaults and types
 - **Linked Agents** - Agent references are inherited, child classes can add more
 - **Properties** - Dynamic properties are inherited and overridable
+- **Instructions** - `__instructions__` is inherited from the nearest ancestor when not declared; somewhere in the hierarchy it must be declared
 
-#### What Must Be Redefined ❌
+When a child declares its own `__instructions__`, it fully replaces the parent's — unless it opts back in with `{{ super }}` (see below).
 
-- **Instructions** - Each agent must define its own `__instructions__` to maintain clear identity
-- **Input Templates** - `__input_template__` is not inherited, allowing agent-specific formatting
+### Inheriting and Extending Instructions
 
-This design ensures that while agents can share functionality, each maintains its own distinct purpose and behavior.
+A child that doesn't declare `__instructions__` simply uses its parent's:
+
+```python
+class SupportAgent(BaseAgent):
+    __instructions__ = "You help customers troubleshoot {{ product }} issues."
+
+    product: State[str] = spec.State(default="our product")
+
+class BillingSupportAgent(SupportAgent):
+    # No __instructions__ — inherits SupportAgent's
+    ...
+```
+
+A child that overrides can embed the parent's fully rendered instructions with `{{ super }}`, mirroring Jinja's template inheritance:
+
+```python
+class BillingSupportAgent(SupportAgent):
+    __instructions__ = """{{ super }}
+
+You specialize in billing: refunds, invoices, and subscription changes."""
+```
+
+`{{ super }}` is the parent's instructions rendered with the *same* state, so templates like `{{ product }}` in the parent interpolate as usual. Chains fold through multiple levels — a grandchild's `{{ super }}` includes the parent's `{{ super }}` expansion, and so on. If there is no parent to inherit from, `{{ super }}` renders as an empty string.
 
 ## Basic Inheritance
 

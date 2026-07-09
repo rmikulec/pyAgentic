@@ -611,6 +611,7 @@ class AgentMeta(type):
             # Create the state object with instructions and state fields
             self.state = self.__state_class__(
                 instructions=self.__instructions__,
+                parent_instructions=self.__parent_instructions__,
                 input_template=self.__input_template__,
                 **compiled,
             )
@@ -665,7 +666,10 @@ class AgentMeta(type):
 
         Inheritance is respected in MRO order. Tools, state attributes, and linked agents
         can all be inherited from other agents or mixins.
-        __instructions__ and __input_template__ are *not* inherited.
+        __instructions__ is inherited from the nearest ancestor when not declared. When a
+        subclass declares its own __instructions__, the ancestor chain is recorded on
+        __parent_instructions__ so the template can embed the parent's rendered
+        instructions via `{{ super }}`.
 
         Args:
             name (str): Name of the new class
@@ -700,10 +704,11 @@ class AgentMeta(type):
                 mcs.__BaseAgent__ = cls
                 return cls
             cls.__abstract_base__ = False
-            # Verify instructions are set (not inherited); __system_message__ is
-            # the deprecated spelling and normalizes onto __instructions__
+            # Resolve instructions; __system_message__ is the deprecated spelling
+            # and normalizes onto __instructions__
+            declared = None
             if "__instructions__" in namespace:
-                cls.__instructions__ = namespace["__instructions__"]
+                declared = namespace["__instructions__"]
             elif "__system_message__" in namespace:
                 warnings.warn(
                     f"`__system_message__` on {name} is deprecated; "
@@ -711,7 +716,27 @@ class AgentMeta(type):
                     DeprecationWarning,
                     stacklevel=2,
                 )
-                cls.__instructions__ = namespace["__system_message__"]
+                declared = namespace["__system_message__"]
+
+            inherited_instructions = inherited_namespace.get(
+                "__instructions__", inherited_namespace.get("__system_message__")
+            )
+            if declared is not None:
+                cls.__instructions__ = declared
+                # When overriding an ancestor's instructions, record the ancestor
+                # chain (oldest first) so the template can embed the parent's
+                # rendered instructions via `{{ super }}`
+                if inherited_instructions is not None:
+                    cls.__parent_instructions__ = (
+                        *inherited_namespace.get("__parent_instructions__", ()),
+                        inherited_instructions,
+                    )
+                else:
+                    cls.__parent_instructions__ = ()
+            elif inherited_instructions is not None:
+                # Instructions are inherited from the nearest ancestor;
+                # __parent_instructions__ resolves to the declaring ancestor's chain
+                cls.__instructions__ = inherited_instructions
             else:
                 raise InstructionsNotDeclared()
             # Keep the deprecated attribute readable for backwards compatibility

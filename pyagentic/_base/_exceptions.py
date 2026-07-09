@@ -18,12 +18,13 @@ class InvalidToolDefinition(Exception):
 class InstructionsNotDeclared(Exception):
     """
     Exception raised when an Agent subclass is created without declaring __instructions__
-    (or the deprecated __system_message__).
+    (or the deprecated __system_message__) and no ancestor declares one to inherit.
     """
 
     def __init__(self):
         super().__init__(
-            "Instructions not declared on agent. Agent must be declared with `__instructions__`"
+            "Instructions not declared on agent. Agent must be declared with "
+            "`__instructions__` or inherit one from a parent agent"
         )
 
 

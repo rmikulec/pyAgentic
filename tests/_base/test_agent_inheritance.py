@@ -2,7 +2,9 @@ import pytest
 from pydantic import BaseModel
 
 from pyagentic import BaseAgent, AgentExtension, tool, spec, State
-from pyagentic._base._exceptions import SystemMessageNotDeclared
+from pyagentic._base._exceptions import InstructionsNotDeclared, SystemMessageNotDeclared
+
+_PROVIDER_KWARGS = {"model": "openai::validation", "api_key": "validation"}
 
 
 class TestBasicInheritance:
@@ -126,6 +128,134 @@ class TestAgentExtension:
         # Should have tools from both extensions
         assert "log" in MyAgent.__tool_defs__
         assert "cache" in MyAgent.__tool_defs__
+
+
+class TestInstructionInheritance:
+    """Test that __instructions__ are inherited and composable via {{ super }}."""
+
+    def test_child_inherits_parent_instructions(self):
+        """Test that a child without __instructions__ uses the parent's."""
+
+        class ParentAgent(BaseAgent):
+            __instructions__ = "I am a parent agent"
+
+        class ChildAgent(ParentAgent):
+            pass
+
+        assert ChildAgent.__instructions__ == "I am a parent agent"
+        child = ChildAgent(**_PROVIDER_KWARGS)
+        assert child.state.system_message == "I am a parent agent"
+
+    def test_no_instructions_anywhere_raises(self):
+        """Test that an agent hierarchy with no instructions at all still raises."""
+
+        with pytest.raises(InstructionsNotDeclared):
+
+            class NoInstructionsAgent(BaseAgent):
+                pass
+
+    def test_override_injects_parent_via_super(self):
+        """Test that an overriding child can embed the parent's instructions."""
+
+        class ParentAgent(BaseAgent):
+            __instructions__ = "I am a parent agent."
+
+        class ChildAgent(ParentAgent):
+            __instructions__ = "{{ super }} I also review code."
+
+        child = ChildAgent(**_PROVIDER_KWARGS)
+        assert child.state.system_message == "I am a parent agent. I also review code."
+
+    def test_override_without_super_replaces(self):
+        """Test that overriding without {{ super }} fully replaces the parent's."""
+
+        class ParentAgent(BaseAgent):
+            __instructions__ = "I am a parent agent."
+
+        class ChildAgent(ParentAgent):
+            __instructions__ = "I am my own agent."
+
+        child = ChildAgent(**_PROVIDER_KWARGS)
+        assert child.state.system_message == "I am my own agent."
+
+    def test_super_renders_parent_with_state(self):
+        """Test that state fields interpolate inside the injected parent template."""
+
+        class ParentAgent(BaseAgent):
+            __instructions__ = "I help the {{ team }} team."
+
+            team: State[str] = spec.State(default="core")
+
+        class ChildAgent(ParentAgent):
+            __instructions__ = "{{ super }} I specialize in {{ language }}."
+
+            language: State[str] = spec.State(default="python")
+
+        child = ChildAgent(team="data", **_PROVIDER_KWARGS)
+        assert child.state.system_message == "I help the data team. I specialize in python."
+
+    def test_super_chains_through_grandparent(self):
+        """Test that {{ super }} folds through multiple overriding levels."""
+
+        class GrandparentAgent(BaseAgent):
+            __instructions__ = "Level 1."
+
+        class ParentAgent(GrandparentAgent):
+            __instructions__ = "{{ super }} Level 2."
+
+        class ChildAgent(ParentAgent):
+            __instructions__ = "{{ super }} Level 3."
+
+        child = ChildAgent(**_PROVIDER_KWARGS)
+        assert child.state.system_message == "Level 1. Level 2. Level 3."
+
+    def test_super_chain_skips_non_declaring_level(self):
+        """Test that a non-declaring middle class passes its parent's chain through."""
+
+        class GrandparentAgent(BaseAgent):
+            __instructions__ = "Level 1."
+
+        class ParentAgent(GrandparentAgent):
+            pass
+
+        class ChildAgent(ParentAgent):
+            __instructions__ = "{{ super }} Level 3."
+
+        child = ChildAgent(**_PROVIDER_KWARGS)
+        assert child.state.system_message == "Level 1. Level 3."
+
+    def test_super_empty_without_parent(self):
+        """Test that {{ super }} renders empty when there is nothing to inherit."""
+
+        class RootAgent(BaseAgent):
+            __instructions__ = "{{ super }}Root."
+
+        agent = RootAgent(**_PROVIDER_KWARGS)
+        assert agent.state.system_message == "Root."
+
+    def test_fork_preserves_inherited_instructions(self):
+        """Test that forked agents render the same composed system message."""
+
+        class ParentAgent(BaseAgent):
+            __instructions__ = "I am a parent agent."
+
+        class ChildAgent(ParentAgent):
+            __instructions__ = "{{ super }} I also review code."
+
+        child = ChildAgent(**_PROVIDER_KWARGS)
+        fork = child.fork()
+        assert fork.state.system_message == child.state.system_message
+
+    def test_deprecated_system_message_inherits(self):
+        """Test that the deprecated __system_message__ spelling still inherits."""
+
+        class ParentAgent(BaseAgent):
+            __system_message__ = "I am a parent agent"
+
+        class ChildAgent(ParentAgent):
+            pass
+
+        assert ChildAgent.__instructions__ == "I am a parent agent"
 
 
 class TestComplexInheritance:
