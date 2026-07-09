@@ -36,6 +36,10 @@ class _AgentState(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     instructions: str | PromptRef
+    # Instructions of overridden ancestors, oldest first; rendered into the
+    # template as `{{ super }}`. Excluded from dumps so it never leaks into
+    # template context or serialized state.
+    parent_instructions: tuple = Field(default=(), exclude=True)
     input_template: Optional[str] = "{{ user_message }}"
 
     _machine: Machine = PrivateAttr(default=None)
@@ -44,6 +48,7 @@ class _AgentState(BaseModel):
     _last_usage: Optional[UsageInfo] = PrivateAttr(default=None)
     _prompt_source: Optional[PromptSource] = PrivateAttr(default=None)
     _instructions_template: Template = PrivateAttr(default_factory=lambda: Template(source=""))
+    _parent_templates: list[Template] = PrivateAttr(default_factory=list)
     _input_template: Template = PrivateAttr(
         default_factory=lambda: Template(source="{{ user_message }}")
     )
@@ -91,6 +96,14 @@ class _AgentState(BaseModel):
             )
 
         self._instructions_template = Template(source=self.instructions)
+
+        # Templates for overridden ancestor instructions (oldest first); each may
+        # itself be a PromptRef, resolved here just like the main instructions
+        self._parent_templates = [
+            Template(source=parent.resolve().text if isinstance(parent, PromptRef) else parent)
+            for parent in self.parent_instructions
+        ]
+
         if self.input_template:
             self._input_template = Template(source=self.input_template)
 
@@ -417,16 +430,23 @@ class _AgentState(BaseModel):
         """
         Returns the current formatted system message with state fields interpolated.
 
+        When the agent overrides an ancestor's instructions, the ancestor chain is
+        rendered first (with the same state context) and exposed to each template
+        as `{{ super }}`, mirroring template inheritance in Jinja.
+
         Returns:
             str: The rendered system message with state values
         """
-        # start with all the normal dataclass fields
-
-        # now format your instruction template
+        context = self.model_dump()
         if self.phase:
-            return self._instructions_template.render(phase=self.phase, **self.model_dump())
-        else:
-            return self._instructions_template.render(**self.model_dump())
+            context["phase"] = self.phase
+
+        # Fold the ancestor chain oldest-to-newest so each template's `{{ super }}`
+        # is its own parent's fully rendered instructions
+        rendered = ""
+        for template in (*self._parent_templates, self._instructions_template):
+            rendered = template.render(**{**context, "super": rendered})
+        return rendered
 
     @property
     def messages(self) -> list[Message]:

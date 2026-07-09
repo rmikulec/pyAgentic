@@ -128,10 +128,12 @@ class BaseAgent(metaclass=AgentMeta):
 
     Agent definition requires the use of special decorators and class attributes:
       - @tool: Declares a method as a tool callable by the LLM
-      - __instructions__: Required class attribute defining the agent's instructions,
-            either as a string or a PromptRef from a PromptEngine. Rendered with state
-            into the system message sent to the LLM. (__system_message__ is the
-            deprecated spelling.)
+      - __instructions__: Class attribute defining the agent's instructions, either as
+            a string or a PromptRef from a PromptEngine. Rendered with state into the
+            system message sent to the LLM. Inherited from the nearest ancestor when
+            not declared; an overriding declaration can embed the parent's rendered
+            instructions with `{{ super }}`. Required somewhere in the hierarchy.
+            (__system_message__ is the deprecated spelling.)
       - __description__: Optional description used when agent is linked to another agent
       - __input_template__: Optional template for formatting user input
       - __response_format__: Optional Pydantic model for structured output
@@ -179,8 +181,11 @@ class BaseAgent(metaclass=AgentMeta):
     __dependencies__: ClassVar[dict[str, type]]  # Depends[T] field -> dependency type
 
     # User-set Class Attributes (defined in subclass)
-    __instructions__: ClassVar[Union[str, PromptRef]]  # Required: the agent's instructions
+    __instructions__: ClassVar[Union[str, PromptRef]]  # The agent's instructions (inheritable)
     __system_message__: ClassVar[str]  # Deprecated: old spelling of __instructions__
+    # Overridden ancestor instructions, oldest first (set by metaclass); rendered
+    # into __instructions__ as `{{ super }}`
+    __parent_instructions__: ClassVar[tuple[Union[str, PromptRef], ...]] = ()
     __description__: ClassVar[str]  # Optional: description for linked agents
     __input_template__: ClassVar[str] = None  # Optional: template for user input
     __response_format__: ClassVar[Type[BaseModel]] = None  # Optional: structured output format
