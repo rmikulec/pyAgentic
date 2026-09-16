@@ -1,13 +1,13 @@
 {
   "name": "PyAgentic",
   "tagline": "A declarative, type-safe Python framework for building LLM agents",
-  "description": "## What it is\nPyAgentic lets you build sophisticated LLM agents using clean, class-based Python. Define an agent as a class, decorate methods as tools, and get automatic OpenAI schema generation, persistent state, agent linking, and inheritance — with full type safety throughout.\n\n## Highlights\n- **Declarative design** — agents are classes; tools are decorated methods.\n- **Powerful tools** — `@tool` auto-generates OpenAI function schemas.\n- **Persistent state** — `State` fields survive across conversations.\n- **Agent linking & inheritance** — compose multi-agent workflows and build agent hierarchies.\n- **Structured responses** — type-safe Pydantic outputs with full tool-execution detail.\n- **Async-first** — built for scalable applications with async/await throughout.\n\n## Install\n```bash\npip install pyagentic-core\n```\n\n## Stack\nPython 3.13+, OpenAI, Pydantic, and MkDocs for the docs site. MIT licensed.",
+  "description": "## What it is\nPyAgentic lets you build sophisticated LLM agents using clean, class-based Python. Define an agent as a class, decorate methods as tools, and get persistent state, agent linking, and inheritance — with full type safety throughout.\n\n## Highlights\n- **Declarative design** — agents are classes; tools are decorated methods.\n- **Provider-agnostic** — target OpenAI, Anthropic, or local Ollama models with a `provider::model` string.\n- **Serve any agent** — the optional API layer exposes agents over HTTP with an **auto-generated OpenAPI spec** (and MCP support), so schemas stay in sync with zero manual maintenance.\n- **Persistent state** — `State` fields survive across conversations.\n- **Agent linking & inheritance** — compose multi-agent workflows and build agent hierarchies.\n- **Structured responses** — type-safe Pydantic outputs with full tool-execution detail.\n- **Async-first** — built for scalable applications with async/await throughout.\n\n## Install\n```bash\npip install pyagentic-core\n```\n\n## Stack\nPython 3.13+, Pydantic, FastAPI (for the API layer), and MkDocs for the docs site. MIT licensed.",
   "url": "https://github.com/rmikulec/pyagentic",
   "links": [
     { "label": "Docs", "url": "https://rmikulec.github.io/pyAgentic/" },
     { "label": "PyPI", "url": "https://pypi.org/project/pyagentic-core/" }
   ],
-  "tags": ["python", "openai", "llm", "agents", "pydantic", "async"],
+  "tags": ["python", "llm-agents", "framework", "fastapi", "openapi", "pydantic", "mcp", "async"],
   "color": "#0ea5e9",
   "featured": 0,
   "status": "active"
