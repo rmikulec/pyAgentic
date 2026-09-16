@@ -1,0 +1,238 @@
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
+direction: right
+
+DeclaredAgentClass: {
+  label: "DeclaredAgent\n(Python Class)"
+  direction: down
+  style.fill: "#f0fdf4"
+  style.stroke: "#059669"
+  style.stroke-width: 3
+  style.font-color: "#065f46"
+
+  ClassAttributes: {
+    label: "Class Attributes"
+    style.fill: "white"
+    style.stroke: "#34d399"
+    style.stroke-width: 2
+
+    __init__: {
+      label: "__init__()"
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+    __tool_defs__: {
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+    __state_defs__: {
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+    __linked_agents__: {
+      style.fill: "#d1fae5"
+      style.stroke: "#059669"
+      style.stroke-width: 2
+    }
+  }
+}
+
+InitProcessing: {
+  label: "__init__\n(Instantiation)"
+  direction: right
+  style.fill: "#fef2f2"
+  style.stroke: "#dc2626"
+  style.stroke-width: 3
+  style.font-color: "#991b1b"
+  style.stroke-dash: 3
+
+  MakeStateModel: {
+    label: "Make\nState Model"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  CompileStateValues: {
+    label: "Compile\nState Values"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  CreateStateInstance: {
+    label: "Create\nState Instance"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  SetLinkedAgents: {
+    label: "Set\nLinked Agents"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  SetAttributes: {
+    label: "Set\nAttributes"
+    style.fill: "#fee2e2"
+    style.stroke: "#dc2626"
+    style.stroke-width: 2
+  }
+
+  PostInit: {
+    label: "__post_init__()"
+    style.fill: "white"
+    style.stroke: "#b91c1c"
+    style.stroke-width: 2
+
+    CheckLLMProvider: {
+      label: "Check\nLLM Provider"
+      style.fill: "#fee2e2"
+      style.stroke: "#dc2626"
+      style.stroke-width: 2
+    }
+    SetupTracer: {
+      label: "Setup\nTracer"
+      style.fill: "#fee2e2"
+      style.stroke: "#dc2626"
+      style.stroke-width: 2
+    }
+  }
+}
+
+AgentInstance: {
+  label: "AgentInstance\n(Runtime Object)"
+  direction: down
+  style.fill: "#eff6ff"
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+  style.font-color: "#1e40af"
+
+  InstanceAttributes: {
+    label: "Instance Attributes"
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+
+    state: {
+      label: "state: AgentState"
+      style.fill: "#fef3c7"
+      style.stroke: "#f59e0b"
+      style.stroke-width: 2
+    }
+    linkedAgents: {
+      label: "agent instances"
+      style.fill: "#d1fae5"
+      style.stroke: "#10b981"
+      style.stroke-width: 2
+    }
+    provider: {
+      label: "provider: LLMProvider"
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+  }
+
+  Methods: {
+    label: "Instance Methods"
+    style.fill: "white"
+    style.stroke: "#60a5fa"
+    style.stroke-width: 2
+
+    run: {
+      label: "run()"
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+    __call__: {
+      label: "__call__()"
+      style.fill: "#dbeafe"
+      style.stroke: "#2563eb"
+      style.stroke-width: 2
+    }
+  }
+}
+
+# DeclaredAgentClass → InitProcessing
+DeclaredAgentClass.ClassAttributes.__init__-->InitProcessing.MakeStateModel: {
+  style.stroke: "#059669"
+  style.stroke-width: 3
+}
+
+DeclaredAgentClass.ClassAttributes.__state_defs__-->InitProcessing.MakeStateModel: {
+  style.stroke: "#eab308"
+  style.stroke-width: 3
+}
+
+DeclaredAgentClass.ClassAttributes.__linked_agents__-->InitProcessing.SetLinkedAgents: {
+  style.stroke: "#10b981"
+  style.stroke-width: 3
+}
+
+# InitProcessing internal flow
+InitProcessing.MakeStateModel-->InitProcessing.CompileStateValues: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+InitProcessing.CompileStateValues-->InitProcessing.CreateStateInstance: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+InitProcessing.CreateStateInstance-->InitProcessing.SetLinkedAgents: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+InitProcessing.SetLinkedAgents-->InitProcessing.SetAttributes: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+InitProcessing.SetAttributes-->InitProcessing.PostInit.CheckLLMProvider: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+InitProcessing.PostInit.CheckLLMProvider-->InitProcessing.PostInit.SetupTracer: {
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+}
+
+# InitProcessing → AgentInstance
+InitProcessing.CreateStateInstance-->AgentInstance.InstanceAttributes.state: {
+  style.stroke: "#eab308"
+  style.stroke-width: 3
+}
+
+InitProcessing.SetLinkedAgents-->AgentInstance.InstanceAttributes.linkedAgents: {
+  style.stroke: "#10b981"
+  style.stroke-width: 3
+}
+
+InitProcessing.PostInit.CheckLLMProvider-->AgentInstance.InstanceAttributes.provider: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+}
+
+InitProcessing.PostInit.SetupTracer-->AgentInstance.InstanceAttributes.tracer: {
+  style.stroke: "#2563eb"
+  style.stroke-width: 3
+}
